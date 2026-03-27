@@ -64,17 +64,19 @@ export class TravelPresenter {
       }
     });
     const categoriesList = Array.from(categoriesSet).sort();
+    // Add "TODOS" at the beginning
+    const allCategories = ['TODOS', ...categoriesList];
 
-    if (!this.state.selectedCategory && categoriesList.length > 0) {
-      this.state.selectedCategory = categoriesList[0];
+    if (!this.state.selectedCategory) {
+      this.state.selectedCategory = 'TODOS';
     }
 
     // 1. Stats
-    const categoryStats = this.state.selectedCategory 
+    const categoryStats = (this.state.selectedCategory && this.state.selectedCategory !== 'TODOS')
       ? this.calculateStatsUseCase.execute(this.allTravels, this.state.selectedCategory, this.state.includeCommission)
       : { avgPrice: 0, totalKg: 0, travelCount: 0 };
 
-    // 2. Filter & Sort (re-run use case logic on local data for performance or just use case)
+    // 2. Filter & Sort
     let filtered = this.allTravels;
     
     // Status Filter
@@ -86,8 +88,8 @@ export class TravelPresenter {
       });
     }
 
-    // Category Filter (New)
-    if (this.state.selectedCategory) {
+    // Category Filter
+    if (this.state.selectedCategory && this.state.selectedCategory !== 'TODOS') {
       filtered = filtered.filter(t => {
         if (!t.buy) return false;
         return t.buy.categories.includes(this.state.selectedCategory);
@@ -111,7 +113,7 @@ export class TravelPresenter {
       itemsPerPage: this.state.itemsPerPage,
       currentFilter: this.state.filter,
       currentSort: this.state.sort,
-      categories: categoriesList,
+      categories: allCategories,
       selectedCategory: this.state.selectedCategory,
       includeCommission: this.state.includeCommission,
       categoryStats,
