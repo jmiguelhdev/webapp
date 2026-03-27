@@ -76,11 +76,21 @@ export class TravelPresenter {
 
     // 2. Filter & Sort (re-run use case logic on local data for performance or just use case)
     let filtered = this.allTravels;
+    
+    // Status Filter
     if (this.state.filter !== 'TODOS') {
       filtered = filtered.filter(t => {
         if (this.state.filter === 'ACTIVO') return t.status === 'ACTIVE' || t.status === 'COMPLETED';
         if (this.state.filter === 'BORRADOR') return t.status === 'DRAFT';
         return true;
+      });
+    }
+
+    // Category Filter (New)
+    if (this.state.selectedCategory) {
+      filtered = filtered.filter(t => {
+        if (!t.buy) return false;
+        return t.buy.categories.includes(this.state.selectedCategory);
       });
     }
     filtered.sort((a, b) => {
