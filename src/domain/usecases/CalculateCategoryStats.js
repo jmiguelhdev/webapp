@@ -6,6 +6,8 @@ export class CalculateCategoryStats {
     let totalOpWithComm = 0;
     let totalKg = 0;
     let totalFactura = 0;
+    let totalQuantity = 0;
+    let totalKgFaena = 0;
     let count = 0;
 
     const completedTravels = travels.filter(t => t.isCompleted);
@@ -22,8 +24,9 @@ export class CalculateCategoryStats {
           totalOp += buy.totalOperation;
           totalOpWithComm += buy.totalOperationWithCommission;
           totalKg += kg;
+          totalQuantity += buy.totalQuantity;
+          totalKgFaena += buy.totalKgFaena;
           
-          // Sum factura (neto + iva) from all products
           buy.listOfProducers.forEach(p => {
             p.listOfProducts.forEach(pr => {
               const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
@@ -47,6 +50,8 @@ export class CalculateCategoryStats {
                 totalOp += op;
                 totalOpWithComm += opWithComm;
                 totalKg += kg;
+                totalQuantity += (pr.quantity || 0);
+                totalKgFaena += (pr.kgFaena || 0);
                 
                 const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
                 totalFactura += (bill.neto || 0) + (bill.iva || 0);
@@ -61,6 +66,7 @@ export class CalculateCategoryStats {
     });
 
     const facturaOverOp = totalOp > 0 ? (totalFactura / totalOp) : 0;
+    const avgKgMediaRes = totalQuantity > 0 ? (totalKgFaena / totalQuantity / 2) : 0;
 
     return {
       avgPrice: totalKg > 0 ? totalOp / totalKg : 0,
@@ -68,7 +74,8 @@ export class CalculateCategoryStats {
       totalKg,
       travelCount: count,
       facturaOverOp,
-      hasFacturaWarning: facturaOverOp < 0.5 || facturaOverOp > 1.0
+      hasFacturaWarning: facturaOverOp < 0.5 || facturaOverOp > 1.0,
+      avgKgMediaRes
     };
   }
 }

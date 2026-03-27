@@ -105,6 +105,14 @@ export function renderTravels(container, options) {
       `${categoryStats.travelCount}`, 
       '🚛'
     ));
+
+    // Media Res Average Weight
+    statsGrid.appendChild(renderStatCard(
+      'Peso Media Res (Prom.)', 
+      `${categoryStats.avgKgMediaRes.toFixed(2)} kg`, 
+      '🥩'
+    ));
+
     statsArea.appendChild(statsGrid);
   }
   
