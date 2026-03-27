@@ -69,6 +69,15 @@ function navigateTo(view) {
   switch (view) {
     case 'travels': ui.renderTravels(allTravels, content); break;
     case 'simulator': ui.renderSimulator(content); break;
+    case 'contact': 
+      content.innerHTML = `
+        <div class="glass-card" style="text-align: center; padding: 4rem;">
+          <h2>Contacto</h2>
+          <p style="margin-top: 1rem; color: var(--text-muted);">Puedes contactarme en:</p>
+          <h3 style="margin-top: 0.5rem; color: var(--primary);">jmiguelhsg@gmail.com</h3>
+        </div>
+      `;
+      break;
     case 'logout': signOut(auth); break;
     default: content.textContent = 'Vista no encontrada';
   }

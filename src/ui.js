@@ -50,6 +50,7 @@ export function renderTravels(data, container) {
     const totalOp = BuyLogic.totalOperation(buy);
     const totalOpWithComm = BuyLogic.totalOperationWithCommission(buy);
     const yieldValue = BuyLogic.generalYield(buy);
+    const agentName = buy.agent?.name;
     
     card.innerHTML = `
       <div class="card-header">
@@ -57,7 +58,10 @@ export function renderTravels(data, container) {
           <h3>${travel.truck?.name || 'Travel #' + travel.id}</h3>
           <span class="card-subtitle">${travel.date || ''} - ${travel.description || ''}</span>
         </div>
-        <span class="status-badge ${travel.status?.toLowerCase() || 'borrador'}">${travel.status === 'DRAFT' ? 'BORRADOR' : (travel.status || 'BORRADOR')}</span>
+        <div class="header-status">
+          ${agentName ? `<span class="agent-badge">👤 ${agentName}</span>` : ''}
+          <span class="status-badge ${travel.status?.toLowerCase() || 'borrador'}">${travel.status === 'DRAFT' ? 'BORRADOR' : (travel.status || 'BORRADOR')}</span>
+        </div>
       </div>
       
       <div class="card-body">
