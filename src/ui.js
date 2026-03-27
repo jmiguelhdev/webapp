@@ -71,16 +71,35 @@ export function renderTravels(container, options) {
   if (options.selectedCategories.length > 0 || true) { // Always show stats area but filter shows totals if empty
     const labelSuffix = options.selectedCategories.length === 0 ? 'Totales' : options.selectedCategories.join(', ');
     const statsGrid = el('div', { classes: ['stats-grid'] });
+    
+    // Average Price Base
     statsGrid.appendChild(renderStatCard(
       `Precio Prom. [${labelSuffix}]`, 
       `$${categoryStats.avgPrice.toFixed(2)}`, 
       '💰'
     ));
+
+    // Average Price with Commission (Always show as it's requested)
+    statsGrid.appendChild(renderStatCard(
+      `Precio c/Comis.`, 
+      `$${categoryStats.avgPriceWithCommission.toFixed(2)}`, 
+      '💸'
+    ));
+
     statsGrid.appendChild(renderStatCard(
       'Kg Totales (Finalizados)', 
       `${categoryStats.totalKg.toLocaleString()} kg`, 
       '⚖️'
     ));
+    
+    // Factura/Op Metric (Mini badge or card)
+    const facturaEmoji = categoryStats.hasFacturaWarning ? '⚠️' : '✅';
+    statsGrid.appendChild(renderStatCard(
+      'Factura / Operación', 
+      `${(categoryStats.facturaOverOp * 100).toFixed(1)}% ${facturaEmoji}`, 
+      '📄'
+    ));
+
     statsGrid.appendChild(renderStatCard(
       'Viajes Incluidos', 
       `${categoryStats.travelCount}`, 
