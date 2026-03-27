@@ -18,14 +18,11 @@ export function renderDashboard(travels, container) {
   const section = el('section', { classes: ['dashboard'] });
   const stats = el('div', { classes: ['stats-grid'] });
   
-  let totalProfit = 0;
   let totalKm = 0;
   travels.forEach(t => {
-    totalProfit += TravelLogic.travelProfit(t);
     totalKm += TravelLogic.distanceKm(t);
   });
   
-  stats.appendChild(renderStatCard('Ganancia Total', `$${totalProfit.toLocaleString(undefined, {maximumFractionDigits: 0})}`, '📈'));
   stats.appendChild(renderStatCard('Distancia Total', `${totalKm.toLocaleString()} km`, '🛣️'));
   
   section.appendChild(stats);
@@ -47,7 +44,6 @@ export function renderTravels(data, container) {
   const list = el('div', { classes: ['card-list'] });
   data.forEach(travel => {
     const buy = travel.buy || {};
-    const profit = TravelLogic.travelProfit(travel);
     const card = el('div', { classes: ['card', 'travel-card-full'] });
     
     const commission = BuyLogic.agentCommissionAmount(buy);
@@ -82,7 +78,6 @@ export function renderTravels(data, container) {
             <div class="detail-row"><span>Total Kg Limpios:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
             <div class="detail-row"><span>Total Kg Faena:</span> <strong>${BuyLogic.totalKgFaena(buy).toLocaleString()} kg</strong></div>
             <div class="detail-row highlight"><span>Rendimiento Gral.:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
-            <div class="detail-row"><span>Ganancia Viaje:</span> <strong class="${profit >= 0 ? 'text-success' : 'text-danger'}">$${profit.toLocaleString()}</strong></div>
           </div>
         </div>
 
