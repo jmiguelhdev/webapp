@@ -14,6 +14,14 @@ const travelRepository = new FirebaseTravelRepository();
 // State
 let currentUser = null;
 
+// Configuración de acceso compartido
+const SHARED_DATA_SOURCE_UID = 'rUY2SwonQJTtOE0iCbXDQBoVmc63';
+const AUTHORIZED_USERS = [
+  '0Ii0FBxKs2bqASQIle96Fk9tGTH2', // piolaelcrack
+  'rUY2SwonQJTtOE0iCbXDQBoVmc63'  // example
+];
+
+
 // UI elements
 const entityList = document.getElementById('entity-list');
 const content = document.getElementById('content');
@@ -34,7 +42,13 @@ onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
     document.body.classList.add('authenticated');
-    travelPresenter.loadTravels(user.uid);
+    
+    // Redirección de datos para usuarios autorizados
+    const uidToLoad = AUTHORIZED_USERS.includes(user.uid) 
+      ? SHARED_DATA_SOURCE_UID 
+      : user.uid;
+
+    travelPresenter.loadTravels(uidToLoad);
   } else {
     currentUser = null;
     document.body.classList.remove('authenticated');
