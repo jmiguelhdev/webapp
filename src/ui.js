@@ -113,6 +113,13 @@ export function renderTravels(container, options) {
       '🥩'
     ));
 
+    // Total Heads
+    statsGrid.appendChild(renderStatCard(
+      'Cabezas Totales', 
+      `${categoryStats.totalQuantity}`, 
+      '🐂'
+    ));
+
     statsArea.appendChild(statsGrid);
   }
   

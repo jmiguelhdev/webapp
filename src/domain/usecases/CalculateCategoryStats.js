@@ -72,6 +72,7 @@ export class CalculateCategoryStats {
       avgPrice: totalKg > 0 ? totalOp / totalKg : 0,
       avgPriceWithCommission: totalKg > 0 ? totalOpWithComm / totalKg : 0,
       totalKg,
+      totalQuantity,
       travelCount: count,
       facturaOverOp,
       hasFacturaWarning: facturaOverOp < 0.5 || facturaOverOp > 1.0,
