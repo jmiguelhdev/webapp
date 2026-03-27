@@ -25,11 +25,11 @@ export function renderDashboard(travels, container) {
     totalKm += TravelLogic.distanceKm(t);
   });
   
-  stats.appendChild(renderStatCard('Total Profit', `$${totalProfit.toLocaleString(undefined, {maximumFractionDigits: 0})}`, '📈'));
-  stats.appendChild(renderStatCard('Total Distance', `${totalKm.toLocaleString()} km`, '🛣️'));
+  stats.appendChild(renderStatCard('Ganancia Total', `$${totalProfit.toLocaleString(undefined, {maximumFractionDigits: 0})}`, '📈'));
+  stats.appendChild(renderStatCard('Distancia Total', `${totalKm.toLocaleString()} km`, '🛣️'));
   
   section.appendChild(stats);
-  section.appendChild(el('h2', { text: 'Travel History', classes: ['section-title'] }));
+  section.appendChild(el('h2', { text: 'Historial de Viajes', classes: ['section-title'] }));
   renderTravels(travels, section);
   
   container.appendChild(section);
@@ -61,33 +61,33 @@ export function renderTravels(data, container) {
           <h3>${travel.truck?.name || 'Travel #' + travel.id}</h3>
           <span class="card-subtitle">${travel.date || ''} - ${travel.description || ''}</span>
         </div>
-        <span class="status-badge ${travel.status?.toLowerCase() || 'draft'}">${travel.status || 'DRAFT'}</span>
+        <span class="status-badge ${travel.status?.toLowerCase() || 'borrador'}">${travel.status === 'DRAFT' ? 'BORRADOR' : (travel.status || 'BORRADOR')}</span>
       </div>
       
       <div class="card-body">
         <div class="grid-2-cols">
           <div class="metrics-column">
-            <h4>Economics</h4>
-            <div class="detail-row"><span>Total Operation:</span> <strong>$${totalOp.toLocaleString()}</strong></div>
-            <div class="detail-row"><span>Agent Commission:</span> <strong>$${commission.toLocaleString()}</strong></div>
-            <div class="detail-row highlight"><span>Total with Comm:</span> <strong>$${totalOpWithComm.toLocaleString()}</strong></div>
-            <div class="detail-row"><span>Avg Price:</span> <strong>$${BuyLogic.avgPrice(buy).toFixed(2)}</strong></div>
-            <div class="detail-row"><span>Avg Price (w/Comm):</span> <strong>$${BuyLogic.avgPriceWithCommission(buy).toFixed(2)}</strong></div>
-            <div class="detail-row"><span>Bill/Operation %:</span> <strong>${(BuyLogic.facturaOverOperationPercent(buy) * 100).toFixed(2)}%</strong></div>
+            <h4>Economía</h4>
+            <div class="detail-row"><span>Operación Total:</span> <strong>$${totalOp.toLocaleString()}</strong></div>
+            <div class="detail-row"><span>Comisión Agente:</span> <strong>$${commission.toLocaleString()}</strong></div>
+            <div class="detail-row highlight"><span>Total con Comis.:</span> <strong>$${totalOpWithComm.toLocaleString()}</strong></div>
+            <div class="detail-row"><span>Precio Prom.:</span> <strong>$${BuyLogic.avgPrice(buy).toFixed(2)}</strong></div>
+            <div class="detail-row"><span>Precio Prom. (c/Comis):</span> <strong>$${BuyLogic.avgPriceWithCommission(buy).toFixed(2)}</strong></div>
+            <div class="detail-row"><span>% Factura/Operación:</span> <strong>${(BuyLogic.facturaOverOperationPercent(buy) * 100).toFixed(2)}%</strong></div>
           </div>
           
           <div class="metrics-column">
-            <h4>Inventory & Yield</h4>
-            <div class="detail-row"><span>Total Quality:</span> <strong>${BuyLogic.totalQuality(buy)} units</strong></div>
-            <div class="detail-row"><span>Total Kg Clean:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
+            <h4>Inventario y Rendimiento</h4>
+            <div class="detail-row"><span>Cantidad Total:</span> <strong>${BuyLogic.totalQuality(buy)} unid.</strong></div>
+            <div class="detail-row"><span>Total Kg Limpios:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
             <div class="detail-row"><span>Total Kg Faena:</span> <strong>${BuyLogic.totalKgFaena(buy).toLocaleString()} kg</strong></div>
-            <div class="detail-row highlight"><span>General Yield:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
-            <div class="detail-row"><span>Travel Profit:</span> <strong class="${profit >= 0 ? 'text-success' : 'text-danger'}">$${profit.toLocaleString()}</strong></div>
+            <div class="detail-row highlight"><span>Rendimiento Gral.:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
+            <div class="detail-row"><span>Ganancia Viaje:</span> <strong class="${profit >= 0 ? 'text-success' : 'text-danger'}">$${profit.toLocaleString()}</strong></div>
           </div>
         </div>
 
         <hr>
-        <h4>Producers</h4>
+        <h4>Productores</h4>
         <div class="producers-list">
           ${(buy.listOfProducers || []).map(p => `
             <div class="producer-item">
@@ -122,7 +122,7 @@ export function renderSimulator(container) {
   const wrapper = el('div', { classes: ['simulator-wrapper'] });
   const form = el('div', { classes: ['simulator-form', 'glass-card'] });
   form.innerHTML = `
-    <h2>Costo Gancho Simulator</h2>
+    <h2>Simulador Costo Gancho</h2>
     <div class="form-group"><label>Rendimiento (%)</label><input type="number" id="sim-rend" value="58.5" step="0.1"></div>
     <div class="form-group"><label>Precio Vivo ($/kg)</label><input type="number" id="sim-precio" value="5050" step="10"></div>
     <div class="form-group"><label>Distancia (km)</label><input type="number" id="sim-dist" value="400" step="5"></div>

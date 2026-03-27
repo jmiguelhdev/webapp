@@ -31,12 +31,12 @@ function showLogin() {
   content.innerHTML = `
     <div class="login-container glass-card">
       <img src="/src/assets/logo.jpg" alt="Logo" class="login-logo" />
-      <h2>KMP Travel Manager</h2>
-      <p>Log in to access your detailed travel reports.</p>
+      <h2>Gestor de Viajes KMP</h2>
+      <p>Inicia sesión para acceder a tus reportes detallados.</p>
       <form id="login-form">
-        <div class="form-group"><label>Email</label><input type="email" id="login-email" required></div>
-        <div class="form-group"><label>Password</label><input type="password" id="login-pass" required></div>
-        <button type="submit" class="btn-primary">Sign In</button>
+        <div class="form-group"><label>Correo Electrónico</label><input type="email" id="login-email" required></div>
+        <div class="form-group"><label>Contraseña</label><input type="password" id="login-pass" required></div>
+        <button type="submit" class="btn-primary">Ingresar</button>
       </form>
       <p id="login-error" class="text-danger" style="margin-top: 1rem;"></p>
     </div>
@@ -51,7 +51,7 @@ function showLogin() {
 }
 
 async function loadData(uid) {
-  content.innerHTML = `<div class="loading">Fetching Travels...</div>`;
+  content.innerHTML = `<div class="loading">Cargando Viajes...</div>`;
   try {
     allTravels = await api.fetchTravels(db, uid);
     navigateTo('travels');
@@ -68,7 +68,7 @@ function navigateTo(view) {
     case 'travels': ui.renderTravels(allTravels, content); break;
     case 'simulator': ui.renderSimulator(content); break;
     case 'logout': signOut(auth); break;
-    default: content.textContent = 'View not found';
+    default: content.textContent = 'Vista no encontrada';
   }
 }
 
