@@ -9,6 +9,14 @@ import * as ui from './ui.js';
 let currentUser = null;
 let allTravels = [];
 
+// Travels State
+let travelsState = {
+  filter: 'TODOS',
+  sort: 'DESC',
+  page: 1,
+  itemsPerPage: 5
+};
+
 // UI setup
 const entityList = document.getElementById('entity-list');
 const content = document.getElementById('content');
@@ -55,7 +63,7 @@ async function loadData(uid) {
   content.innerHTML = `<div class="loading">Cargando Viajes...</div>`;
   try {
     allTravels = await api.fetchTravels(db, uid);
-    navigateTo('travels');
+    navigateTo('dashboard');
   } catch (error) {
     content.innerHTML = `<div class="alert error">Error: ${error.message}</div>`;
   }
@@ -67,7 +75,10 @@ function navigateTo(view) {
   document.body.classList.remove('sidebar-open'); // Auto-close on mobile
   content.innerHTML = '';
   switch (view) {
-    case 'travels': ui.renderTravels(allTravels, content); break;
+    case 'travels': 
+      renderTravelsView();
+      break;
+    case 'dashboard': ui.renderDashboard(allTravels, content, navigateTo); break;
     case 'simulator': ui.renderSimulator(content); break;
     case 'contact': 
       content.innerHTML = `
@@ -81,6 +92,40 @@ function navigateTo(view) {
     case 'logout': signOut(auth); break;
     default: content.textContent = 'Vista no encontrada';
   }
+}
+
+function renderTravelsView() {
+  // 1. Filter
+  let filtered = allTravels.filter(t => {
+    if (travelsState.filter === 'TODOS') return true;
+    if (travelsState.filter === 'ACTIVO') return t.status === 'ACTIVE' || t.status === 'COMPLETED';
+    if (travelsState.filter === 'BORRADOR') return t.status === 'DRAFT';
+    return true;
+  });
+
+  // 2. Sort
+  filtered.sort((a, b) => {
+    const dateA = new Date(a.date || 0);
+    const dateB = new Date(b.date || 0);
+    return travelsState.sort === 'DESC' ? dateB - dateA : dateA - dateB;
+  });
+
+  // 3. Paginate
+  const totalItems = filtered.length;
+  const start = (travelsState.page - 1) * travelsState.itemsPerPage;
+  const paginated = filtered.slice(start, start + travelsState.itemsPerPage);
+
+  ui.renderTravels(content, {
+    data: paginated,
+    totalItems,
+    currentPage: travelsState.page,
+    itemsPerPage: travelsState.itemsPerPage,
+    currentFilter: travelsState.filter,
+    currentSort: travelsState.sort,
+    onFilter: (f) => { travelsState.filter = f; travelsState.page = 1; renderTravelsView(); },
+    onSort: (s) => { travelsState.sort = s; renderTravelsView(); },
+    onPage: (p) => { travelsState.page = p; renderTravelsView(); }
+  });
 }
 
 entityList.addEventListener('click', e => {

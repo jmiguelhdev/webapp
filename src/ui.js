@@ -14,7 +14,7 @@ function el(tag, { classes = [], text = '', html = '', attrs = {} } = {}) {
 }
 
 /** Render Dashboard (Simplified to show global travel stats) */
-export function renderDashboard(travels, container) {
+export function renderDashboard(travels, container, onNavigate) {
   const section = el('section', { classes: ['dashboard'] });
   const stats = el('div', { classes: ['stats-grid'] });
   
@@ -26,9 +26,17 @@ export function renderDashboard(travels, container) {
   stats.appendChild(renderStatCard('Distancia Total', `${totalKm.toLocaleString()} km`, '🛣️'));
   
   section.appendChild(stats);
-  section.appendChild(el('h2', { text: 'Historial de Viajes', classes: ['section-title'] }));
-  renderTravels(travels, section);
+  section.appendChild(el('h2', { text: 'Resumen de Viajes', classes: ['section-title'] }));
   
+  // In dashboard we just show the first few travels without all the toolbar stuff
+  const previewList = el('div', { classes: ['card-list'] });
+  // Re-use logic but minimal
+  renderTravels(previewList, { 
+    data: travels.slice(0, 3), totalItems: 3, currentPage: 1, itemsPerPage: 3, 
+    currentFilter: 'TODOS', currentSort: 'DESC', 
+    onFilter: () => {}, onSort: () => {}, onPage: () => {} 
+  });
+  section.appendChild(previewList);
   container.appendChild(section);
 }
 
@@ -39,23 +47,58 @@ function renderStatCard(label, value, icon) {
   });
 }
 
-/** Render Travels with exhaustive details requested by the user */
-export function renderTravels(data, container) {
+/** 
+ * Render Travels with Filtering, Sorting, and Pagination.
+ * @param {Object} options - { data, totalItems, currentPage, itemsPerPage, currentFilter, currentSort, onFilter, onSort, onPage }
+ */
+export function renderTravels(container, options) {
+  const { 
+    data, totalItems, currentPage, itemsPerPage, 
+    currentFilter, currentSort, 
+    onFilter, onSort, onPage 
+  } = options;
+
+  container.innerHTML = '';
+  
+  // Toolbar (Filters & Sort)
+  const toolbar = el('div', { classes: ['toolbar'] });
+  
+  const filterGroup = el('div', { classes: ['filter-group'] });
+  ['TODOS', 'ACTIVO', 'BORRADOR'].forEach(f => {
+    const btn = el('button', { 
+      classes: ['filter-btn', currentFilter === f ? 'active' : 'none'], 
+      text: f 
+    });
+    btn.onclick = () => onFilter(f);
+    filterGroup.appendChild(btn);
+  });
+  
+  const sortBtn = el('button', { 
+    classes: ['sort-toggle'], 
+    html: `📅 Fecha ${currentSort === 'DESC' ? '▼' : '▲'}` 
+  });
+  sortBtn.onclick = () => onSort(currentSort === 'DESC' ? 'ASC' : 'DESC');
+  
+  toolbar.appendChild(filterGroup);
+  toolbar.appendChild(sortBtn);
+  container.appendChild(toolbar);
+
+  // Card List
   const list = el('div', { classes: ['card-list'] });
   data.forEach(travel => {
     const buy = travel.buy || {};
+    const agentName = buy.agent?.name;
     const card = el('div', { classes: ['card', 'travel-card-full'] });
     
     const commission = BuyLogic.agentCommissionAmount(buy);
     const totalOp = BuyLogic.totalOperation(buy);
     const totalOpWithComm = BuyLogic.totalOperationWithCommission(buy);
     const yieldValue = BuyLogic.generalYield(buy);
-    const agentName = buy.agent?.name;
     
     card.innerHTML = `
       <div class="card-header">
         <div class="header-main">
-          <h3>${travel.truck?.name || 'Travel #' + travel.id}</h3>
+          <h3>${travel.truck?.name || 'Viaje #' + travel.id}</h3>
           <span class="card-subtitle">${travel.date || ''} - ${travel.description || ''}</span>
         </div>
         <div class="header-status">
@@ -63,7 +106,6 @@ export function renderTravels(data, container) {
           <span class="status-badge ${travel.status?.toLowerCase() || 'borrador'}">${travel.status === 'DRAFT' ? 'BORRADOR' : (travel.status || 'BORRADOR')}</span>
         </div>
       </div>
-      
       <div class="card-body">
         <div class="grid-2-cols">
           <div class="metrics-column">
@@ -73,47 +115,38 @@ export function renderTravels(data, container) {
             <div class="detail-row highlight"><span>Total con Comis.:</span> <strong>$${totalOpWithComm.toLocaleString()}</strong></div>
             <div class="detail-row"><span>Precio Prom.:</span> <strong>$${BuyLogic.avgPrice(buy).toFixed(2)}</strong></div>
             <div class="detail-row"><span>Precio Prom. (c/Comis):</span> <strong>$${BuyLogic.avgPriceWithCommission(buy).toFixed(2)}</strong></div>
-            <div class="detail-row"><span>% Factura/Operación:</span> <strong>${(BuyLogic.facturaOverOperationPercent(buy) * 100).toFixed(2)}%</strong></div>
           </div>
-          
           <div class="metrics-column">
-            <h4>Inventario y Rendimiento</h4>
-            <div class="detail-row"><span>Cantidad Total:</span> <strong>${BuyLogic.totalQuality(buy)} unid.</strong></div>
-            <div class="detail-row"><span>Total Kg Limpios:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
-            <div class="detail-row"><span>Total Kg Faena:</span> <strong>${BuyLogic.totalKgFaena(buy).toLocaleString()} kg</strong></div>
+            <h4>Rendimiento</h4>
+            <div class="detail-row"><span>Cantidad:</span> <strong>${BuyLogic.totalQuality(buy)} unid.</strong></div>
+            <div class="detail-row"><span>Kg Limpios:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
             <div class="detail-row highlight"><span>Rendimiento Gral.:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
           </div>
-        </div>
-
-        <hr>
-        <h4>Productores</h4>
-        <div class="producers-list">
-          ${(buy.listOfProducers || []).map(p => `
-            <div class="producer-item">
-              <div class="producer-header">
-                <strong>${p.name}</strong>
-                <span>CUIT: ${p.cuit || 'N/A'} | CBU: ${p.cbu || 'N/A'}</span>
-              </div>
-              <div class="product-mini-list">
-                ${(p.listOfProducts || []).map(pr => {
-                  const bill = pr.taxes?.bill || { neto: 0, iva: 0, ganancias: 0 };
-                  const factura = (bill.neto || 0) + (bill.iva || 0);
-                  return `
-                    <div class="product-mini-row">
-                      <span>${pr.quantity}x ${pr.name}</span>
-                      <span>Neto: $${(bill.neto || 0).toLocaleString()} | IVA: $${(bill.iva || 0).toLocaleString()} | Gans: $${(bill.ganancias || 0).toLocaleString()} | <b>Total: $${factura.toLocaleString()}</b></span>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            </div>
-          `).join('')}
         </div>
       </div>
     `;
     list.appendChild(card);
   });
   container.appendChild(list);
+
+  // Pagination
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  if (totalPages > 1) {
+    const pagin = el('div', { classes: ['pagination'] });
+    
+    const prevBtn = el('button', { classes: ['page-btn'], text: 'Anterior', attrs: currentPage === 1 ? { disabled: '' } : {} });
+    prevBtn.onclick = () => onPage(currentPage - 1);
+    
+    const nextBtn = el('button', { classes: ['page-btn'], text: 'Siguiente', attrs: currentPage === totalPages ? { disabled: '' } : {} });
+    nextBtn.onclick = () => onPage(currentPage + 1);
+    
+    const info = el('span', { classes: ['page-info'], text: `Página ${currentPage} de ${totalPages}` });
+    
+    pagin.appendChild(prevBtn);
+    pagin.appendChild(info);
+    pagin.appendChild(nextBtn);
+    container.appendChild(pagin);
+  }
 }
 
 /** Render Cost Simulator */
