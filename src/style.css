@@ -134,6 +134,47 @@ body.authenticated .sidebar { display: block; }
 .stat-info p { font-size: 0.8rem; color: var(--text-muted); }
 .stat-info h3 { font-size: 1.35rem; color: var(--text-main); }
 
+/* Category Stats */
+.category-stats-container {
+  background: var(--glass);
+  padding: 1.5rem;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.selector-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.selector-label { font-size: 0.9rem; font-weight: 600; color: var(--primary); }
+
+.category-select {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  outline: none;
+  min-width: 200px;
+  cursor: pointer;
+}
+
+.comm-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.comm-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
+
 /* Toolbar & Filters */
 .toolbar {
   display: flex;

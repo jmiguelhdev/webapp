@@ -4,6 +4,7 @@ import { db, auth } from './firebase.js';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import * as api from './api.js';
 import * as ui from './ui.js';
+import { TravelLogic } from './calculations.js';
 
 // State
 let currentUser = null;
@@ -14,7 +15,9 @@ let travelsState = {
   filter: 'TODOS',
   sort: 'DESC',
   page: 1,
-  itemsPerPage: 5
+  itemsPerPage: 5,
+  selectedCategory: null,
+  includeCommission: false
 };
 
 // UI setup
@@ -94,6 +97,24 @@ function navigateTo(view) {
 }
 
 function renderTravelsView() {
+  // 0. Category Logic
+  const allCompleted = allTravels.filter(t => t.status !== 'DRAFT');
+  const categories = new Set();
+  allCompleted.forEach(t => {
+    ((t.buy || {}).listOfProducers || []).forEach(p => {
+      (p.listOfProducts || []).forEach(pr => { if (pr.name) categories.add(pr.name); });
+    });
+  });
+  const categoriesList = Array.from(categories).sort();
+  
+  if (!travelsState.selectedCategory && categoriesList.length > 0) {
+    travelsState.selectedCategory = categoriesList[0];
+  }
+
+  const categoryStats = travelsState.selectedCategory 
+    ? TravelLogic.globalCategoryStats(allTravels, travelsState.selectedCategory, travelsState.includeCommission)
+    : { avgPrice: 0, totalKg: 0, travelCount: 0 };
+
   // 1. Filter
   let filtered = allTravels.filter(t => {
     if (travelsState.filter === 'TODOS') return true;
@@ -121,10 +142,15 @@ function renderTravelsView() {
     itemsPerPage: travelsState.itemsPerPage,
     currentFilter: travelsState.filter,
     currentSort: travelsState.sort,
+    categories: categoriesList,
+    selectedCategory: travelsState.selectedCategory,
+    includeCommission: travelsState.includeCommission,
+    categoryStats,
     onFilter: (f) => { travelsState.filter = f; travelsState.page = 1; renderTravelsView(); },
     onSort: (s) => { travelsState.sort = s; renderTravelsView(); },
     onPage: (p) => { travelsState.page = p; renderTravelsView(); },
-    allTravels
+    onCategoryChange: (cat) => { travelsState.selectedCategory = cat; renderTravelsView(); },
+    onCommissionToggle: (val) => { travelsState.includeCommission = val; renderTravelsView(); }
   });
 }
 

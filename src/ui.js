@@ -28,10 +28,58 @@ export function renderTravels(container, options) {
   const { 
     data, totalItems, currentPage, itemsPerPage, 
     currentFilter, currentSort, 
-    onFilter, onSort, onPage 
+    onFilter, onSort, onPage,
+    categories = [], selectedCategory, includeCommission, 
+    onCategoryChange, onCommissionToggle,
+    categoryStats = { avgPrice: 0, totalKg: 0, travelCount: 0 }
   } = options;
 
   container.innerHTML = '';
+
+  // Category Statistics Area
+  const statsArea = el('div', { classes: ['category-stats-container'] });
+  
+  const selectorRow = el('div', { classes: ['selector-row'] });
+  const catLabel = el('span', { text: 'Categoría:', classes: ['selector-label'] });
+  const catSelect = el('select', { classes: ['category-select'] });
+  categories.forEach(cat => {
+    const opt = el('option', { text: cat, attrs: cat === selectedCategory ? { selected: '' } : {} });
+    catSelect.appendChild(opt);
+  });
+  catSelect.onchange = (e) => onCategoryChange(e.target.value);
+  
+  const commToggle = el('label', { classes: ['comm-toggle'], html: `
+    <input type="checkbox" ${includeCommission ? 'checked' : ''}>
+    <span>Con Comisión</span>
+  ` });
+  commToggle.querySelector('input').onchange = (e) => onCommissionToggle(e.target.checked);
+  
+  selectorRow.appendChild(catLabel);
+  selectorRow.appendChild(catSelect);
+  selectorRow.appendChild(commToggle);
+  statsArea.appendChild(selectorRow);
+  
+  if (selectedCategory) {
+    const statsGrid = el('div', { classes: ['stats-grid'] });
+    statsGrid.appendChild(renderStatCard(
+      `Precio Promedio ${selectedCategory}`, 
+      `$${categoryStats.avgPrice.toFixed(2)}`, 
+      '💰'
+    ));
+    statsGrid.appendChild(renderStatCard(
+      'Kg Totales (Finalizados)', 
+      `${categoryStats.totalKg.toLocaleString()} kg`, 
+      '⚖️'
+    ));
+    statsGrid.appendChild(renderStatCard(
+      'Viajes Incluidos', 
+      `${categoryStats.travelCount}`, 
+      '🚛'
+    ));
+    statsArea.appendChild(statsGrid);
+  }
+  
+  container.appendChild(statsArea);
   
   // Toolbar (Filters & Sort)
   const toolbar = el('div', { classes: ['toolbar'] });

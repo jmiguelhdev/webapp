@@ -104,5 +104,51 @@ export const TravelLogic = {
     }
     
     return this.fleteCost(travel) - driverCost - fuelCost - truckFreightCost;
+  },
+
+  /**
+   * Calculate average stats for a category across all completed travels.
+   * @param {Array} travels 
+   * @param {String} category - The product name
+   * @param {Boolean} includeCommission - Whether to use totalOperationWithCommission
+   */
+  globalCategoryStats(travels, category, includeCommission = false) {
+    let totalOp = 0;
+    let totalKg = 0;
+    let count = 0;
+
+    const validTravels = travels.filter(t => t.status !== 'DRAFT');
+
+    validTravels.forEach(t => {
+      const buy = t.buy || {};
+      let foundInCategory = false;
+      
+      (buy.listOfProducers || []).forEach(p => {
+        (p.listOfProducts || []).forEach(pr => {
+          if (pr.name === category) {
+            const kg = BuyLogic.productKgClean(pr);
+            if (kg > 0) {
+              // Calculation based on user request: Operación / Kg
+              let op = BuyLogic.productOperation(pr);
+              if (includeCommission) {
+                // Apply buy-level commission percent to this product operation
+                const commPercent = buy.agent?.percent || 0;
+                op *= (1 + commPercent / 100);
+              }
+              totalOp += op;
+              totalKg += kg;
+              foundInCategory = true;
+            }
+          }
+        });
+      });
+      if (foundInCategory) count++;
+    });
+
+    return {
+      avgPrice: totalKg > 0 ? totalOp / totalKg : 0,
+      totalKg,
+      travelCount: count
+    };
   }
 };
