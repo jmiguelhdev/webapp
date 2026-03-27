@@ -128,6 +128,8 @@ export function renderTravels(container, options) {
       </div>
     `;
 
+    const categoriesInTravel = [...new Set((buy.listOfProducers || []).flatMap(p => (p.listOfProducts || []).map(pr => pr.name)))];
+    
     const cardBody = el('div', { classes: ['card-body'] });
     cardBody.innerHTML = `
       <div class="grid-2-cols">
@@ -141,6 +143,7 @@ export function renderTravels(container, options) {
         </div>
         <div class="metrics-column">
           <h4>Rendimiento</h4>
+          <div class="detail-row"><span>Categoría:</span> <strong>${categoriesInTravel.join(', ') || 'N/A'}</strong></div>
           <div class="detail-row"><span>Cantidad:</span> <strong>${BuyLogic.totalQuality(buy)} unid.</strong></div>
           <div class="detail-row"><span>Kg Limpios:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
           <div class="detail-row highlight"><span>Rendimiento Gral.:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
@@ -160,9 +163,17 @@ export function renderTravels(container, options) {
       `;
       const pMiniList = el('div', { classes: ['product-mini-list'] });
       (p.listOfProducts || []).forEach(pr => {
+        const bill = pr.taxes?.bill || { neto: 0, iva: 0, ganancias: 0 };
+        const factura = (bill.neto || 0) + (bill.iva || 0);
         const row = el('div', { classes: ['product-mini-row'], html: `
           <span>${pr.name}: ${pr.quantity}x</span>
-          <span>${BuyLogic.productKgClean(pr).toLocaleString()} kg | $${pr.price?.toLocaleString()}</span>
+          <span>
+            ${BuyLogic.productKgClean(pr).toLocaleString()} kg | 
+            Neto: $${(bill.neto || 0).toLocaleString()} | 
+            IVA: $${(bill.iva || 0).toLocaleString()} | 
+            Gans: $${(bill.ganancias || 0).toLocaleString()} | 
+            <b>Total: $${factura.toLocaleString()}</b>
+          </span>
         ` });
         pMiniList.appendChild(row);
       });
