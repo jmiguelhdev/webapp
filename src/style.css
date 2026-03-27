@@ -61,6 +61,25 @@ body {
   top: 0;
 }
 
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-logo {
+  height: 38px;
+  width: auto;
+  border-radius: 8px;
+  transition: var(--transition);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.header-logo:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 8px var(--primary-glow));
+}
+
 .header h1 {
   font-size: 1.25rem;
   font-weight: 700;
@@ -151,6 +170,21 @@ body.authenticated .sidebar { display: block; }
 
 /* Login */
 .login-container { max-width: 380px; margin: 100px auto; text-align: center; }
+
+.login-logo {
+  height: 100px;
+  width: auto;
+  margin-bottom: 2rem;
+  border-radius: 20px;
+  filter: drop-shadow(0 0 15px rgba(99, 102, 241, 0.2));
+  animation: logoGlow 4s infinite alternate ease-in-out;
+}
+
+@keyframes logoGlow {
+  from { filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.1)); transform: scale(1); }
+  to { filter: drop-shadow(0 0 25px rgba(192, 132, 252, 0.3)); transform: scale(1.02); }
+}
+
 .btn-primary { 
   background: var(--primary); color: white; border: none; padding: 0.85rem; 
   border-radius: 12px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 1rem;

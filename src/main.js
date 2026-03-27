@@ -30,6 +30,7 @@ onAuthStateChanged(auth, (user) => {
 function showLogin() {
   content.innerHTML = `
     <div class="login-container glass-card">
+      <img src="/src/assets/logo.jpg" alt="Logo" class="login-logo" />
       <h2>KMP Travel Manager</h2>
       <p>Log in to access your detailed travel reports.</p>
       <form id="login-form">
