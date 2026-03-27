@@ -40,13 +40,22 @@ export function renderTravels(container, options) {
   const statsArea = el('div', { classes: ['category-stats-container'] });
   
   const selectorRow = el('div', { classes: ['selector-row'] });
-  const catLabel = el('span', { text: 'Categoría:', classes: ['selector-label'] });
-  const catSelect = el('select', { classes: ['category-select'] });
+  const catLabel = el('span', { text: 'Categorías:', classes: ['selector-label'] });
+  const chipsContainer = el('div', { classes: ['category-chips-container'] });
+  
   categories.forEach(cat => {
-    const opt = el('option', { text: cat, attrs: cat === selectedCategory ? { selected: '' } : {} });
-    catSelect.appendChild(opt);
+    const isTodos = cat === 'TODOS';
+    const isSelected = isTodos 
+      ? options.selectedCategories.length === 0 
+      : options.selectedCategories.includes(cat);
+      
+    const chip = el('button', { 
+      classes: ['category-chip', isSelected ? 'active' : 'inactive'], 
+      text: cat 
+    });
+    chip.onclick = () => options.onCategoryToggle(cat);
+    chipsContainer.appendChild(chip);
   });
-  catSelect.onchange = (e) => onCategoryChange(e.target.value);
   
   const commToggle = el('label', { classes: ['comm-toggle'], html: `
     <input type="checkbox" ${includeCommission ? 'checked' : ''}>
@@ -55,14 +64,15 @@ export function renderTravels(container, options) {
   commToggle.querySelector('input').onchange = (e) => onCommissionToggle(e.target.checked);
   
   selectorRow.appendChild(catLabel);
-  selectorRow.appendChild(catSelect);
+  selectorRow.appendChild(chipsContainer);
   selectorRow.appendChild(commToggle);
   statsArea.appendChild(selectorRow);
   
-  if (selectedCategory) {
+  if (options.selectedCategories.length > 0 || true) { // Always show stats area but filter shows totals if empty
+    const labelSuffix = options.selectedCategories.length === 0 ? 'Totales' : options.selectedCategories.join(', ');
     const statsGrid = el('div', { classes: ['stats-grid'] });
     statsGrid.appendChild(renderStatCard(
-      `Precio Promedio ${selectedCategory}`, 
+      `Precio Prom. [${labelSuffix}]`, 
       `$${categoryStats.avgPrice.toFixed(2)}`, 
       '💰'
     ));

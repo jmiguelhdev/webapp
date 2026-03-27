@@ -13,7 +13,7 @@ export class TravelPresenter {
       sort: 'DESC',
       page: 1,
       itemsPerPage: 5,
-      selectedCategory: null,
+      selectedCategories: [], // Array of strings
       includeCommission: false
     };
   }
@@ -44,8 +44,18 @@ export class TravelPresenter {
     this.updateView();
   }
 
-  setCategory(category) {
-    this.state.selectedCategory = category;
+  toggleCategory(category) {
+    if (category === 'TODOS') {
+      this.state.selectedCategories = [];
+    } else {
+      const index = this.state.selectedCategories.indexOf(category);
+      if (index === -1) {
+        this.state.selectedCategories.push(category);
+      } else {
+        this.state.selectedCategories.splice(index, 1);
+      }
+    }
+    this.state.page = 1;
     this.updateView();
   }
 
@@ -64,15 +74,14 @@ export class TravelPresenter {
       }
     });
     const categoriesList = Array.from(categoriesSet).sort();
-    // Add "TODOS" at the beginning
     const allCategories = ['TODOS', ...categoriesList];
 
-    if (!this.state.selectedCategory) {
-      this.state.selectedCategory = 'TODOS';
-    }
-
     // 1. Stats
-    const categoryStats = this.calculateStatsUseCase.execute(this.allTravels, this.state.selectedCategory, this.state.includeCommission);
+    const categoryStats = this.calculateStatsUseCase.execute(
+      this.allTravels, 
+      this.state.selectedCategories, 
+      this.state.includeCommission
+    );
 
     // 2. Filter & Sort
     let filtered = this.allTravels;
@@ -86,13 +95,15 @@ export class TravelPresenter {
       });
     }
 
-    // Category Filter
-    if (this.state.selectedCategory && this.state.selectedCategory !== 'TODOS') {
+    // Category Filter (Multi-select)
+    if (this.state.selectedCategories.length > 0) {
       filtered = filtered.filter(t => {
         if (!t.buy) return false;
-        return t.buy.categories.includes(this.state.selectedCategory);
+        // Check if ANY product in ANY producer matches ANY of the selected categories
+        return t.buy.categories.some(cat => this.state.selectedCategories.includes(cat));
       });
     }
+
     filtered.sort((a, b) => {
       const dateA = new Date(a.date || 0);
       const dateB = new Date(b.date || 0);
@@ -112,13 +123,13 @@ export class TravelPresenter {
       currentFilter: this.state.filter,
       currentSort: this.state.sort,
       categories: allCategories,
-      selectedCategory: this.state.selectedCategory,
+      selectedCategories: this.state.selectedCategories,
       includeCommission: this.state.includeCommission,
       categoryStats,
       onFilter: (f) => this.setFilter(f),
       onSort: (s) => this.setSort(s),
       onPage: (p) => this.setPage(p),
-      onCategoryChange: (cat) => this.setCategory(cat),
+      onCategoryToggle: (cat) => this.toggleCategory(cat),
       onCommissionToggle: (val) => this.toggleCommission(val)
     });
   }

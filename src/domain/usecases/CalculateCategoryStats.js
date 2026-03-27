@@ -1,13 +1,21 @@
 // src/domain/usecases/CalculateCategoryStats.js
 
 export class CalculateCategoryStats {
-  execute(travels, category, includeCommission = false) {
+  /**
+   * @param {Array} travels 
+   * @param {Array|string} categories - One or more categories to aggregate
+   * @param {boolean} includeCommission 
+   */
+  execute(travels, categories, includeCommission = false) {
     let totalOp = 0;
     let totalKg = 0;
     let count = 0;
 
     const completedTravels = travels.filter(t => t.isCompleted);
-    const isAll = !category || category === 'TODOS';
+    
+    // Normalize categories to an array (excluding 'TODOS')
+    const catsToFilter = Array.isArray(categories) ? categories : [categories];
+    const isAll = catsToFilter.length === 0 || catsToFilter.includes('TODOS');
 
     completedTravels.forEach(t => {
       const buy = t.buy;
@@ -22,11 +30,11 @@ export class CalculateCategoryStats {
           count++;
         }
       } else {
-        // Category specific stats
+        // Multi-category specific stats: sum products that match ANY of the selected categories
         let foundInCategory = false;
         buy.listOfProducers.forEach(p => {
           p.listOfProducts.forEach(pr => {
-            if (pr.standardizedCategory === category) {
+            if (catsToFilter.includes(pr.standardizedCategory)) {
               const kg = pr.kgClean;
               if (kg > 0) {
                 let op = pr.operation;
