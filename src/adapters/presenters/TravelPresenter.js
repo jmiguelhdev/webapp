@@ -59,7 +59,9 @@ export class TravelPresenter {
     const completed = this.allTravels.filter(t => t.isCompleted);
     const categoriesSet = new Set();
     completed.forEach(t => {
-      if (t.buy?.category) categoriesSet.add(t.buy.category);
+      if (t.buy) {
+        t.buy.categories.forEach(cat => categoriesSet.add(cat));
+      }
     });
     const categoriesList = Array.from(categoriesSet).sort();
 

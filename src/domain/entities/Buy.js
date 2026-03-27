@@ -1,11 +1,22 @@
 // src/domain/entities/Buy.js
+import { resolveCategoryFromName } from '../utils/categoryResolver.js';
 
 export class Buy {
   constructor(data = {}) {
     this.id = data.id || data.firebaseId || '';
-    this.category = data.category || ''; // As requested: use buy-level category
     this.agent = data.agent || { name: '', percent: 0 };
+    // Flat list of standardized categories in this buy
     this.listOfProducers = (data.listOfProducers || []).map(p => new Producer(p));
+  }
+
+  get categories() {
+    const cats = new Set();
+    this.listOfProducers.forEach(p => {
+      p.listOfProducts.forEach(pr => {
+        cats.add(pr.standardizedCategory);
+      });
+    });
+    return Array.from(cats);
   }
 
   get totalOperation() {
@@ -81,6 +92,10 @@ class Product {
     this.quantity = data.quantity || 0;
     this.kgFaena = data.kgFaena || 0;
     this.taxes = data.taxes || { bill: { neto: 0, iva: 0, ganancias: 0 } };
+  }
+
+  get standardizedCategory() {
+    return resolveCategoryFromName(this.name);
   }
 
   get kgClean() {

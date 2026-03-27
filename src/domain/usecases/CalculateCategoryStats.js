@@ -12,15 +12,26 @@ export class CalculateCategoryStats {
       const buy = t.buy;
       if (!buy) return;
 
-      // As per user request: Use buy entity's category
-      if (buy.category === category) {
-        const kg = buy.totalKgClean;
-        if (kg > 0) {
-          totalOp += includeCommission ? buy.totalOperationWithCommission : buy.totalOperation;
-          totalKg += kg;
-          count++;
-        }
-      }
+      let foundInCategory = false;
+      buy.listOfProducers.forEach(p => {
+        p.listOfProducts.forEach(pr => {
+          if (pr.standardizedCategory === category) {
+            const kg = pr.kgClean;
+            if (kg > 0) {
+              let op = pr.operation;
+              if (includeCommission) {
+                const commPercent = buy.agent?.percent || 0;
+                op *= (1 + commPercent / 100);
+              }
+              totalOp += op;
+              totalKg += kg;
+              foundInCategory = true;
+            }
+          }
+        });
+      });
+
+      if (foundInCategory) count++;
     });
 
     return {

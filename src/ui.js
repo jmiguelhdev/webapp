@@ -129,8 +129,9 @@ export function renderTravels(container, options) {
       </div>
     `;
 
-    // Buy-level category requested by user
-    const buyCategory = buy.category || 'N/A';
+    // Categories list from the buy entity
+    const buyCategories = buy.categories || [];
+    const buyCategoryDisplay = buyCategories.join(', ') || 'N/A';
     
     const cardBody = el('div', { classes: ['card-body'] });
     cardBody.innerHTML = `
@@ -145,7 +146,7 @@ export function renderTravels(container, options) {
         </div>
         <div class="metrics-column">
           <h4>Rendimiento</h4>
-          <div class="detail-row"><span>Categoría Comprada:</span> <strong>${buyCategory}</strong></div>
+          <div class="detail-row"><span>Categoría(s):</span> <strong>${buyCategoryDisplay}</strong></div>
           <div class="detail-row"><span>Cantidad:</span> <strong>${buy.totalQuantity || 0} unid.</strong></div>
           <div class="detail-row"><span>Kg Limpios:</span> <strong>${(buy.totalKgClean || 0).toLocaleString()} kg</strong></div>
           <div class="detail-row highlight"><span>Rendimiento Gral.:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
