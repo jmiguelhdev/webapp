@@ -13,6 +13,7 @@ let allTravels = [];
 const entityList = document.getElementById('entity-list');
 const content = document.getElementById('content');
 const themeToggle = document.getElementById('theme-toggle');
+const menuToggle = document.getElementById('menu-toggle');
 
 // Auth Listener
 onAuthStateChanged(auth, (user) => {
@@ -63,6 +64,7 @@ async function loadData(uid) {
 function navigateTo(view) {
   if (!currentUser && view !== 'simulator') return showLogin();
   document.querySelectorAll('#entity-list li').forEach(li => li.classList.toggle('active', li.dataset.view === view));
+  document.body.classList.remove('sidebar-open'); // Auto-close on mobile
   content.innerHTML = '';
   switch (view) {
     case 'travels': ui.renderTravels(allTravels, content); break;
@@ -80,4 +82,8 @@ entityList.addEventListener('click', e => {
 themeToggle.addEventListener('click', () => {
   document.body.classList.toggle('dark');
   themeToggle.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+});
+
+menuToggle.addEventListener('click', () => {
+  document.body.classList.toggle('sidebar-open');
 });
