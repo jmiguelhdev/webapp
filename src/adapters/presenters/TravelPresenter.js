@@ -72,9 +72,7 @@ export class TravelPresenter {
     }
 
     // 1. Stats
-    const categoryStats = (this.state.selectedCategory && this.state.selectedCategory !== 'TODOS')
-      ? this.calculateStatsUseCase.execute(this.allTravels, this.state.selectedCategory, this.state.includeCommission)
-      : { avgPrice: 0, totalKg: 0, travelCount: 0 };
+    const categoryStats = this.calculateStatsUseCase.execute(this.allTravels, this.state.selectedCategory, this.state.includeCommission);
 
     // 2. Filter & Sort
     let filtered = this.allTravels;
