@@ -27,6 +27,12 @@ export class CostSimulator {
     return divisor > 0.0001 ? baseBruta / divisor : baseBruta;
   }
   get facturaVentaPorKgCarne() { return this.costoFinal * this.margenGanancia; }
+  
+  get costoIIBB() { return this.facturaVentaPorKgCarne * (this.porcentajeIIBB / 100.0); }
+  
+  get utilidadPorKg() { return this.facturaVentaPorKgCarne - this.costoFinal; }
+  
   get totalVentaEstimada() { return this.facturaVentaPorKgCarne * this.kgFaena; }
-  get utilidadTotalEstimada() { return (this.facturaVentaPorKgCarne - this.costoFinal) * this.kgFaena; }
+  
+  get utilidadTotalEstimada() { return this.utilidadPorKg * this.kgFaena; }
 }
