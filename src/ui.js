@@ -115,7 +115,6 @@ export function renderTravels(container, options) {
     const totalOp = BuyLogic.totalOperation(buy);
     const totalOpWithComm = BuyLogic.totalOperationWithCommission(buy);
     const yieldValue = BuyLogic.generalYield(buy);
-    
     card.innerHTML = `
       <div class="card-header">
         <div class="header-main">
@@ -127,25 +126,52 @@ export function renderTravels(container, options) {
           <span class="status-badge ${travel.status?.toLowerCase() || 'borrador'}">${travel.status === 'DRAFT' ? 'BORRADOR' : (travel.status || 'BORRADOR')}</span>
         </div>
       </div>
-      <div class="card-body">
-        <div class="grid-2-cols">
-          <div class="metrics-column">
-            <h4>Economía</h4>
-            <div class="detail-row"><span>Operación Total:</span> <strong>$${totalOp.toLocaleString()}</strong></div>
-            <div class="detail-row"><span>Comisión Agente:</span> <strong>$${commission.toLocaleString()}</strong></div>
-            <div class="detail-row highlight"><span>Total con Comis.:</span> <strong>$${totalOpWithComm.toLocaleString()}</strong></div>
-            <div class="detail-row"><span>Precio Prom.:</span> <strong>$${BuyLogic.avgPrice(buy).toFixed(2)}</strong></div>
-            <div class="detail-row"><span>Precio Prom. (c/Comis):</span> <strong>$${BuyLogic.avgPriceWithCommission(buy).toFixed(2)}</strong></div>
-          </div>
-          <div class="metrics-column">
-            <h4>Rendimiento</h4>
-            <div class="detail-row"><span>Cantidad:</span> <strong>${BuyLogic.totalQuality(buy)} unid.</strong></div>
-            <div class="detail-row"><span>Kg Limpios:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
-            <div class="detail-row highlight"><span>Rendimiento Gral.:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
-          </div>
+    `;
+
+    const cardBody = el('div', { classes: ['card-body'] });
+    cardBody.innerHTML = `
+      <div class="grid-2-cols">
+        <div class="metrics-column">
+          <h4>Economía</h4>
+          <div class="detail-row"><span>Operación Total:</span> <strong>$${totalOp.toLocaleString()}</strong></div>
+          <div class="detail-row"><span>Comisión Agente:</span> <strong>$${commission.toLocaleString()}</strong></div>
+          <div class="detail-row highlight"><span>Total con Comis.:</span> <strong>$${totalOpWithComm.toLocaleString()}</strong></div>
+          <div class="detail-row"><span>Precio Prom.:</span> <strong>$${BuyLogic.avgPrice(buy).toFixed(2)}</strong></div>
+          <div class="detail-row"><span>Precio Prom. (c/Comis):</span> <strong>$${BuyLogic.avgPriceWithCommission(buy).toFixed(2)}</strong></div>
+        </div>
+        <div class="metrics-column">
+          <h4>Rendimiento</h4>
+          <div class="detail-row"><span>Cantidad:</span> <strong>${BuyLogic.totalQuality(buy)} unid.</strong></div>
+          <div class="detail-row"><span>Kg Limpios:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
+          <div class="detail-row highlight"><span>Rendimiento Gral.:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
         </div>
       </div>
+      <hr>
     `;
+
+    const producersList = el('div', { classes: ['producers-list'] });
+    (buy.listOfProducers || []).forEach(p => {
+      const pItem = el('div', { classes: ['producer-item'] });
+      pItem.innerHTML = `
+        <div class="producer-header">
+          <strong>${p.producer?.name || 'Productor'}</strong>
+          <span>${p.origin || ''}</span>
+        </div>
+      `;
+      const pMiniList = el('div', { classes: ['product-mini-list'] });
+      (p.listOfProducts || []).forEach(pr => {
+        const row = el('div', { classes: ['product-mini-row'], html: `
+          <span>${pr.name}: ${pr.quantity}x</span>
+          <span>${BuyLogic.productKgClean(pr).toLocaleString()} kg | $${pr.price?.toLocaleString()}</span>
+        ` });
+        pMiniList.appendChild(row);
+      });
+      pItem.appendChild(pMiniList);
+      producersList.appendChild(pItem);
+    });
+
+    cardBody.appendChild(producersList);
+    card.appendChild(cardBody);
     list.appendChild(card);
   });
   container.appendChild(list);
