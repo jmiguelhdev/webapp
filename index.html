@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KMP App – Travel Tracker</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body class="dark">
+  <header class="header">
+    <div class="logo">
+      <h1>KMP Travel Manager</h1>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle" class="theme-toggle">☀️</button>
+    </div>
+  </header>
+  
+  <aside class="sidebar">
+    <nav>
+      <ul id="entity-list">
+        <li data-view="travels" class="active">🚛 Travels</li>
+        <li data-view="simulator">🧪 Simulator</li>
+        <li data-view="logout" style="margin-top: 2rem; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">🚪 Logout</li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main id="content" class="content"></main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
