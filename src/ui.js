@@ -13,33 +13,6 @@ function el(tag, { classes = [], text = '', html = '', attrs = {} } = {}) {
   return element;
 }
 
-/** Render Dashboard (Simplified to show global travel stats) */
-export function renderDashboard(travels, container, onNavigate) {
-  const section = el('section', { classes: ['dashboard'] });
-  const stats = el('div', { classes: ['stats-grid'] });
-  
-  let totalKm = 0;
-  travels.forEach(t => {
-    totalKm += TravelLogic.distanceKm(t);
-  });
-  
-  stats.appendChild(renderStatCard('Distancia Total', `${totalKm.toLocaleString()} km`, '🛣️'));
-  
-  section.appendChild(stats);
-  section.appendChild(el('h2', { text: 'Resumen de Viajes', classes: ['section-title'] }));
-  
-  // In dashboard we just show the first few travels without all the toolbar stuff
-  const previewList = el('div', { classes: ['card-list'] });
-  // Re-use logic but minimal
-  renderTravels(previewList, { 
-    data: travels.slice(0, 3), totalItems: 3, currentPage: 1, itemsPerPage: 3, 
-    currentFilter: 'TODOS', currentSort: 'DESC', 
-    onFilter: () => {}, onSort: () => {}, onPage: () => {} 
-  });
-  section.appendChild(previewList);
-  container.appendChild(section);
-}
-
 function renderStatCard(label, value, icon) {
   return el('div', { 
     classes: ['stat-card'], 

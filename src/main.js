@@ -63,7 +63,7 @@ async function loadData(uid) {
   content.innerHTML = `<div class="loading">Cargando Viajes...</div>`;
   try {
     allTravels = await api.fetchTravels(db, uid);
-    navigateTo('dashboard');
+    navigateTo('travels');
   } catch (error) {
     content.innerHTML = `<div class="alert error">Error: ${error.message}</div>`;
   }
@@ -78,7 +78,6 @@ function navigateTo(view) {
     case 'travels': 
       renderTravelsView();
       break;
-    case 'dashboard': ui.renderDashboard(allTravels, content, navigateTo); break;
     case 'simulator': ui.renderSimulator(content); break;
     case 'contact': 
       content.innerHTML = `
@@ -124,7 +123,8 @@ function renderTravelsView() {
     currentSort: travelsState.sort,
     onFilter: (f) => { travelsState.filter = f; travelsState.page = 1; renderTravelsView(); },
     onSort: (s) => { travelsState.sort = s; renderTravelsView(); },
-    onPage: (p) => { travelsState.page = p; renderTravelsView(); }
+    onPage: (p) => { travelsState.page = p; renderTravelsView(); },
+    allTravels
   });
 }
 
