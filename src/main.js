@@ -1,37 +1,40 @@
-// webApp/src/main.js
+// src/main.js
 import './style.css';
-import { db, auth } from './firebase.js';
+import { auth } from './firebase.js';
+import { CostSimulator } from './domain/entities/CostSimulator.js';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import * as api from './api.js';
-import * as ui from './ui.js';
-import { TravelLogic } from './calculations.js';
+import * as uiLib from './ui.js';
+import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
+import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
+
+// Dependencies
+const travelRepository = new FirebaseTravelRepository();
 
 // State
 let currentUser = null;
-let allTravels = [];
 
-// Travels State
-let travelsState = {
-  filter: 'TODOS',
-  sort: 'DESC',
-  page: 1,
-  itemsPerPage: 5,
-  selectedCategory: null,
-  includeCommission: false
-};
-
-// UI setup
+// UI elements
 const entityList = document.getElementById('entity-list');
 const content = document.getElementById('content');
 const themeToggle = document.getElementById('theme-toggle');
 const menuToggle = document.getElementById('menu-toggle');
+
+// Unified UI Interface for Presenter
+const uiInterface = {
+  showLoading: () => { content.innerHTML = `<div class="loading">Cargando Viajes...</div>`; },
+  showError: (msg) => { content.innerHTML = `<div class="alert error">Error: ${msg}</div>`; },
+  renderTravels: (options) => uiLib.renderTravels(content, options)
+};
+
+const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
 
 // Auth Listener
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUser = user;
     document.body.classList.add('authenticated');
-    loadData(user.uid);
+    travelPresenter.loadTravels(user.uid);
   } else {
     currentUser = null;
     document.body.classList.remove('authenticated');
@@ -62,26 +65,16 @@ function showLogin() {
   });
 }
 
-async function loadData(uid) {
-  content.innerHTML = `<div class="loading">Cargando Viajes...</div>`;
-  try {
-    allTravels = await api.fetchTravels(db, uid);
-    navigateTo('travels');
-  } catch (error) {
-    content.innerHTML = `<div class="alert error">Error: ${error.message}</div>`;
-  }
-}
-
 function navigateTo(view) {
   if (!currentUser && view !== 'simulator') return showLogin();
   document.querySelectorAll('#entity-list li').forEach(li => li.classList.toggle('active', li.dataset.view === view));
-  document.body.classList.remove('sidebar-open'); // Auto-close on mobile
+  document.body.classList.remove('sidebar-open');
   content.innerHTML = '';
   switch (view) {
     case 'travels': 
-      renderTravelsView();
+      travelPresenter.updateView();
       break;
-    case 'simulator': ui.renderSimulator(content); break;
+    case 'simulator': uiLib.renderSimulator(content); break;
     case 'contact': 
       content.innerHTML = `
         <div class="glass-card" style="text-align: center; padding: 4rem;">
@@ -94,64 +87,6 @@ function navigateTo(view) {
     case 'logout': signOut(auth); break;
     default: content.textContent = 'Vista no encontrada';
   }
-}
-
-function renderTravelsView() {
-  // 0. Category Logic
-  const allCompleted = allTravels.filter(t => t.status !== 'DRAFT');
-  const categories = new Set();
-  allCompleted.forEach(t => {
-    ((t.buy || {}).listOfProducers || []).forEach(p => {
-      (p.listOfProducts || []).forEach(pr => { if (pr.name) categories.add(pr.name); });
-    });
-  });
-  const categoriesList = Array.from(categories).sort();
-  
-  if (!travelsState.selectedCategory && categoriesList.length > 0) {
-    travelsState.selectedCategory = categoriesList[0];
-  }
-
-  const categoryStats = travelsState.selectedCategory 
-    ? TravelLogic.globalCategoryStats(allTravels, travelsState.selectedCategory, travelsState.includeCommission)
-    : { avgPrice: 0, totalKg: 0, travelCount: 0 };
-
-  // 1. Filter
-  let filtered = allTravels.filter(t => {
-    if (travelsState.filter === 'TODOS') return true;
-    if (travelsState.filter === 'ACTIVO') return t.status === 'ACTIVE' || t.status === 'COMPLETED';
-    if (travelsState.filter === 'BORRADOR') return t.status === 'DRAFT';
-    return true;
-  });
-
-  // 2. Sort
-  filtered.sort((a, b) => {
-    const dateA = new Date(a.date || 0);
-    const dateB = new Date(b.date || 0);
-    return travelsState.sort === 'DESC' ? dateB - dateA : dateA - dateB;
-  });
-
-  // 3. Paginate
-  const totalItems = filtered.length;
-  const start = (travelsState.page - 1) * travelsState.itemsPerPage;
-  const paginated = filtered.slice(start, start + travelsState.itemsPerPage);
-
-  ui.renderTravels(content, {
-    data: paginated,
-    totalItems,
-    currentPage: travelsState.page,
-    itemsPerPage: travelsState.itemsPerPage,
-    currentFilter: travelsState.filter,
-    currentSort: travelsState.sort,
-    categories: categoriesList,
-    selectedCategory: travelsState.selectedCategory,
-    includeCommission: travelsState.includeCommission,
-    categoryStats,
-    onFilter: (f) => { travelsState.filter = f; travelsState.page = 1; renderTravelsView(); },
-    onSort: (s) => { travelsState.sort = s; renderTravelsView(); },
-    onPage: (p) => { travelsState.page = p; renderTravelsView(); },
-    onCategoryChange: (cat) => { travelsState.selectedCategory = cat; renderTravelsView(); },
-    onCommissionToggle: (val) => { travelsState.includeCommission = val; renderTravelsView(); }
-  });
 }
 
 entityList.addEventListener('click', e => {

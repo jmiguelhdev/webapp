@@ -1,5 +1,5 @@
 // webApp/src/ui.js
-import { BuyLogic, TravelLogic, CostSimulator } from './calculations.js';
+import { CostSimulator } from './domain/entities/CostSimulator.js';
 
 /** Utility to create an element with optional classes and text */
 function el(tag, { classes = [], text = '', html = '', attrs = {} } = {}) {
@@ -22,7 +22,7 @@ function renderStatCard(label, value, icon) {
 
 /** 
  * Render Travels with Filtering, Sorting, and Pagination.
- * @param {Object} options - { data, totalItems, currentPage, itemsPerPage, currentFilter, currentSort, onFilter, onSort, onPage }
+ * Purely presentational component.
  */
 export function renderTravels(container, options) {
   const { 
@@ -111,10 +111,11 @@ export function renderTravels(container, options) {
     const agentName = buy.agent?.name;
     const card = el('div', { classes: ['card', 'travel-card-full'] });
     
-    const commission = BuyLogic.agentCommissionAmount(buy);
-    const totalOp = BuyLogic.totalOperation(buy);
-    const totalOpWithComm = BuyLogic.totalOperationWithCommission(buy);
-    const yieldValue = BuyLogic.generalYield(buy);
+    const commission = buy.agentCommissionAmount || 0;
+    const totalOp = buy.totalOperation || 0;
+    const totalOpWithComm = buy.totalOperationWithCommission || 0;
+    const yieldValue = buy.generalYield || 0;
+    
     card.innerHTML = `
       <div class="card-header">
         <div class="header-main">
@@ -128,7 +129,8 @@ export function renderTravels(container, options) {
       </div>
     `;
 
-    const categoriesInTravel = [...new Set((buy.listOfProducers || []).flatMap(p => (p.listOfProducts || []).map(pr => pr.name)))];
+    // Buy-level category requested by user
+    const buyCategory = buy.category || 'N/A';
     
     const cardBody = el('div', { classes: ['card-body'] });
     cardBody.innerHTML = `
@@ -138,14 +140,14 @@ export function renderTravels(container, options) {
           <div class="detail-row"><span>Operación Total:</span> <strong>$${totalOp.toLocaleString()}</strong></div>
           <div class="detail-row"><span>Comisión Agente:</span> <strong>$${commission.toLocaleString()}</strong></div>
           <div class="detail-row highlight"><span>Total con Comis.:</span> <strong>$${totalOpWithComm.toLocaleString()}</strong></div>
-          <div class="detail-row"><span>Precio Prom.:</span> <strong>$${BuyLogic.avgPrice(buy).toFixed(2)}</strong></div>
-          <div class="detail-row"><span>Precio Prom. (c/Comis):</span> <strong>$${BuyLogic.avgPriceWithCommission(buy).toFixed(2)}</strong></div>
+          <div class="detail-row"><span>Precio Prom.:</span> <strong>$${buy.avgPrice?.toFixed(2) || '0.00'}</strong></div>
+          <div class="detail-row"><span>Precio Prom. (c/Comis):</span> <strong>$${buy.avgPriceWithCommission?.toFixed(2) || '0.00'}</strong></div>
         </div>
         <div class="metrics-column">
           <h4>Rendimiento</h4>
-          <div class="detail-row"><span>Categoría:</span> <strong>${categoriesInTravel.join(', ') || 'N/A'}</strong></div>
-          <div class="detail-row"><span>Cantidad:</span> <strong>${BuyLogic.totalQuality(buy)} unid.</strong></div>
-          <div class="detail-row"><span>Kg Limpios:</span> <strong>${BuyLogic.totalKgClean(buy).toLocaleString()} kg</strong></div>
+          <div class="detail-row"><span>Categoría Comprada:</span> <strong>${buyCategory}</strong></div>
+          <div class="detail-row"><span>Cantidad:</span> <strong>${buy.totalQuantity || 0} unid.</strong></div>
+          <div class="detail-row"><span>Kg Limpios:</span> <strong>${(buy.totalKgClean || 0).toLocaleString()} kg</strong></div>
           <div class="detail-row highlight"><span>Rendimiento Gral.:</span> <strong>${(yieldValue * 100).toFixed(2)}%</strong></div>
         </div>
       </div>
@@ -163,16 +165,11 @@ export function renderTravels(container, options) {
       `;
       const pMiniList = el('div', { classes: ['product-mini-list'] });
       (p.listOfProducts || []).forEach(pr => {
-        const bill = pr.taxes?.bill || { neto: 0, iva: 0, ganancias: 0 };
-        const factura = (bill.neto || 0) + (bill.iva || 0);
         const row = el('div', { classes: ['product-mini-row'], html: `
           <span>${pr.name}: ${pr.quantity}x</span>
           <span>
-            ${BuyLogic.productKgClean(pr).toLocaleString()} kg | 
-            Neto: $${(bill.neto || 0).toLocaleString()} | 
-            IVA: $${(bill.iva || 0).toLocaleString()} | 
-            Gans: $${(bill.ganancias || 0).toLocaleString()} | 
-            <b>Total: $${factura.toLocaleString()}</b>
+            ${pr.kgClean.toLocaleString()} kg | 
+            <b>Total Factura: $${pr.billFactura.toLocaleString()}</b>
           </span>
         ` });
         pMiniList.appendChild(row);
