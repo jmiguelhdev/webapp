@@ -45,7 +45,7 @@ onAuthStateChanged(auth, (user) => {
 function showLogin() {
   content.innerHTML = `
     <div class="login-container glass-card">
-      <img src="/src/assets/logo.jpg" alt="Logo" class="login-logo" />
+      <img src="/logo.jpg" alt="Logo" class="login-logo" />
       <h2>Gestor de Viajes KMP</h2>
       <p>Inicia sesión para acceder a tus reportes detallados.</p>
       <form id="login-form">
