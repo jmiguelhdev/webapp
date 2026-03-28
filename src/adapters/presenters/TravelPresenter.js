@@ -22,7 +22,14 @@ export class TravelPresenter {
   async loadTravels(uid) {
     this.ui.showLoading();
     try {
-      this.allTravels = await this.getTravelsUseCase.execute({ uid, filter: 'TODOS', sort: 'DESC' });
+      const raw = await this.getTravelsUseCase.execute({ uid, filter: 'TODOS', sort: 'DESC' });
+      // Deduplicate by ID
+      const seen = new Set();
+      this.allTravels = raw.filter(t => {
+        if (!t.id || seen.has(t.id)) return false;
+        seen.add(t.id);
+        return true;
+      });
       this.updateView();
     } catch (error) {
       this.ui.showError(error.message);
@@ -76,7 +83,10 @@ export class TravelPresenter {
   updateView() {
     this.state.currentView = 'travels';
     // 0. Extract Categories (from Buy entity directly)
-    const completed = this.allTravels.filter(t => t.isCompleted);
+    const completed = this.allTravels.filter(t => {
+      const s = String(t.status || '').toUpperCase();
+      return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+    });
     const categoriesSet = new Set();
     completed.forEach(t => {
       if (t.buy) {
@@ -88,7 +98,7 @@ export class TravelPresenter {
 
     // 1. Stats
     const categoryStats = this.calculateStatsUseCase.execute(
-      this.allTravels, 
+      completed, 
       this.state.selectedCategories, 
       this.state.includeCommission
     );
@@ -147,7 +157,10 @@ export class TravelPresenter {
   showDashboard() {
     this.state.currentView = 'dashboard';
     // 0. Extract Categories
-    const completed = this.allTravels.filter(t => t.isCompleted || t.status === 'ACTIVE' || t.status === 'COMPLETED');
+    const completed = this.allTravels.filter(t => {
+      const s = String(t.status || '').toUpperCase();
+      return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+    });
     const categoriesSet = new Set();
     completed.forEach(t => {
       if (t.buy && t.buy.categories) {
@@ -184,7 +197,12 @@ export class TravelPresenter {
 
   async handleExport(options) {
     const { type, value } = options;
-    let toExport = [...this.allTravels].sort((a,b) => new Date(b.date) - new Date(a) - new Date(b));
+    let toExport = this.allTravels
+      .filter(t => {
+        const s = String(t.status || '').toUpperCase();
+        return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
     
     if (type === 'count') {
       toExport = toExport.slice(0, parseInt(value));

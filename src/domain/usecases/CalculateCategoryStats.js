@@ -10,7 +10,10 @@ export class CalculateCategoryStats {
     let totalKgFaena = 0;
     let count = 0;
 
-    const completedTravels = travels.filter(t => t.isCompleted);
+    const completedTravels = travels.filter(t => {
+      const s = String(t.status || '').toUpperCase();
+      return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+    });
     const catsToFilter = Array.isArray(categories) ? categories : [categories];
     const isAll = catsToFilter.length === 0 || catsToFilter.includes('TODOS');
 

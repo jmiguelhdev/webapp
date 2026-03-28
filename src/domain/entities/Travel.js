@@ -26,6 +26,7 @@ export class Travel {
   }
 
   get isCompleted() {
-    return this.status !== 'DRAFT';
+    const s = String(this.status || '').toUpperCase();
+    return (s === 'ACTIVE' || s === 'ACTIVO' || s === 'COMPLETED' || s === 'FINALIZADO') && s !== 'DRAFT' && s !== 'BORRADOR';
   }
 }
