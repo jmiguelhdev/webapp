@@ -138,7 +138,17 @@ export function renderTravels(container, options) {
             classes: ['stat-card', 'market-gap'], 
             html: `<div class="stat-icon">📈</div><div class="stat-info"><p>Vs Mercado (MAG)</p><h3 style="color: ${gapColor}">${sign}${gap.toFixed(1)}%</h3></div>` 
           });
+          const refEl = el('div', { 
+            classes: ['stat-card', 'market-ref'], 
+            html: `
+              <div class="stat-icon" title="Fuente: Mercado Agroganadero (MAG) - mercadoliniers.com.ar">🏷️</div>
+              <div class="stat-info">
+                <p>Precio MAG <a href="https://www.mercadoliniers.com.ar" target="_blank" title="Fuente: Mercado Agroganadero (MAG)" style="text-decoration:none; filter:grayscale(1); opacity:0.6; font-size:0.9em;">ℹ️</a></p>
+                <h3>$${ref.toLocaleString()}</h3>
+              </div>`
+          });
           statsGrid.appendChild(gapEl);
+          statsGrid.appendChild(refEl);
         }
       });
     }

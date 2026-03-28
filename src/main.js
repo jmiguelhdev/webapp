@@ -169,6 +169,97 @@ function navigateTo(view) {
                 </ul>
               </div>
             </div>
+
+            <!-- Sección Dashboard de Tendencias -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>📊 Dashboard de Tendencias Históricas</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>El Dashboard ofrece una vista analítica de rendimiento y precio promedio a lo largo del tiempo, con filtros por categoría y comisionista.</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Uso</span> Navegar a 📊 Dashboard desde el menú lateral
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Filtros</span> Seleccionar categorías (chips) para aislar datos por tipo de hacienda
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Gráficos</span> Tendencia de precio $/kg por viaje • Distribución por categoría • Evolución de volumen
+                </div>
+                <p>Los viajes en estado <strong>BORRADOR</strong> son excluidos automáticamente de todas las métricas y gráficos para garantizar la precisión del análisis.</p>
+              </div>
+            </div>
+
+            <!-- Sección Exportación PDF -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>📄 Exportación de Reportes PDF</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Genera reportes profesionales listos para compartir por WhatsApp o email directamente desde la app.</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Acceso</span> Tocar el botón 📄 en la esquina superior derecha del header
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Opción 1</span> Últimos N viajes — seleccionar cantidad desde los más recientes
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Opción 2</span> Rango de fechas — definir fecha inicio y fin para el reporte
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Contenido</span> Resumen viaje por viaje con métricas de operación, kg, precio promedio y desglose por productor
+                </div>
+                <p>Los borradores nunca se incluyen en los reportes exportados. El PDF se genera con <strong>jsPDF</strong> y se descarga automáticamente.</p>
+              </div>
+            </div>
+
+            <!-- Sección Inteligencia de Mercado -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>📈 Inteligencia de Mercado (MAG)</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Compara tus costos de compra contra los precios de referencia del Mercado Agroganadero (MAG) en tiempo real.</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Activación</span> Seleccionar UNA categoría específica en los filtros de Viajes (ej: NOVILLO, VACA)
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Cálculo</span> Brecha (%) = ((Tu Precio - Precio MAG) / Precio MAG) × 100
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Lectura</span> 🟢 Verde = comprás por debajo del mercado • 🔴 Rojo = comprás por encima
+                </div>
+                <p>La tarjeta de <strong>"Vs Mercado (MAG)"</strong> aparece automáticamente cuando filtras por una sola categoría. Los precios MAG se actualizan periódicamente.</p>
+              </div>
+            </div>
+
+            <!-- Sección Tarjetas de Productor -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>👤 Tarjetas de Productor</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Cada viaje muestra una tarjeta detallada por productor con información fiscal y operativa.</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Identidad</span> Nombre del productor, CUIT y CBU (si están cargados en la app KMP)
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Impuestos</span> IVA total y Ganancias total — sumados de todos los productos del productor
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Productos</span> Listado con cantidad, kg limpios y total factura por producto
+                </div>
+                <p>Los badges <span style="color: #3b82f6;">IVA</span> (azul) y <span style="color: #f59e0b;">Ganancias</span> (ámbar) solo aparecen si tienen valor mayor a cero.</p>
+              </div>
+            </div>
           </div>
 
           <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">
