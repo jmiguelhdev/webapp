@@ -2,6 +2,7 @@ import { CostSimulator } from './domain/entities/CostSimulator.js';
 import Chart from 'chart.js/auto';
 import { jsPDF } from 'jspdf';
 import { MarketService } from './api/MarketService.js';
+import { SettingsService } from './services/SettingsService.js';
 
 // Global to manage chart instances
 let chartInstances = {};
@@ -643,4 +644,81 @@ export async function generateTravelReport(travels) {
   });
 
   doc.save(`Reporte_Viajes_KMP_${Date.now()}.pdf`);
+}
+
+/** Render Settings Panel */
+export function renderSettings(container) {
+  const currentSettings = SettingsService.loadSettings();
+  
+  const wrapper = el('div', { classes: ['simulator-wrapper'] }); // Reusing layout for settings form
+  const form = el('div', { classes: ['simulator-form', 'glass-card'], style: 'grid-column: 1 / -1; max-width: 600px; margin: 0 auto;' });
+  
+  form.innerHTML = `
+    <h2 style="color: var(--primary); margin-bottom: 1.5rem;">⚙️ Configuración Logística</h2>
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">Ajustá los valores predeterminados para las simulaciones y simulador de costos. Estos cambios solo afectan a tu navegador local.</p>
+    
+    <div class="form-group">
+      <label>Margen Operativo (%)</label>
+      <input type="number" id="set-margen" value="${((currentSettings.margenGanancia - 1) * 100).toFixed(0)}" step="1">
+    </div>
+    
+    <h3 style="margin-top: 1.5rem; margin-bottom: 1rem; font-size: 1.1rem;">🚛 Jaula Doble</h3>
+    <div class="grid-2-cols" style="gap: 1rem; margin-bottom: 0;">
+      <div class="form-group"><label>Kg Capacidad</label><input type="number" id="set-jdd-kg" value="${currentSettings.pesoJaulaDoble}" step="100"></div>
+      <div class="form-group"><label>Precio Flete ($/km)</label><input type="number" id="set-jdd-km" value="${currentSettings.precioKmDouble}" step="50"></div>
+    </div>
+
+    <h3 style="margin-top: 1.5rem; margin-bottom: 1rem; font-size: 1.1rem;">🚚 Jaula Simple</h3>
+    <div class="grid-2-cols" style="gap: 1rem; margin-bottom: 0;">
+      <div class="form-group"><label>Kg Capacidad</label><input type="number" id="set-js-kg" value="${currentSettings.pesoJaulaSimple}" step="100"></div>
+      <div class="form-group"><label>Precio Flete ($/km)</label><input type="number" id="set-js-km" value="${currentSettings.precioKmSimple}" step="50"></div>
+    </div>
+    
+    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
+    
+    <div style="display: flex; gap: 1rem;">
+      <button class="btn-primary" id="save-settings">Guardar Cambios</button>
+      <button class="btn-outline" id="reset-settings">Restaurar Valores por Defecto</button>
+    </div>
+    <div id="settings-msg" style="margin-top: 1rem; color: var(--success); font-weight: 500; display: none;">¡Configuración guardada exitosamente!</div>
+  `;
+  
+  wrapper.appendChild(form);
+  container.appendChild(wrapper);
+
+  const msgBox = document.getElementById('settings-msg');
+  const showMsg = (text, isError = false) => {
+    msgBox.textContent = text;
+    msgBox.style.color = isError ? 'var(--danger)' : 'var(--success)';
+    msgBox.style.display = 'block';
+    setTimeout(() => { msgBox.style.display = 'none'; }, 3000);
+  };
+
+  document.getElementById('save-settings').onclick = () => {
+    const newSettings = {
+      margenGanancia: 1 + (parseFloat(document.getElementById('set-margen').value) / 100),
+      pesoJaulaDoble: parseFloat(document.getElementById('set-jdd-kg').value),
+      precioKmDouble: parseFloat(document.getElementById('set-jdd-km').value),
+      pesoJaulaSimple: parseFloat(document.getElementById('set-js-kg').value),
+      precioKmSimple: parseFloat(document.getElementById('set-js-km').value),
+    };
+    
+    if (SettingsService.saveSettings(newSettings)) {
+      showMsg('¡Configuración guardada exitosamente!');
+    } else {
+      showMsg('Hubo un error al guardar.', true);
+    }
+  };
+
+  document.getElementById('reset-settings').onclick = () => {
+    const defaults = SettingsService.getDefaults();
+    document.getElementById('set-margen').value = ((defaults.margenGanancia - 1) * 100).toFixed(0);
+    document.getElementById('set-jdd-kg').value = defaults.pesoJaulaDoble;
+    document.getElementById('set-jdd-km').value = defaults.precioKmDouble;
+    document.getElementById('set-js-kg').value = defaults.pesoJaulaSimple;
+    document.getElementById('set-js-km').value = defaults.precioKmSimple;
+    
+    SettingsService.saveSettings(defaults);
+    showMsg('¡Restaurado a los valores originales!');
+  };
 }

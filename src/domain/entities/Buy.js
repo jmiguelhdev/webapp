@@ -61,7 +61,13 @@ export class Buy {
 
 class Producer {
   constructor(data = {}) {
-    this.producer = data.producer || { name: '', cuit: '', cbu: '' };
+    // Handle both { producer: {name, cuit, cbu} } and { producer: "Name", cuit: "...", cbu: "..." }
+    const isProdObj = typeof data.producer === 'object' && data.producer !== null;
+    this.producer = {
+      name: isProdObj ? data.producer.name || data.producerName || 'Productor' : data.producer || data.producerName || data.name || 'Productor',
+      cuit: isProdObj ? data.producer.cuit : (data.cuit || data.cuit_numero || ''),
+      cbu: isProdObj ? data.producer.cbu : (data.cbu || data.cbu_numero || ''),
+    };
     this.origin = data.origin || '';
     this.listOfProducts = (data.listOfProducts || []).map(pr => new Product(pr));
   }

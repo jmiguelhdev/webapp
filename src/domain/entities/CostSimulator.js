@@ -1,4 +1,4 @@
-// src/domain/entities/CostSimulator.js
+import { SettingsService } from '../../services/SettingsService.js';
 
 export class CostSimulator {
   constructor(config = {}) {
@@ -8,11 +8,14 @@ export class CostSimulator {
     this.porcentajeIIBB = config.porcentajeIIBB || 1.7;
     this.jaulaDobleOrSimple = config.jaulaDobleOrSimple ?? true; // true = Double
     
-    this.pesoJaulaDoble = config.pesoJaulaDoble || 21500.0;
-    this.pesoJaulaSimple = config.pesoJaulaSimple || 15500.0;
-    this.margenGanancia = config.margenGanancia || 1.1;
-    this.precioKmSimple = config.precioKmSimple || 2500.0;
-    this.precioKmDouble = config.precioKmDouble || 3100.0;
+    // Config values dynamically pull from stored settings
+    const settings = SettingsService.loadSettings();
+
+    this.pesoJaulaDoble = config.pesoJaulaDoble || settings.pesoJaulaDoble;
+    this.pesoJaulaSimple = config.pesoJaulaSimple || settings.pesoJaulaSimple;
+    this.margenGanancia = config.margenGanancia || settings.margenGanancia;
+    this.precioKmSimple = config.precioKmSimple || settings.precioKmSimple;
+    this.precioKmDouble = config.precioKmDouble || settings.precioKmDouble;
   }
 
   get precioKm() { return this.jaulaDobleOrSimple ? this.precioKmDouble : this.precioKmSimple; }

@@ -95,7 +95,8 @@ function navigateTo(view) {
       travelPresenter.showDashboard();
       break;
     case 'simulator': uiLib.renderSimulator(content); break;
-    case 'contact': 
+    case 'settings': uiLib.renderSettings(content); break;
+    case 'contact':  
       content.innerHTML = `
         <div class="glass-card" style="padding: 2rem; max-width: 900px; margin: 0 auto;">
           <h2 style="text-align: center; margin-bottom: 2rem;">Centro de Documentación Técnica</h2>
