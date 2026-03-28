@@ -61,7 +61,7 @@ export class Buy {
 
 class Producer {
   constructor(data = {}) {
-    this.producer = data.producer || { name: '' };
+    this.producer = data.producer || { name: '', cuit: '', cbu: '' };
     this.origin = data.origin || '';
     this.listOfProducts = (data.listOfProducts || []).map(pr => new Product(pr));
   }
@@ -80,6 +80,20 @@ class Producer {
 
   get totalKgFaena() {
     return this.listOfProducts.reduce((sum, pr) => sum + (pr.kgFaena || 0), 0);
+  }
+
+  get totalIva() {
+    return this.listOfProducts.reduce((sum, pr) => {
+      const bill = pr.taxes?.bill || {};
+      return sum + (bill.iva || 0);
+    }, 0);
+  }
+
+  get totalGanancias() {
+    return this.listOfProducts.reduce((sum, pr) => {
+      const bill = pr.taxes?.bill || {};
+      return sum + (bill.ganancias || 0);
+    }, 0);
   }
 }
 

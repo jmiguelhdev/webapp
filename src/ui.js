@@ -225,10 +225,23 @@ export function renderTravels(container, options) {
     const producersList = el('div', { classes: ['producers-list'] });
     (buy.listOfProducers || []).forEach(p => {
       const pItem = el('div', { classes: ['producer-item'] });
+      const iva = p.totalIva || 0;
+      const ganancias = p.totalGanancias || 0;
+      const producerName = p.producer?.name || 'Productor';
+      const cuit = p.producer?.cuit || '';
+      const cbu = p.producer?.cbu || '';
       pItem.innerHTML = `
         <div class="producer-header">
-          <strong>${p.producer?.name || 'Productor'}</strong>
+          <strong>👤 ${producerName}</strong>
           <span>${p.origin || ''}</span>
+        </div>
+        <div class="producer-info">
+          ${cuit ? `<span class="info-badge">CUIT: ${cuit}</span>` : ''}
+          ${cbu ? `<span class="info-badge">CBU: ${cbu}</span>` : ''}
+        </div>
+        <div class="producer-taxes">
+          ${iva > 0 ? `<span class="tax-badge tax-iva">IVA: $${iva.toLocaleString()}</span>` : ''}
+          ${ganancias > 0 ? `<span class="tax-badge tax-ganancias">Gan: $${ganancias.toLocaleString()}</span>` : ''}
         </div>
       `;
       const pMiniList = el('div', { classes: ['product-mini-list'] });
