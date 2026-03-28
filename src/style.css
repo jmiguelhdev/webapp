@@ -394,3 +394,21 @@ body.authenticated .sidebar { display: block; }
   .header h1 { display: none; } /* Hide text on very small screens to make room for logo */
   .content { padding: 1rem; }
 }
+/* Accordion */
+.accordion { display: flex; flex-direction: column; gap: 1rem; text-align: left; margin-top: 2rem; }
+.accordion-item { background: var(--glass); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; transition: var(--transition); }
+.accordion-header { 
+  padding: 1.25rem 1.5rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+  font-weight: 600; color: var(--primary); background: rgba(132, 29, 29, 0.02);
+}
+.accordion-header:hover { background: rgba(132, 29, 29, 0.05); }
+.accordion-content { 
+  padding: 0 1.5rem; max-height: 0; overflow: hidden; transition: all 0.3s ease-out; 
+  font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;
+}
+.accordion-item.active .accordion-content { padding: 1.25rem 1.5rem; max-height: 1000px; border-top: 1px solid var(--border); }
+.accordion-header i { transition: transform 0.3s ease; }
+.accordion-item.active .accordion-header i { transform: rotate(180deg); }
+
+.formula-card { background: var(--bg-main); padding: 1rem; border-radius: 12px; margin: 1rem 0; border-left: 4px solid var(--primary); font-family: monospace; color: var(--text-main); }
+.tech-tag { font-size: 0.7rem; background: var(--primary); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; text-transform: uppercase; margin-right: 0.5rem; }

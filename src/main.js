@@ -91,12 +91,99 @@ function navigateTo(view) {
     case 'simulator': uiLib.renderSimulator(content); break;
     case 'contact': 
       content.innerHTML = `
-        <div class="glass-card" style="text-align: center; padding: 4rem;">
-          <h2>Contacto</h2>
-          <p style="margin-top: 1rem; color: var(--text-muted);">Puedes contactarme en:</p>
-          <h3 style="margin-top: 0.5rem; color: var(--primary);">jmiguelhsg@gmail.com</h3>
+        <div class="glass-card" style="padding: 2rem; max-width: 900px; margin: 0 auto;">
+          <h2 style="text-align: center; margin-bottom: 2rem;">Centro de Documentación Técnica</h2>
+          
+          <div class="accordion">
+            <!-- Sección Viajes -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>🚛 Gestión de Viajes y Métricas</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>La sección de viajes procesa datos operativos para generar reportes financieros precisos. Las métricas se calculan dinámicamente según los filtros de categoría seleccionados:</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Cálculo</span> Precio Promedio = Total Operación / ∑ Kg Limpios
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Cálculo</span> Precio c/ Comis. = (Total Operación + Comisión Agente) / ∑ Kg Limpios
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Cálculo</span> Peso Media Res Prom. = ∑ Kg Limpios / Total Unidades
+                </div>
+                <p>El sistema también monitorea la relación <strong>Factura vs. Operación</strong> para detectar desviaciones impositivas o administrativas (⚠️ se muestra si supera el umbral configurado).</p>
+              </div>
+            </div>
+
+            <!-- Sección Simulador -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>🧮 Algoritmos del Simulador de Costo</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>El simulador utiliza un modelo de costos en cascada para proyectar la utilidad final basada en la logística y el rendimiento de faena:</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Logística</span> Kg Faena = Kg Vivos * (Rendimiento / 100)
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Hacienda</span> Costo Inic. (Carne) = Precio Vivo / (Rendimiento / 100)
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Flete</span> Costo Flete (Carne) = (Distancia * $/km) / Kg Faena
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Impuestos</span> Tasa Efectiva = Margen * (IIBB / 100)
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Venta</span> Factura Venta = Costo Final * Margen Ganancia
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Final</span> Utilidad Total = (Precio Venta - Costo Final) * Kg Faena
+                </div>
+                <p>Nota: El costo final se ajusta automáticamente mediante una base bruta dividida por la tasa impositiva residual para asegurar el margen neto proyectado.</p>
+              </div>
+            </div>
+
+            <!-- Sección Datos Técnicos -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>📋 Parámetros de Carga Logística</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Valores predeterminados configurados para el transporte:</p>
+                <ul>
+                  <li><strong>Jaula Doble:</strong> 21,500 kg ($3,100 /km)</li>
+                  <li><strong>Jaula Simple:</strong> 15,500 kg ($2,500 /km)</li>
+                  <li><strong>Margen Operativo:</strong> 10% (Factor 1.1)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">
+            <p style="color: var(--text-muted);">Para soporte técnico o consultas:</p>
+            <h3 style="margin-top: 0.5rem; color: var(--primary);">jmiguelhsg@gmail.com</h3>
+          </div>
         </div>
       `;
+
+      // Interacción de Acordeones
+      content.querySelectorAll('.accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const item = header.parentElement;
+          const isActive = item.classList.contains('active');
+          
+          // Cerrar otros
+          content.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('active'));
+          
+          if (!isActive) item.classList.add('active');
+        });
+      });
       break;
     case 'logout': signOut(auth); break;
     default: content.textContent = 'Vista no encontrada';
