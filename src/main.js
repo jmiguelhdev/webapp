@@ -30,9 +30,12 @@ const menuToggle = document.getElementById('menu-toggle');
 
 // Unified UI Interface for Presenter
 const uiInterface = {
-  showLoading: () => { content.innerHTML = `<div class="loading">Cargando Viajes...</div>`; },
+  showLoading: () => { content.innerHTML = `<div class="loading">Cargando...</div>`; },
   showError: (msg) => { content.innerHTML = `<div class="alert error">Error: ${msg}</div>`; },
-  renderTravels: (options) => uiLib.renderTravels(content, options)
+  renderTravels: (options) => uiLib.renderTravels(content, options),
+  renderDashboard: (options) => uiLib.renderDashboard(content, options),
+  renderExportModal: (options) => uiLib.renderExportModal(options),
+  generateTravelReport: (data) => uiLib.generateTravelReport(data)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
@@ -87,6 +90,9 @@ function navigateTo(view) {
   switch (view) {
     case 'travels': 
       travelPresenter.updateView();
+      break;
+    case 'dashboard':
+      travelPresenter.showDashboard();
       break;
     case 'simulator': uiLib.renderSimulator(content); break;
     case 'contact': 
@@ -202,4 +208,8 @@ themeToggle.addEventListener('click', () => {
 
 menuToggle.addEventListener('click', () => {
   document.body.classList.toggle('sidebar-open');
+});
+
+document.getElementById('export-pdf').addEventListener('click', () => {
+  travelPresenter.openExportOptions();
 });

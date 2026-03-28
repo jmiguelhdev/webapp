@@ -1,0 +1,21 @@
+{
+  "name": "KMP Tracker de Viajes",
+  "short_name": "KMP Tracker",
+  "description": "Gestión de viajes y simulador de costos ganaderos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0c0e",
+  "theme_color": "#841d1d",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>App KMP – Tracker de Viajes</title>
   <link rel="stylesheet" href="/src/style.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed', err));
+      });
+    }
+  </script>
 </head>
 <body class="dark">
   <header class="header">
@@ -14,6 +22,7 @@
       <h1>Gestor de Viajes KMP</h1>
     </div>
     <div class="header-actions">
+      <button id="export-pdf" class="btn-icon" title="Exportar Reporte (PDF)">📄</button>
       <button id="theme-toggle" class="theme-toggle">☀️</button>
     </div>
   </header>
@@ -22,6 +31,7 @@
     <nav>
       <ul id="entity-list">
         <li data-view="travels" class="active">🚛 Viajes</li>
+        <li data-view="dashboard">📊 Dashboard</li>
         <li data-view="simulator">🧪 Simulador</li>
         <li data-view="contact">✉️ Contacto</li>
         <li data-view="logout" style="margin-top: 2rem; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">🚪 Cerrar Sesión</li>

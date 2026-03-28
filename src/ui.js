@@ -1,5 +1,10 @@
-// webApp/src/ui.js
 import { CostSimulator } from './domain/entities/CostSimulator.js';
+import Chart from 'chart.js/auto';
+import { jsPDF } from 'jspdf';
+import { MarketService } from './api/MarketService.js';
+
+// Global to manage chart instances
+let chartInstances = {};
 
 /** Utility to create an element with optional classes and text */
 function el(tag, { classes = [], text = '', html = '', attrs = {} } = {}) {
@@ -119,6 +124,24 @@ export function renderTravels(container, options) {
       `${categoryStats.totalQuantity}`, 
       '🐂'
     ));
+
+    // MAG Comparison (Market Intelligence)
+    const selectedCat = options.selectedCategories.length === 1 ? options.selectedCategories[0] : null;
+    if (selectedCat && selectedCat !== 'TODOS') {
+      MarketService.getReferencePrices().then(prices => {
+        const ref = prices[selectedCat];
+        if (ref) {
+          const gap = MarketService.calculateGap(categoryStats.avgPrice, ref);
+          const gapColor = gap > 0 ? '#ef4444' : '#10b981'; // Red if higher, Green if lower
+          const sign = gap > 0 ? '+' : '';
+          const gapEl = el('div', { 
+            classes: ['stat-card', 'market-gap'], 
+            html: `<div class="stat-icon">📈</div><div class="stat-info"><p>Vs Mercado (MAG)</p><h3 style="color: ${gapColor}">${sign}${gap.toFixed(1)}%</h3></div>` 
+          });
+          statsGrid.appendChild(gapEl);
+        }
+      });
+    }
 
     statsArea.appendChild(statsGrid);
   }
@@ -289,6 +312,312 @@ export function renderSimulator(container) {
       <div class="res-item utility"><span>Utilidad Total:</span> <strong>$${sim.utilidadTotalEstimada.toLocaleString()}</strong></div>
     `;
   };
-  form.addEventListener('input', update);
-  update();
+    form.addEventListener('input', update);
+    update();
+}
+
+/** 
+ * Render Business Intelligence Dashboard
+ * Historical Trends + Producer/Agent Comparison
+ */
+export function renderDashboard(container, options) {
+  const { 
+    data, categories, selectedCategories, includeCommission, 
+    onCategoryToggle, onCommissionToggle 
+  } = options;
+
+  container.innerHTML = '';
+  const wrapper = el('div', { classes: ['dashboard-wrapper'] });
+
+  // 0. Header & Filters
+  const header = el('div', { classes: ['dashboard-header', 'glass-card'] });
+  header.innerHTML = `<h2>📊 Dashboard de Inteligencia</h2><p>Análisis de rendimiento y tendencias de precios.</p>`;
+  
+  const filtersArea = el('div', { classes: ['dashboard-filters', 'glass-card'] });
+  const chipsContainer = el('div', { classes: ['category-chips-container'] });
+  categories.forEach(cat => {
+    const isTodos = cat === 'TODOS';
+    const isSelected = isTodos ? selectedCategories.length === 0 : selectedCategories.includes(cat);
+    const chip = el('button', { classes: ['category-chip', isSelected ? 'active' : 'inactive'], text: cat });
+    chip.onclick = () => onCategoryToggle(cat);
+    chipsContainer.appendChild(chip);
+  });
+  filtersArea.appendChild(chipsContainer);
+  
+  wrapper.appendChild(header);
+  wrapper.appendChild(filtersArea);
+
+  if (data.length === 0) {
+    const emptyMsg = el('div', { classes: ['alert', 'info'], text: 'No hay datos suficientes para generar el dashboard.' });
+    emptyMsg.style.marginTop = '2rem';
+    wrapper.appendChild(emptyMsg);
+    container.appendChild(wrapper);
+    return;
+  }
+
+  // 1. Data Aggregation for Charts
+  
+  // A. Trends Aggregation (By Date)
+  const trendsMap = {};
+  data.forEach(t => {
+    const date = t.date || 'Sin Fecha';
+    if (!trendsMap[date]) trendsMap[date] = { totalPrice: 0, totalYield: 0, count: 0 };
+    const buy = t.buy || {};
+    const price = includeCommission ? (buy.avgPriceWithCommission || 0) : (buy.avgPrice || 0);
+    const yieldVal = (buy.generalYield || 0) * 100;
+    
+    trendsMap[date].totalPrice += price;
+    trendsMap[date].totalYield += yieldVal;
+    trendsMap[date].count++;
+  });
+  const sortedDates = Object.keys(trendsMap).sort((a,b) => new Date(a) - new Date(b));
+  
+  // B. Comparison Aggregation (By Producer & Agent)
+  const entityMap = {};
+  data.forEach(t => {
+    const buy = t.buy || {};
+    const price = includeCommission ? (buy.avgPriceWithCommission || 0) : (buy.avgPrice || 0);
+    const yieldVal = (buy.generalYield || 0) * 100;
+    
+    // Add Agent (Commission Agent)
+    const agentName = buy.agent?.name;
+    if (agentName) {
+      if (!entityMap[agentName]) entityMap[agentName] = { totalPrice: 0, totalYield: 0, count: 0, type: 'AGENT' };
+      entityMap[agentName].totalPrice += price;
+      entityMap[agentName].totalYield += yieldVal;
+      entityMap[agentName].count++;
+    }
+    
+    // Add Producers
+    (buy.listOfProducers || []).forEach(p => {
+      const pName = p.producer?.name;
+      if (pName) {
+        if (!entityMap[pName]) entityMap[pName] = { totalPrice: 0, totalYield: 0, count: 0, type: 'PRODUCER' };
+        entityMap[pName].totalPrice += price;
+        entityMap[pName].totalYield += yieldVal;
+        entityMap[pName].count++;
+      }
+    });
+  });
+  const entities = Object.keys(entityMap).sort();
+
+  // 2. Chart Layout
+  const chartGrid = el('div', { classes: ['chart-grid'] });
+  
+  const trendBox = el('div', { classes: ['chart-container', 'glass-card'], html: '<h3>📈 Tendencias de Precio y Rendimiento</h3><div class="canvas-holder"><canvas id="trendChart"></canvas></div>' });
+  const compareBox = el('div', { classes: ['chart-container', 'glass-card'], html: '<h3>👥 Comparativa Productores / Comisionistas</h3><div class="canvas-holder"><canvas id="compareChart"></canvas></div>' });
+  
+  chartGrid.appendChild(trendBox);
+  chartGrid.appendChild(compareBox);
+  wrapper.appendChild(chartGrid);
+  container.appendChild(wrapper);
+
+  // 3. Render Charts with Chart.js
+  
+  // Clear previous instances
+  if (chartInstances.trends) { chartInstances.trends.destroy(); chartInstances.trends = null; }
+  if (chartInstances.compare) { chartInstances.compare.destroy(); chartInstances.compare = null; }
+
+  const isDark = document.body.classList.contains('dark');
+  const textColor = isDark ? '#a1a1aa' : '#71717a';
+  const borderColor = isDark ? 'rgba(132, 29, 29, 0.2)' : 'rgba(132, 29, 29, 0.1)';
+
+  // Render Trend Chart
+  chartInstances.trends = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: sortedDates,
+      datasets: [
+        {
+          label: 'Precio Promedio ($)',
+          data: sortedDates.map(d => trendsMap[d].totalPrice / trendsMap[d].count),
+          borderColor: '#841d1d',
+          backgroundColor: 'rgba(132, 29, 29, 0.1)',
+          yAxisID: 'y',
+          tension: 0.3,
+          fill: true
+        },
+        {
+          label: 'Rendimiento (%)',
+          data: sortedDates.map(d => trendsMap[d].totalYield / trendsMap[d].count),
+          borderColor: '#10b981',
+          yAxisID: 'y1',
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: textColor } } },
+      scales: {
+        x: { ticks: { color: textColor }, grid: { color: borderColor } },
+        y: { type: 'linear', display: true, position: 'left', ticks: { color: textColor, callback: (v) => '$' + v }, grid: { color: borderColor } },
+        y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: textColor, callback: (v) => v + '%' } }
+      }
+    }
+  });
+
+  // Render Comparison Chart
+  chartInstances.compare = new Chart(document.getElementById('compareChart'), {
+    type: 'bar',
+    data: {
+      labels: entities,
+      datasets: [
+        {
+          label: 'Precio Prom. ($)',
+          data: entities.map(e => entityMap[e].totalPrice / entityMap[e].count),
+          backgroundColor: entities.map(e => entityMap[e].type === 'AGENT' ? '#841d1d' : '#a1a1aa'),
+          yAxisID: 'y'
+        },
+        {
+          label: 'Rendimiento (%)',
+          data: entities.map(e => entityMap[e].totalYield / entityMap[e].count),
+          backgroundColor: '#10b981',
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { 
+        legend: { labels: { color: textColor } },
+        tooltip: { callbacks: { title: (items) => `${items[0].label} (${entityMap[items[0].label].type === 'AGENT' ? 'Comisionista' : 'Productor'})` } }
+      },
+      scales: {
+        x: { ticks: { color: textColor }, grid: { color: borderColor } },
+        y: { type: 'linear', display: true, position: 'left', ticks: { color: textColor, callback: (v) => '$' + v }, grid: { color: borderColor } },
+        y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: textColor, callback: (v) => v + '%' } }
+      }
+    }
+  });
+}
+
+/** Render Export Modal */
+export function renderExportModal({ onExport }) {
+  const overlay = el('div', { classes: ['modal-overlay'] });
+  const modal = el('div', { classes: ['modal'] });
+  
+  modal.innerHTML = `
+    <h2>📄 Exportar Reporte PDF</h2>
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">Selecciona el rango de viajes para incluir en el reporte.</p>
+    
+    <div class="form-group">
+      <label>Criterio de Selección</label>
+      <select id="export-type" class="form-input" style="width: 100%; border: 1px solid var(--border); padding: 0.75rem; border-radius: 12px; background: var(--bg-main); color: var(--text-main); margin-bottom: 1rem;">
+        <option value="count">Últimos N Viajes</option>
+        <option value="range">Rango de Fechas</option>
+      </select>
+    </div>
+
+    <div id="export-count-section">
+      <div class="form-group"><label>Cantidad de Viajes</label><input type="number" id="export-count" value="10" min="1" style="width: 100%;"></div>
+    </div>
+
+    <div id="export-range-section" style="display: none;">
+      <div class="form-group"><label>Desde</label><input type="date" id="export-start" style="width: 100%;"></div>
+      <div class="form-group"><label>Hasta</label><input type="date" id="export-end" style="width: 100%;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-outline" id="modal-cancel">Cancelar</button>
+      <button class="btn-primary" id="modal-export" style="margin-top: 0; flex: 1;">Generar PDF</button>
+    </div>
+  `;
+
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const typeSelect = modal.querySelector('#export-type');
+  const countSec = modal.querySelector('#export-count-section');
+  const rangeSec = modal.querySelector('#export-range-section');
+
+  typeSelect.onchange = (e) => {
+    countSec.style.display = e.target.value === 'count' ? 'block' : 'none';
+    rangeSec.style.display = e.target.value === 'range' ? 'block' : 'none';
+  };
+
+  modal.querySelector('#modal-cancel').onclick = () => overlay.remove();
+  modal.querySelector('#modal-export').onclick = () => {
+    const type = typeSelect.value;
+    let value = type === 'count' 
+      ? modal.querySelector('#export-count').value 
+      : { start: modal.querySelector('#export-start').value, end: modal.querySelector('#export-end').value };
+    
+    onExport({ type, value });
+    overlay.remove();
+  };
+}
+
+/** 
+ * Generate Professional PDF Report 
+ * Simple table-based report using jsPDF
+ */
+export async function generateTravelReport(travels) {
+  const doc = new jsPDF();
+  const primaryColor = [132, 29, 29]; // #841d1d
+  
+  // Header
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, 210, 40, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.text('REPORTE DE VIAJES KMP', 15, 25);
+  
+  doc.setFontSize(10);
+  doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString()}`, 150, 25);
+
+  // Stats Summary
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
+  doc.text('Resumen de Periodo', 15, 55);
+  
+  const totalKg = travels.reduce((sum, t) => sum + (t.buy?.totalKgClean || 0), 0);
+  const totalOp = travels.reduce((sum, t) => sum + (t.buy?.totalOperation || 0), 0);
+  const avgPrice = totalKg > 0 ? totalOp / totalKg : 0;
+
+  doc.setFontSize(11);
+  doc.text(`Total Viajes: ${travels.length}`, 15, 65);
+  doc.text(`Kilos Totales: ${totalKg.toLocaleString()} kg`, 80, 65);
+  doc.text(`Precio Promedio: $${avgPrice.toFixed(2)}`, 150, 65);
+
+  // Table Body
+  let y = 85;
+  doc.setFontSize(12);
+  doc.setTextColor(...primaryColor);
+  doc.text('Detalle Viaje por Viaje', 15, y - 5);
+  
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  
+  // Table Header row
+  doc.setDrawColor(200, 200, 200);
+  doc.line(15, y, 195, y);
+  doc.text('ID / Camión', 15, y + 5);
+  doc.text('Fecha', 60, y + 5);
+  doc.text('Categorías', 90, y + 5);
+  doc.text('Kg Limpios', 140, y + 5);
+  doc.text('Precio Prom.', 170, y + 5);
+  y += 10;
+  doc.line(15, y, 195, y);
+  y += 5;
+
+  travels.forEach((t, i) => {
+    if (y > 270) { doc.addPage(); y = 20; }
+    
+    const buy = t.buy || {};
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${t.truck?.name || 'V' + t.id}`, 15, y);
+    doc.text(`${t.date || ''}`, 60, y);
+    doc.text(`${(buy.categories || []).join(', ').substring(0, 20)}`, 90, y);
+    doc.text(`${(buy.totalKgClean || 0).toLocaleString()}`, 140, y);
+    doc.text(`$${(buy.avgPrice || 0).toFixed(2)}`, 170, y);
+    
+    y += 8;
+  });
+
+  doc.save(`Reporte_Viajes_KMP_${Date.now()}.pdf`);
 }

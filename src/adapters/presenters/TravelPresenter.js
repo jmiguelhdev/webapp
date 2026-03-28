@@ -14,7 +14,8 @@ export class TravelPresenter {
       page: 1,
       itemsPerPage: 5,
       selectedCategories: [], // Array of strings
-      includeCommission: false
+      includeCommission: false,
+      currentView: 'travels' // Tracks active view for reactive updates
     };
   }
 
@@ -31,17 +32,17 @@ export class TravelPresenter {
   setFilter(filter) {
     this.state.filter = filter;
     this.state.page = 1;
-    this.updateView();
+    this.refresh();
   }
 
   setSort(sort) {
     this.state.sort = sort;
-    this.updateView();
+    this.refresh();
   }
 
   setPage(page) {
     this.state.page = page;
-    this.updateView();
+    this.refresh();
   }
 
   toggleCategory(category) {
@@ -56,15 +57,24 @@ export class TravelPresenter {
       }
     }
     this.state.page = 1;
-    this.updateView();
+    this.refresh();
   }
 
   toggleCommission(val) {
     this.state.includeCommission = val;
-    this.updateView();
+    this.refresh();
+  }
+
+  refresh() {
+    if (this.state.currentView === 'dashboard') {
+      this.showDashboard();
+    } else {
+      this.updateView();
+    }
   }
 
   updateView() {
+    this.state.currentView = 'travels';
     // 0. Extract Categories (from Buy entity directly)
     const completed = this.allTravels.filter(t => t.isCompleted);
     const categoriesSet = new Set();
@@ -132,5 +142,60 @@ export class TravelPresenter {
       onCategoryToggle: (cat) => this.toggleCategory(cat),
       onCommissionToggle: (val) => this.toggleCommission(val)
     });
+  }
+
+  showDashboard() {
+    this.state.currentView = 'dashboard';
+    // 0. Extract Categories
+    const completed = this.allTravels.filter(t => t.isCompleted || t.status === 'ACTIVE' || t.status === 'COMPLETED');
+    const categoriesSet = new Set();
+    completed.forEach(t => {
+      if (t.buy && t.buy.categories) {
+        t.buy.categories.forEach(cat => categoriesSet.add(cat));
+      }
+    });
+    const categoriesList = Array.from(categoriesSet).sort();
+    const allCategories = ['TODOS', ...categoriesList];
+
+    // 1. Filter data by categories
+    let filtered = completed;
+    if (this.state.selectedCategories.length > 0) {
+      filtered = filtered.filter(t => 
+        t.buy && t.buy.categories && t.buy.categories.some(cat => this.state.selectedCategories.includes(cat))
+      );
+    }
+
+    // 2. Render Dashboard via UI Interface
+    this.ui.renderDashboard({
+      data: filtered,
+      categories: allCategories,
+      selectedCategories: this.state.selectedCategories,
+      includeCommission: this.state.includeCommission,
+      onCategoryToggle: (cat) => this.toggleCategory(cat),
+      onCommissionToggle: (val) => this.toggleCommission(val)
+    });
+  }
+
+  openExportOptions() {
+    this.ui.renderExportModal({
+      onExport: (options) => this.handleExport(options)
+    });
+  }
+
+  async handleExport(options) {
+    const { type, value } = options;
+    let toExport = [...this.allTravels].sort((a,b) => new Date(b.date) - new Date(a) - new Date(b));
+    
+    if (type === 'count') {
+      toExport = toExport.slice(0, parseInt(value));
+    } else if (type === 'range') {
+      const { start, end } = value;
+      toExport = toExport.filter(t => {
+        const d = new Date(t.date);
+        return d >= new Date(start) && d <= new Date(end);
+      });
+    }
+
+    this.ui.generateTravelReport(toExport);
   }
 }
