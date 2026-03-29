@@ -31,7 +31,8 @@ const uiInterface = {
   renderTravels: (options) => uiLib.renderTravels(content, options),
   renderDashboard: (options) => uiLib.renderDashboard(content, options),
   renderExportModal: (options) => uiLib.renderExportModal(options),
-  generateTravelReport: (data) => uiLib.generateTravelReport(data)
+  generateTravelReport: (data) => uiLib.generateTravelReport(data),
+  generateExcelReport: (data) => uiLib.generateExcelReport(data)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
