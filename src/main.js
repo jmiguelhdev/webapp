@@ -2,7 +2,7 @@
 import './style.css';
 import { auth } from './firebase.js';
 import { CostSimulator } from './domain/entities/CostSimulator.js';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import * as api from './api.js';
 import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
@@ -16,10 +16,6 @@ let currentUser = null;
 
 // Configuración de acceso compartido
 const SHARED_DATA_SOURCE_UID = 'rUY2SwonQJTtOE0iCbXDQBoVmc63';
-const AUTHORIZED_USERS = [
-  '0Ii0FBxKs2bqASQIle96Fk9tGTH2', // piolaelcrack
-  'rUY2SwonQJTtOE0iCbXDQBoVmc63'  // example
-];
 
 
 // UI elements
@@ -46,10 +42,9 @@ onAuthStateChanged(auth, (user) => {
     currentUser = user;
     document.body.classList.add('authenticated');
     
-    // Redirección de datos para usuarios autorizados
-    const uidToLoad = AUTHORIZED_USERS.includes(user.uid) 
-      ? SHARED_DATA_SOURCE_UID 
-      : user.uid;
+    // Todos los usuarios autentificados pueden acceder a la app
+    // Usamos el UID compartido para que todos vean la misma base de datos global
+    const uidToLoad = SHARED_DATA_SOURCE_UID;
 
     travelPresenter.loadTravels(uidToLoad);
   } else {
@@ -65,6 +60,16 @@ function showLogin() {
       <img src="/logo.jpg" alt="Logo" class="login-logo" />
       <h2>Gestor de Viajes KMP</h2>
       <p>Inicia sesión para acceder a tus reportes detallados.</p>
+      
+      <button id="google-login-btn" class="btn-google">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+        Continuar con Google
+      </button>
+
+      <div class="auth-divider">
+        <span>o usa tu correo</span>
+      </div>
+
       <form id="login-form">
         <div class="form-group"><label>Correo Electrónico</label><input type="email" id="login-email" required></div>
         <div class="form-group"><label>Contraseña</label><input type="password" id="login-pass" required></div>
@@ -73,6 +78,16 @@ function showLogin() {
       <p id="login-error" class="text-danger" style="margin-top: 1rem;"></p>
     </div>
   `;
+
+  document.getElementById('google-login-btn').addEventListener('click', async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      document.getElementById('login-error').textContent = e.message;
+    }
+  });
+
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value;

@@ -364,6 +364,64 @@ body.authenticated .sidebar { display: block; }
   border-radius: 12px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 1rem;
 }
 
+.btn-google {
+  background: #ffffff;
+  color: #1f1f1f;
+  border: 1px solid var(--border);
+  padding: 0.85rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  transition: var(--transition);
+}
+
+.dark .btn-google {
+  background: #151518;
+  color: #f4f4f5;
+  border-color: var(--border);
+}
+
+.btn-google:hover {
+  background: #f7f7f7;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.dark .btn-google:hover {
+  background: #1e1e22;
+}
+
+.btn-google img {
+  width: 20px;
+  height: 20px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-divider span {
+  padding: 0 1rem;
+}
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 /* Mobile Responsiveness */
