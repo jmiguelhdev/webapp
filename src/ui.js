@@ -3,6 +3,7 @@ import Chart from 'chart.js/auto';
 import { jsPDF } from 'jspdf';
 import { MarketService } from './api/MarketService.js';
 import { SettingsService } from './services/SettingsService.js';
+import * as XLSX from 'xlsx';
 
 // Global to manage chart instances
 let chartInstances = {};
@@ -236,7 +237,15 @@ export function renderTravels(container, options) {
   });
   sortBtn.onclick = () => onSort(currentSort === 'DESC' ? 'ASC' : 'DESC');
   
+  const searchInput = el('input', { 
+    classes: ['form-input'], 
+    attrs: { type: 'text', placeholder: 'Buscar por productor, patente, chofer...', value: options.searchQuery || '' },
+    style: 'flex: 1; min-width: 250px; padding: 0.6rem 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main);'
+  });
+  searchInput.oninput = (e) => options.onSearch(e.target.value);
+
   toolbar.appendChild(filterGroup);
+  toolbar.appendChild(searchInput);
   toolbar.appendChild(sortBtn);
   container.appendChild(toolbar);
 
@@ -581,7 +590,7 @@ export function renderDashboard(container, options) {
 }
 
 /** Render Export Modal */
-export function renderExportModal({ onExport }) {
+export function renderExportModal({ onExport, onExcelExport }) {
   const overlay = el('div', { classes: ['modal-overlay'] });
   const modal = el('div', { classes: ['modal'] });
   
@@ -608,7 +617,8 @@ export function renderExportModal({ onExport }) {
 
     <div class="modal-actions">
       <button class="btn-outline" id="modal-cancel">Cancelar</button>
-      <button class="btn-primary" id="modal-export" style="margin-top: 0; flex: 1;">Generar PDF</button>
+      <button class="btn-primary" id="modal-export" style="margin-top: 0; flex: 1; background: #841d1d;">PDF</button>
+      <button class="btn-primary" id="modal-excel" style="margin-top: 0; flex: 1; background: #10b981;">Excel</button>
     </div>
   `;
 
@@ -633,6 +643,16 @@ export function renderExportModal({ onExport }) {
       : { start: modal.querySelector('#export-start').value, end: modal.querySelector('#export-end').value };
     
     onExport({ type, value });
+    overlay.remove();
+  };
+
+  modal.querySelector('#modal-excel').onclick = () => {
+    const type = typeSelect.value;
+    let value = type === 'count' 
+      ? modal.querySelector('#export-count').value 
+      : { start: modal.querySelector('#export-start').value, end: modal.querySelector('#export-end').value };
+    
+    onExcelExport({ type, value });
     overlay.remove();
   };
 }
@@ -706,6 +726,58 @@ export async function generateTravelReport(travels) {
   });
 
   doc.save(`Reporte_Viajes_KMP_${Date.now()}.pdf`);
+}
+
+/**
+ * Generate Excel (XLSX) Accounting Report using flattened producer data
+ */
+export async function generateExcelReport(travels) {
+  const rows = [];
+  
+  travels.forEach(t => {
+    const buy = t.buy || {};
+    const truckName = t.truck?.name || 'N/A';
+    const plate = t.truck?.licensePlate || 'N/A';
+    const driver = t.driver?.name || 'N/A';
+    const agent = buy.agent?.name || 'N/A';
+    
+    (buy.listOfProducers || []).forEach(p => {
+      const producerName = p.producer?.name || 'N/A';
+      const producerCuit = p.producer?.cuit || 'N/A';
+      
+      // Categorías del productor
+      const pCategories = (p.listOfProducts || []).map(pr => pr.name).join(', ');
+      
+      rows.push({
+        'Fecha': t.date || '',
+        'ID Viaje': t.id,
+        'Camión': truckName,
+        'Patente': plate,
+        'Chofer': driver,
+        'Comisionista': agent,
+        'Productor': producerName,
+        'CUIT Productor': producerCuit,
+        'Categorías': pCategories,
+        'Cabezas': p.totalQuantity || 0,
+        'Kg Limpios': p.totalKgClean || 0,
+        'Precio Promedio': p.avgPrice?.toFixed(2) || '0.00',
+        'Neto ($)': p.totalOperation || 0,
+        'IVA ($)': p.totalIva || 0,
+        'Ganancias ($)': p.totalGanancias || 0,
+        'Total Factura ($)': p.totalBillFactura || 0
+      });
+    });
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Reporte Contable");
+  
+  // Auto-width columns
+  const wscols = Object.keys(rows[0] || {}).map(key => ({ wch: Math.max(key.length, 15) }));
+  worksheet['!cols'] = wscols;
+
+  XLSX.writeFile(workbook, `Reporte_Contable_KMP_${Date.now()}.xlsx`);
 }
 
 /** Render Settings Panel */

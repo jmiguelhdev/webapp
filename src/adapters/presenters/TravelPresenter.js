@@ -17,7 +17,8 @@ export class TravelPresenter {
       includeCommission: false,
       currentView: 'travels', // Tracks active view for reactive updates
       timeFilterType: 'all', // 'all', 'count', 'range'
-      timeFilterValue: null
+      timeFilterValue: null,
+      searchQuery: ''
     };
   }
 
@@ -74,6 +75,12 @@ export class TravelPresenter {
 
   setPage(page) {
     this.state.page = page;
+    this.refresh();
+  }
+
+  setSearchQuery(query) {
+    this.state.searchQuery = query;
+    this.state.page = 1;
     this.refresh();
   }
 
@@ -151,6 +158,24 @@ export class TravelPresenter {
       });
     }
 
+    // Smart Search Filter
+    if (this.state.searchQuery) {
+      const q = this.state.searchQuery.toLowerCase();
+      filtered = filtered.filter(t => {
+        const truckName = (t.truck?.name || '').toLowerCase();
+        const plate = (t.truck?.licensePlate || '').toLowerCase();
+        const desc = (t.description || '').toLowerCase();
+        const driverName = (t.driver?.name || '').toLowerCase();
+        const agentName = (t.buy?.agent?.name || '').toLowerCase();
+        const producersMatch = (t.buy?.listOfProducers || []).some(p => 
+          (p.producer?.name || '').toLowerCase().includes(q) ||
+          (p.producer?.cuit || '').toLowerCase().includes(q)
+        );
+        return truckName.includes(q) || plate.includes(q) || desc.includes(q) || 
+               driverName.includes(q) || agentName.includes(q) || producersMatch;
+      });
+    }
+
     filtered.sort((a, b) => {
       const dateA = new Date(a.date || 0);
       const dateB = new Date(b.date || 0);
@@ -180,7 +205,9 @@ export class TravelPresenter {
       onCommissionToggle: (val) => this.toggleCommission(val),
       timeFilterType: this.state.timeFilterType,
       timeFilterValue: this.state.timeFilterValue,
-      onTimeFilter: (type, val) => this.setTimeFilter(type, val)
+      onTimeFilter: (type, val) => this.setTimeFilter(type, val),
+      searchQuery: this.state.searchQuery,
+      onSearch: (q) => this.setSearchQuery(q)
     });
   }
 
@@ -224,7 +251,8 @@ export class TravelPresenter {
 
   openExportOptions() {
     this.ui.renderExportModal({
-      onExport: (options) => this.handleExport(options)
+      onExport: (options) => this.handleExport(options),
+      onExcelExport: (options) => this.handleExcelExport(options)
     });
   }
 
@@ -248,5 +276,27 @@ export class TravelPresenter {
     }
 
     this.ui.generateTravelReport(toExport);
+  }
+
+  async handleExcelExport(options) {
+    const { type, value } = options;
+    let toExport = this.allTravels
+      .filter(t => {
+        const s = String(t.status || '').toUpperCase();
+        return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    if (type === 'count') {
+      toExport = toExport.slice(0, parseInt(value));
+    } else if (type === 'range') {
+      const { start, end } = value;
+      toExport = toExport.filter(t => {
+        const d = new Date(t.date);
+        return d >= new Date(start) && d <= new Date(end);
+      });
+    }
+
+    this.ui.generateExcelReport(toExport);
   }
 }
