@@ -15,8 +15,33 @@ export class TravelPresenter {
       itemsPerPage: 5,
       selectedCategories: [], // Array of strings
       includeCommission: false,
-      currentView: 'travels' // Tracks active view for reactive updates
+      currentView: 'travels', // Tracks active view for reactive updates
+      timeFilterType: 'all', // 'all', 'count', 'range'
+      timeFilterValue: null
     };
+  }
+
+  setTimeFilter(type, value) {
+    this.state.timeFilterType = type;
+    this.state.timeFilterValue = value;
+    this.state.page = 1;
+    this.refresh();
+  }
+
+  _applyTimeFilter(travels) {
+    if (this.state.timeFilterType === 'count' && this.state.timeFilterValue) {
+      const sorted = [...travels].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      return sorted.slice(0, parseInt(this.state.timeFilterValue, 10) || 0);
+    } else if (this.state.timeFilterType === 'range' && this.state.timeFilterValue) {
+      const { start, end } = this.state.timeFilterValue;
+      if (start && end) {
+        return travels.filter(t => {
+          const d = new Date(t.date);
+          return d >= new Date(start) && d <= new Date(end);
+        });
+      }
+    }
+    return travels;
   }
 
   async loadTravels(uid) {
@@ -96,15 +121,17 @@ export class TravelPresenter {
     const categoriesList = Array.from(categoriesSet).sort();
     const allCategories = ['TODOS', ...categoriesList];
 
+    const timeFilteredCompleted = this._applyTimeFilter(completed);
+
     // 1. Stats
     const categoryStats = this.calculateStatsUseCase.execute(
-      completed, 
+      timeFilteredCompleted, 
       this.state.selectedCategories, 
       this.state.includeCommission
     );
 
     // 2. Filter & Sort
-    let filtered = this.allTravels;
+    let filtered = this._applyTimeFilter(this.allTravels);
     
     // Status Filter
     if (this.state.filter !== 'TODOS') {
@@ -150,7 +177,10 @@ export class TravelPresenter {
       onSort: (s) => this.setSort(s),
       onPage: (p) => this.setPage(p),
       onCategoryToggle: (cat) => this.toggleCategory(cat),
-      onCommissionToggle: (val) => this.toggleCommission(val)
+      onCommissionToggle: (val) => this.toggleCommission(val),
+      timeFilterType: this.state.timeFilterType,
+      timeFilterValue: this.state.timeFilterValue,
+      onTimeFilter: (type, val) => this.setTimeFilter(type, val)
     });
   }
 
@@ -170,8 +200,8 @@ export class TravelPresenter {
     const categoriesList = Array.from(categoriesSet).sort();
     const allCategories = ['TODOS', ...categoriesList];
 
-    // 1. Filter data by categories
-    let filtered = completed;
+    // 1. Filter data by time and categories
+    let filtered = this._applyTimeFilter(completed);
     if (this.state.selectedCategories.length > 0) {
       filtered = filtered.filter(t => 
         t.buy && t.buy.categories && t.buy.categories.some(cat => this.state.selectedCategories.includes(cat))
@@ -185,7 +215,10 @@ export class TravelPresenter {
       selectedCategories: this.state.selectedCategories,
       includeCommission: this.state.includeCommission,
       onCategoryToggle: (cat) => this.toggleCategory(cat),
-      onCommissionToggle: (val) => this.toggleCommission(val)
+      onCommissionToggle: (val) => this.toggleCommission(val),
+      timeFilterType: this.state.timeFilterType,
+      timeFilterValue: this.state.timeFilterValue,
+      onTimeFilter: (type, val) => this.setTimeFilter(type, val)
     });
   }
 
