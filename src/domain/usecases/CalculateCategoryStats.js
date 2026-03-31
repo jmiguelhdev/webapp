@@ -17,9 +17,14 @@ export class CalculateCategoryStats {
     const catsToFilter = Array.isArray(categories) ? categories : [categories];
     const isAll = catsToFilter.length === 0 || catsToFilter.includes('TODOS');
 
+    // To track yield per entity (producer + agent combination)
+    const entityYieldMap = new Map(); 
+
     completedTravels.forEach(t => {
       const buy = t.buy;
       if (!buy) return;
+
+      const agentName = buy.agent?.name || 'Sin Comisionista';
 
       if (isAll) {
         const kg = buy.totalKgClean;
@@ -31,7 +36,17 @@ export class CalculateCategoryStats {
           totalKgFaena += buy.totalKgFaena;
           
           buy.listOfProducers.forEach(p => {
+            const prodName = p.producer?.name || 'Productor';
+            const entityKey = `${prodName} (ag. ${agentName})`;
+            if (!entityYieldMap.has(entityKey)) {
+              entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgFaena: 0 });
+            }
+            const entityStats = entityYieldMap.get(entityKey);
+            
             p.listOfProducts.forEach(pr => {
+              entityStats.kg += (pr.kgClean || 0);
+              entityStats.kgFaena += (pr.kgFaena || 0);
+
               const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
               totalFactura += (bill.neto || 0) + (bill.iva || 0);
             });
@@ -42,6 +57,14 @@ export class CalculateCategoryStats {
       } else {
         let foundInCategory = false;
         buy.listOfProducers.forEach(p => {
+          const prodName = p.producer?.name || 'Productor';
+          const entityKey = `${prodName} (ag. ${agentName})`;
+          
+          if (!entityYieldMap.has(entityKey)) {
+            entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgFaena: 0 });
+          }
+          const entityStats = entityYieldMap.get(entityKey);
+
           p.listOfProducts.forEach(pr => {
             if (catsToFilter.includes(pr.standardizedCategory)) {
               const kg = pr.kgClean;
@@ -56,6 +79,9 @@ export class CalculateCategoryStats {
                 totalQuantity += (pr.quantity || 0);
                 totalKgFaena += (pr.kgFaena || 0);
                 
+                entityStats.kg += kg;
+                entityStats.kgFaena += (pr.kgFaena || 0);
+
                 const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
                 totalFactura += (bill.neto || 0) + (bill.iva || 0);
                 
@@ -70,16 +96,34 @@ export class CalculateCategoryStats {
 
     const facturaOverOp = totalOp > 0 ? (totalFactura / totalOp) : 0;
     const avgKgMediaRes = totalQuantity > 0 ? (totalKgFaena / totalQuantity / 2) : 0;
+    const avgYield = totalKg > 0 ? (totalKgFaena / totalKg) : 0;
+
+    let maxYield = 0;
+    let maxYieldEntity = '-';
+
+    entityYieldMap.forEach(stats => {
+      if (stats.kg > 0) {
+        const y = stats.kgFaena / stats.kg;
+        if (y > maxYield) {
+          maxYield = y;
+          maxYieldEntity = stats.name;
+        }
+      }
+    });
 
     return {
       avgPrice: totalKg > 0 ? totalOp / totalKg : 0,
       avgPriceWithCommission: totalKg > 0 ? totalOpWithComm / totalKg : 0,
       totalKg,
+      totalKgFaena,
       totalQuantity,
       travelCount: count,
       facturaOverOp,
       hasFacturaWarning: facturaOverOp < 0.5 || facturaOverOp > 1.0,
-      avgKgMediaRes
+      avgKgMediaRes,
+      avgYield,
+      maxYield,
+      maxYieldEntity
     };
   }
 }

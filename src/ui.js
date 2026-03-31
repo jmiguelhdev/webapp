@@ -185,6 +185,33 @@ export function renderTravels(container, options) {
       '🐂'
     ));
 
+    // Nuevo: Rendimiento Promedio
+    statsGrid.appendChild(renderStatCard(
+      'Rendimiento Promedio', 
+      `${(categoryStats.avgYield * 100).toFixed(2)}%`, 
+      '📈'
+    ));
+
+    // Nuevo: Máximo Rendimiento
+    const maxYieldLabel = categoryStats.maxYield > 0 ? `${(categoryStats.maxYield * 100).toFixed(2)}%` : 'N/A';
+    const maxYieldSub = categoryStats.maxYield > 0 ? `<div style="font-size:0.7em; color:var(--text-muted);">${categoryStats.maxYieldEntity}</div>` : '';
+    const maxYieldEl = el('div', { 
+      classes: ['stat-card'], 
+      html: `<div class="stat-icon">👑</div><div class="stat-info"><p>Rendimiento Máximo</p><h3>${maxYieldLabel}</h3>${maxYieldSub}</div>` 
+    });
+    statsGrid.appendChild(maxYieldEl);
+
+    // Nuevo: Kg Faenados + Importe
+    const totalCostoFaenados = categoryStats.totalKgFaena > 0 
+      ? categoryStats.totalKgFaena * categoryStats.avgPriceWithCommission
+      : 0;
+
+    const kgFaenadosEl = el('div', { 
+      classes: ['stat-card'], 
+      html: `<div class="stat-icon">🔪</div><div class="stat-info"><p>Kilos Faenados</p><h3>${(categoryStats.totalKgFaena || 0).toLocaleString()} kg</h3><div style="font-size:0.8em; color:var(--text-muted); margin-top: 2px;">Costo total: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>` 
+    });
+    statsGrid.appendChild(kgFaenadosEl);
+
     // MAG Comparison (Market Intelligence)
     const selectedCat = options.selectedCategories.length === 1 ? options.selectedCategories[0] : null;
     if (selectedCat && selectedCat !== 'TODOS') {
