@@ -128,16 +128,7 @@ export class TravelPresenter {
     const categoriesList = Array.from(categoriesSet).sort();
     const allCategories = ['TODOS', ...categoriesList];
 
-    const timeFilteredCompleted = this._applyTimeFilter(completed);
-
-    // 1. Stats
-    const categoryStats = this.calculateStatsUseCase.execute(
-      timeFilteredCompleted, 
-      this.state.selectedCategories, 
-      this.state.includeCommission
-    );
-
-    // 2. Filter & Sort
+    // 1. Filter & Sort
     let filtered = this._applyTimeFilter(this.allTravels);
     
     // Status Filter
@@ -181,6 +172,13 @@ export class TravelPresenter {
       const dateB = new Date(b.date || 0);
       return this.state.sort === 'DESC' ? dateB - dateA : dateA - dateB;
     });
+
+    // 2. Stats
+    const categoryStats = this.calculateStatsUseCase.execute(
+      filtered, 
+      this.state.selectedCategories, 
+      this.state.includeCommission
+    );
 
     // 3. Paginate
     const totalItems = filtered.length;

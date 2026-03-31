@@ -9,6 +9,7 @@ export class CalculateCategoryStats {
     let totalQuantity = 0;
     let totalKgFaena = 0;
     let count = 0;
+    let totalKgForYield = 0;
 
     const completedTravels = travels.filter(t => {
       const s = String(t.status || '').toUpperCase();
@@ -39,13 +40,21 @@ export class CalculateCategoryStats {
             const prodName = p.producer?.name || 'Productor';
             const entityKey = `${prodName} (ag. ${agentName})`;
             if (!entityYieldMap.has(entityKey)) {
-              entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgFaena: 0 });
+              entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgForYield: 0, kgFaena: 0 });
             }
             const entityStats = entityYieldMap.get(entityKey);
             
             p.listOfProducts.forEach(pr => {
-              entityStats.kg += (pr.kgClean || 0);
-              entityStats.kgFaena += (pr.kgFaena || 0);
+              const cleanKg = pr.kgClean || 0;
+              const faenaKg = pr.kgFaena || 0;
+              
+              entityStats.kg += cleanKg;
+              entityStats.kgFaena += faenaKg;
+              
+              if (faenaKg > 0) {
+                totalKgForYield += cleanKg;
+                entityStats.kgForYield += cleanKg;
+              }
 
               const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
               totalFactura += (bill.neto || 0) + (bill.iva || 0);
@@ -61,7 +70,7 @@ export class CalculateCategoryStats {
           const entityKey = `${prodName} (ag. ${agentName})`;
           
           if (!entityYieldMap.has(entityKey)) {
-            entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgFaena: 0 });
+            entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgForYield: 0, kgFaena: 0 });
           }
           const entityStats = entityYieldMap.get(entityKey);
 
@@ -69,6 +78,7 @@ export class CalculateCategoryStats {
             if (catsToFilter.includes(pr.standardizedCategory)) {
               const kg = pr.kgClean;
               if (kg > 0) {
+                const faenaKg = pr.kgFaena || 0;
                 const op = pr.operation;
                 const commPercent = buy.agent?.percent || 0;
                 const opWithComm = op * (1 + commPercent / 100);
@@ -77,10 +87,15 @@ export class CalculateCategoryStats {
                 totalOpWithComm += opWithComm;
                 totalKg += kg;
                 totalQuantity += (pr.quantity || 0);
-                totalKgFaena += (pr.kgFaena || 0);
+                totalKgFaena += faenaKg;
                 
                 entityStats.kg += kg;
-                entityStats.kgFaena += (pr.kgFaena || 0);
+                entityStats.kgFaena += faenaKg;
+
+                if (faenaKg > 0) {
+                  totalKgForYield += kg;
+                  entityStats.kgForYield += kg;
+                }
 
                 const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
                 totalFactura += (bill.neto || 0) + (bill.iva || 0);
@@ -96,14 +111,14 @@ export class CalculateCategoryStats {
 
     const facturaOverOp = totalOp > 0 ? (totalFactura / totalOp) : 0;
     const avgKgMediaRes = totalQuantity > 0 ? (totalKgFaena / totalQuantity / 2) : 0;
-    const avgYield = totalKg > 0 ? (totalKgFaena / totalKg) : 0;
+    const avgYield = totalKgForYield > 0 ? (totalKgFaena / totalKgForYield) : 0;
 
     let maxYield = 0;
     let maxYieldEntity = '-';
 
     entityYieldMap.forEach(stats => {
-      if (stats.kg > 0) {
-        const y = stats.kgFaena / stats.kg;
+      if (stats.kgForYield > 0) {
+        const y = stats.kgFaena / stats.kgForYield;
         if (y > maxYield) {
           maxYield = y;
           maxYieldEntity = stats.name;
