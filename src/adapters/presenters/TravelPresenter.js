@@ -3,6 +3,8 @@ import { GetTravels } from '../../domain/usecases/GetTravels.js';
 import { CalculateCategoryStats } from '../../domain/usecases/CalculateCategoryStats.js';
 import { PdfFaenaService } from '../../services/PdfFaenaService.js';
 import { SHARED_DATA_SOURCE_UID } from '../../config.js';
+import { debounce } from '../../utils.js';
+
 
 export class TravelPresenter {
   constructor(travelRepository, ui) {
@@ -24,6 +26,13 @@ export class TravelPresenter {
       timeFilterValue: null,
       searchQuery: ''
     };
+    
+    // Debounce search to prevent focus loss and flickers on every keystroke
+    this.debouncedSearch = debounce((query) => {
+      this.state.searchQuery = query;
+      this.state.page = 1;
+      this.refresh();
+    }, 300);
   }
 
   setTimeFilter(type, value) {
@@ -83,9 +92,9 @@ export class TravelPresenter {
   }
 
   setSearchQuery(query) {
-    this.state.searchQuery = query;
-    this.state.page = 1;
-    this.refresh();
+    // Immediate update for the UI input value (to avoid lag) but debounced refresh
+    this.state.searchQuery = query; 
+    this.debouncedSearch(query);
   }
 
   toggleCategory(category) {

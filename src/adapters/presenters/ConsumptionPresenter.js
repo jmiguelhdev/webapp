@@ -1,4 +1,6 @@
 // src/adapters/presenters/ConsumptionPresenter.js
+import { debounce } from '../../utils.js';
+
 
 export class ConsumptionPresenter {
   constructor(travelRepository, ui, clientRepository) {
@@ -23,6 +25,16 @@ export class ConsumptionPresenter {
         search: ''
       }
     };
+
+    this.debouncedStockSearch = debounce((val) => {
+      this.state.stockSearch = val.toLowerCase();
+      this.updateView();
+    }, 400);
+
+    this.debouncedHistorySearch = debounce((val) => {
+      this.state.historyFilters.search = val.toLowerCase();
+      this.updateView();
+    }, 400);
   }
 
   async loadFaenas(uid) {
@@ -105,7 +117,7 @@ export class ConsumptionPresenter {
 
   setStockSearch(val) {
     this.state.stockSearch = val.toLowerCase();
-    this.updateView();
+    this.debouncedStockSearch(val);
   }
 
   setCategoryFilter(cat) {
@@ -181,8 +193,13 @@ export class ConsumptionPresenter {
   }
 
   setHistoryFilter(key, value) {
-    this.state.historyFilters[key] = value.toLowerCase();
-    this.updateView();
+    if (key === 'search') {
+      this.state.historyFilters[key] = value.toLowerCase();
+      this.debouncedHistorySearch(value);
+    } else {
+      this.state.historyFilters[key] = value.toLowerCase();
+      this.updateView();
+    }
   }
 
   _applySearchAndSort(list, searchStr) {

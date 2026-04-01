@@ -95,6 +95,11 @@ export function renderTravels(container, options) {
     onCategoryChange, onCommissionToggle,
     categoryStats = { avgPrice: 0, totalKg: 0, travelCount: 0 }
   } = options;
+  
+  // Capture current focus info to restore it after re-render
+  const activeId = document.activeElement ? document.activeElement.id : null;
+  const selectionStart = document.activeElement ? document.activeElement.selectionStart : null;
+  const selectionEnd = document.activeElement ? document.activeElement.selectionEnd : null;
 
   container.innerHTML = '';
 
@@ -266,7 +271,7 @@ export function renderTravels(container, options) {
   
   const searchInput = el('input', { 
     classes: ['form-input'], 
-    attrs: { type: 'text', placeholder: 'Buscar por productor, patente, chofer...', value: options.searchQuery || '' },
+    attrs: { id: 'travel-search', type: 'text', placeholder: 'Buscar por productor, patente, chofer...', value: options.searchQuery || '' },
     style: 'flex: 1; min-width: 250px; padding: 0.6rem 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main);'
   });
   searchInput.oninput = (e) => options.onSearch(e.target.value);
@@ -424,6 +429,17 @@ export function renderTravels(container, options) {
     pagin.appendChild(info);
     pagin.appendChild(nextBtn);
     container.appendChild(pagin);
+  }
+
+  // Restore focus and cursor position
+  if (activeId) {
+    const elToFocus = document.getElementById(activeId);
+    if (elToFocus) {
+      elToFocus.focus();
+      if (selectionStart !== null && selectionEnd !== null && (elToFocus.type === 'text' || elToFocus.type === 'search')) {
+        elToFocus.setSelectionRange(selectionStart, selectionEnd);
+      }
+    }
   }
 }
 
