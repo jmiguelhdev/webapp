@@ -7,6 +7,8 @@ import * as api from './api.js';
 import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
 import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
+import { ConsumptionPresenter } from './adapters/presenters/ConsumptionPresenter.js';
+import { SHARED_DATA_SOURCE_UID } from './config.js';
 
 // Dependencies
 const travelRepository = new FirebaseTravelRepository();
@@ -14,8 +16,7 @@ const travelRepository = new FirebaseTravelRepository();
 // State
 let currentUser = null;
 
-// Configuración de acceso compartido
-const SHARED_DATA_SOURCE_UID = 'rUY2SwonQJTtOE0iCbXDQBoVmc63';
+// Acceso compartido desde config.js
 
 
 // UI elements
@@ -27,15 +28,19 @@ const menuToggle = document.getElementById('menu-toggle');
 // Unified UI Interface for Presenter
 const uiInterface = {
   showLoading: () => { content.innerHTML = `<div class="loading">Cargando...</div>`; },
+  hideLoading: () => {}, // Handled by updateView rendering over the container
   showError: (msg) => { content.innerHTML = `<div class="alert error">Error: ${msg}</div>`; },
   renderTravels: (options) => uiLib.renderTravels(content, options),
   renderDashboard: (options) => uiLib.renderDashboard(content, options),
+  renderFaenaConsumption: (options) => uiLib.renderFaenaConsumption(content, options),
   renderExportModal: (options) => uiLib.renderExportModal(options),
+  renderScanResultsModal: (options) => uiLib.renderScanResultsModal(options),
   generateTravelReport: (data) => uiLib.generateTravelReport(data),
   generateExcelReport: (data) => uiLib.generateExcelReport(data)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
+const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface);
 
 // Auth Listener
 onAuthStateChanged(auth, (user) => {
@@ -109,6 +114,9 @@ function navigateTo(view) {
       break;
     case 'dashboard':
       travelPresenter.showDashboard();
+      break;
+    case 'consumption':
+      consumptionPresenter.loadFaenas(SHARED_DATA_SOURCE_UID);
       break;
     case 'simulator': uiLib.renderSimulator(content); break;
     case 'settings': uiLib.renderSettings(content); break;

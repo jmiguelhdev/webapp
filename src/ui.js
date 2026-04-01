@@ -271,8 +271,45 @@ export function renderTravels(container, options) {
   });
   searchInput.oninput = (e) => options.onSearch(e.target.value);
 
+  // PDF Upload Button (New)
+  const pdfUploadContainer = el('div', { style: 'display: flex; align-items: center; gap: 0.5rem;' });
+  
+  const pdfInput = el('input', { attrs: { type: 'file', accept: '.pdf', id: 'pdf-faena-input' }, style: 'display: none;' });
+  const uploadBtn = el('button', { 
+    classes: ['btn-primary'], 
+    text: '📄 Subir PDF', 
+    style: 'margin: 0; white-space: nowrap; background: #2563eb; font-size: 0.85rem; padding: 0.6rem 1rem;' 
+  });
+  uploadBtn.onclick = () => pdfInput.click();
+  pdfInput.onchange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      options.onPdfUpload(e.target.files[0]);
+    }
+  };
+  
+  const scanInput = el('input', { attrs: { type: 'file', webkitdirectory: '', directory: '', multiple: '' }, style: 'display: none;' });
+  const scanBtn = el('button', { 
+    classes: ['btn-primary'], 
+    text: '📁 Escanear Carpeta', 
+    title: 'Escanear una carpeta local en busca de PDFs no procesados',
+    style: 'margin: 0; white-space: nowrap; background: #059669; font-size: 0.85rem; padding: 0.6rem 1rem;' 
+  });
+  scanBtn.onclick = () => scanInput.click();
+  scanInput.onchange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      options.onScanDirectory(Array.from(e.target.files));
+    }
+    scanInput.value = ''; // Reset for next use
+  };
+
+  pdfUploadContainer.appendChild(pdfInput);
+  pdfUploadContainer.appendChild(uploadBtn);
+  pdfUploadContainer.appendChild(scanInput);
+  pdfUploadContainer.appendChild(scanBtn);
+
   toolbar.appendChild(filterGroup);
   toolbar.appendChild(searchInput);
+  toolbar.appendChild(pdfUploadContainer);
   toolbar.appendChild(sortBtn);
   container.appendChild(toolbar);
 
@@ -684,6 +721,62 @@ export function renderExportModal({ onExport, onExcelExport }) {
   };
 }
 
+/** Render Scan Results Modal */
+export function renderScanResultsModal({ newCount, existCount, errorCount, errorMessages }) {
+  const overlay = el('div', { classes: ['modal-overlay'] });
+  const modal = el('div', { classes: ['modal'], style: 'max-width: 600px; max-height: 80vh; overflow-y: auto;' });
+  
+  const hasErrors = errorMessages.length > 0;
+  
+  let html = `
+    <h2 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+      📂 Resultados del Escaneo
+    </h2>
+    <div style="background: var(--bg-hover); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+      <div style="color: #10b981; margin-bottom: 0.5rem; font-weight: 500;">✅ ${newCount} PDFs nuevos procesados exitosamente</div>
+      <div style="color: #60a5fa; margin-bottom: 0.5rem; font-weight: 500;">⏭️ ${existCount} PDFs ya existían (omitidos)</div>
+      <div style="color: #ef4444; font-weight: 500;">❌ ${errorCount} errores encontrados</div>
+    </div>
+  `;
+
+  if (hasErrors) {
+    // Generate a simple list for text copying
+    const errorText = errorMessages.map(msg => msg).join('\n\n');
+    html += `
+      <h3 style="margin-bottom: 0.5rem; color: var(--text-main); font-size: 1rem;">Detalle de Errores:</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">
+        Puedes seleccionar y copiar el texto a continuación si necesitas analizar los errores.
+      </p>
+      <textarea readonly style="
+        width: 100%; 
+        height: 150px; 
+        background: var(--bg-main); 
+        color: #ef4444; 
+        border: 1px solid var(--border); 
+        border-radius: 8px; 
+        padding: 0.75rem; 
+        font-family: monospace; 
+        font-size: 0.85rem;
+        resize: vertical;
+      ">${errorText}</textarea>
+    `;
+  }
+
+  html += `
+    <div class="modal-actions" style="margin-top: 1.5rem;">
+      <button class="btn-primary" id="modal-close" style="width: 100%;">Aceptar</button>
+    </div>
+  `;
+
+  modal.innerHTML = html;
+
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  modal.querySelector('#modal-close').onclick = () => overlay.remove();
+}
+
 /** 
  * Generate Professional PDF Report 
  * Simple table-based report using jsPDF
@@ -883,3 +976,278 @@ export function renderSettings(container) {
     showMsg('¡Restaurado a los valores originales!');
   };
 }
+
+/** 
+ * Render Faena Consumption Module 
+ */
+export function renderFaenaConsumption(container, options) {
+  const { 
+    state, 
+    stockItems, 
+    historyItems,
+    onTabSwitch,
+    onToggleSelection,
+    onSelectAll,
+    onClearSelection,
+    onDestinationInput,
+    onDispatch,
+    onFilterChange,
+    onToggleSort,
+    onStockSearch,
+    onCategoryChange
+  } = options;
+
+  container.innerHTML = '';
+  const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
+
+  // 1. Header & Tabs
+  const header = el('div', { classes: ['dashboard-header'] });
+  header.innerHTML = `<h2>🥩 Módulo Faena</h2>`;
+  
+  const tabs = el('div', { classes: ['dashboard-filters'] });
+  const btnStock = el('button', { classes: [state.activeTab === 'STOCK' ? 'btn-primary' : 'btn-outline'], text: 'Inventario Disponible' });
+  const btnHistory = el('button', { classes: [state.activeTab === 'HISTORY' ? 'btn-primary' : 'btn-outline'], text: 'Historial de Despachos' });
+  
+  btnStock.onclick = () => onTabSwitch('STOCK');
+  btnHistory.onclick = () => onTabSwitch('HISTORY');
+
+  tabs.appendChild(btnStock);
+  tabs.appendChild(btnHistory);
+  header.appendChild(tabs);
+  wrapper.appendChild(header);
+
+  // Global Category Chips
+  const categoryFilters = el('div', { classes: ['dashboard-filters'], style: 'margin-bottom: 2rem; justify-content: flex-start; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem;' });
+  const categories = ['ALL', 'NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO'];
+  const catNames = { 'ALL': 'Todas', 'NOVILLO': 'Novillo', 'VACA': 'Vaca', 'VAQUILLONA': 'Vaquillona', 'TORO': 'Toro', 'OTRO': 'Otro' };
+  
+  categories.forEach(cat => {
+    const isCatActive = state.categoryFilter === cat;
+    const catBtn = el('button', { 
+      classes: ['filter-chip'], 
+      text: catNames[cat],
+      style: `
+        padding: 0.4rem 1rem; 
+        border-radius: 20px; 
+        font-size: 0.85rem; 
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid ${isCatActive ? 'var(--primary)' : 'var(--border)'};
+        background: ${isCatActive ? 'var(--primary)' : 'transparent'};
+        color: ${isCatActive ? '#ffffff' : 'var(--text-main)'};
+      `
+    });
+    catBtn.onclick = () => onCategoryChange(cat);
+    categoryFilters.appendChild(catBtn);
+  });
+  
+  wrapper.appendChild(categoryFilters);
+
+  if (state.activeTab === 'STOCK') {
+    // --- STOCK VIEW ---
+
+    // Stats Grid
+    const totals = stockItems.reduce((acc, item) => {
+      acc.kg += item.kg || 0;
+      acc.count += 1;
+      const cat = item.standardizedCategory || 'OTRO';
+      if (!acc.byCategory[cat]) acc.byCategory[cat] = { kg: 0, count: 0 };
+      acc.byCategory[cat].kg += item.kg || 0;
+      acc.byCategory[cat].count += 1;
+      return acc;
+    }, { kg: 0, count: 0, byCategory: {} });
+
+    const statsGrid = el('div', { classes: ['stats-grid'] });
+    const addStat = (title, val, subtitle) => {
+      statsGrid.appendChild(el('div', { classes: ['stat-card', 'glass-card'], html: `<h3>${title}</h3><div class="stat-value">${val}</div><div class="stat-subtitle">${subtitle}</div>` }));
+    };
+
+    addStat('Total Reses', totals.count, `${totals.kg.toFixed(1)} kg Colgados`);
+    Object.keys(totals.byCategory).forEach(cat => {
+      addStat(`Stock ${cat}`, totals.byCategory[cat].count, `${totals.byCategory[cat].kg.toFixed(1)} kg`);
+    });
+    wrapper.appendChild(statsGrid);
+
+    // Dispatch Panel (If items selected)
+    if (state.selectedIds.size > 0) {
+      const selectedItems = stockItems.filter(i => state.selectedIds.has(i.id));
+      const selKg = selectedItems.reduce((s, i) => s + (i.kg || 0), 0);
+
+      const panel = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #ef4444; background: var(--bg-hover); padding: 1.5rem;' });
+      panel.innerHTML = `
+        <h3 style="margin-bottom: 1rem; color: #ef4444; display: flex; align-items: center; justify-content: space-between;">
+          <span>📦 Preparando Despacho: ${selectedItems.length} medias reses (${selKg.toFixed(1)} kg)</span>
+          <button id="clear-sel-btn" class="btn-outline" style="font-size: 0.8rem; padding: 0.2rem 0.6rem;">Limpiar Selección</button>
+        </h3>
+        <div style="display: flex; gap: 1rem; align-items: flex-end;">
+          <div class="form-group" style="flex: 1; margin: 0;">
+            <label>Destino / Operador (Carnicería)</label>
+            <input type="text" id="dispatch-dest" class="form-input" style="width: 100%; border: 1px solid var(--border); padding: 0.75rem; border-radius: 12px; background: var(--bg-main); color: var(--text-main);" placeholder="Ej: Carnicería Centro" value="${state.destinationInput}">
+          </div>
+          <button id="dispatch-btn" class="btn-primary" style="background: #ef4444; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.9rem; max-width: 160px;">🚚 Salida</button>
+        </div>
+      `;
+      wrapper.appendChild(panel);
+
+      panel.querySelector('#dispatch-dest').addEventListener('input', (e) => onDestinationInput(e.target.value));
+      panel.querySelector('#clear-sel-btn').onclick = () => onClearSelection();
+      panel.querySelector('#dispatch-btn').onclick = () => onDispatch();
+    }
+
+    // List Container
+    const listCard = el('div', { classes: ['glass-card'], style: 'flex: 1;' });
+    
+    // Header row of list
+    const listHeader = el('div', { style: 'display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;' });
+    listHeader.innerHTML = `
+      <h3 style="margin: 0; min-width: 200px;">Medias Reses en Cámara</h3>
+      <input type="text" id="stock-search" class="form-input" style="flex: 1; max-width: 300px; padding: 0.5rem; font-size: 0.9rem;" placeholder="🔎 Buscar Tropa, Garron, Kg..." value="${state.stockSearch}">
+      <div style="flex-grow: 1;"></div>
+    `;
+    
+    const selectAllBtn = el('button', { classes: ['btn-outline'], text: 'Seleccionar Todas', style: 'font-size: 0.8rem;' });
+    selectAllBtn.onclick = () => onSelectAll(stockItems.map(i => i.id));
+    listHeader.appendChild(selectAllBtn);
+    listCard.appendChild(listHeader);
+
+    // List Container events
+    setTimeout(() => {
+      document.getElementById('stock-search').addEventListener('input', (e) => onStockSearch(e.target.value));
+    }, 0);
+
+    // Table
+    const tableWrap = el('div', { style: 'overflow-x: auto;' });
+    const table = document.createElement('table');
+    table.className = 'faena-table';
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.textAlign = 'left';
+    table.innerHTML = `
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+          <th style="padding: 1rem; width: 50px;">Sel</th>
+          <th id="sort-garron-stock" style="padding: 1rem; cursor: pointer; user-select: none;" title="Ordenar por Número de Garron">
+            Nº Garron ${state.sortOrder === 'asc' ? '▲' : '▼'}
+          </th>
+          <th style="padding: 1rem;">Mitad (Mz)</th>
+          <th style="padding: 1rem;">Categoría</th>
+          <th style="padding: 1rem;">Kilos</th>
+          <th style="padding: 1rem;">Ingreso</th>
+        </tr>
+      </thead>
+      <tbody id="stock-tbody"></tbody>
+    `;
+
+    setTimeout(() => {
+      document.getElementById('sort-garron-stock').onclick = () => onToggleSort();
+    }, 0);
+
+    const tbody = table.querySelector('#stock-tbody');
+    if (stockItems.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay stock disponible. Carga reportes de faena desde la pestaña Viajes.</td></tr>`;
+    } else {
+      stockItems.forEach(item => {
+        const isSel = state.selectedIds.has(item.id);
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border)';
+        tr.style.background = isSel ? 'rgba(239, 68, 68, 0.1)' : 'transparent';
+        tr.style.cursor = 'pointer';
+        
+        tr.innerHTML = `
+          <td style="padding: 1rem;"><input type="checkbox" ${isSel ? 'checked' : ''} style="transform: scale(1.2); cursor: pointer; pointer-events: none;"></td>
+          <td style="padding: 1rem; font-weight: 500;">#${item.garron}</td>
+          <td style="padding: 1rem;">Mitad ${item.half || '1'}</td>
+          <td style="padding: 1rem;">${item.standardizedCategory || item.category}</td>
+          <td style="padding: 1rem; font-weight: bold; color: #10b981;">${item.kg.toFixed(1)} kg</td>
+          <td style="padding: 1rem; font-size: 0.85rem; color: var(--text-muted);">${item.pdfDate} (Tr. ${item.tropa})</td>
+        `;
+        
+        tr.onclick = (e) => {
+          if (e.target.tagName !== 'INPUT') {
+            onToggleSelection(item.id);
+          } else {
+            e.preventDefault();
+            onToggleSelection(item.id);
+          }
+        };
+        tbody.appendChild(tr);
+      });
+    }
+
+    tableWrap.appendChild(table);
+    listCard.appendChild(tableWrap);
+    wrapper.appendChild(listCard);
+
+  } else {
+    // --- HISTORY VIEW ---
+    const filterPanel = el('div', { classes: ['glass-card'], style: 'margin-bottom: 1.5rem; display: flex; gap: 1rem;' });
+    filterPanel.innerHTML = `
+      <div class="form-group" style="flex: 1; margin: 0;">
+        <label>Búsqueda General</label>
+        <input type="text" id="hist-search" class="form-input" placeholder="Tropa, Garron, Kg..." value="${state.historyFilters.search || ''}">
+      </div>
+      <div class="form-group" style="flex: 1.5; margin: 0;">
+        <label>Destino / Cliente</label>
+        <input type="text" id="hist-dest" class="form-input" placeholder="Buscar carnicería..." value="${state.historyFilters.destination}">
+      </div>
+      <div class="form-group" style="flex: 1; margin: 0;">
+        <label>Fecha de Salida</label>
+        <input type="date" id="hist-date" class="form-input" value="${state.historyFilters.date}">
+      </div>
+    `;
+    wrapper.appendChild(filterPanel);
+
+    filterPanel.querySelector('#hist-search').addEventListener('input', (e) => onFilterChange('search', e.target.value));
+    filterPanel.querySelector('#hist-dest').addEventListener('input', (e) => onFilterChange('destination', e.target.value));
+    filterPanel.querySelector('#hist-date').addEventListener('change', (e) => onFilterChange('date', e.target.value));
+
+    const histCard = el('div', { classes: ['glass-card'] });
+    histCard.innerHTML = `<h3 style="margin-bottom: 1rem;">Historial Integrado</h3>`;
+    
+    const tableWrap = el('div', { style: 'overflow-x: auto;' });
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.textAlign = 'left';
+    table.innerHTML = `
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+          <th style="padding: 1rem;">Fecha Salida</th>
+          <th style="padding: 1rem;">Destino / Cliente</th>
+          <th id="sort-garron-hist" style="padding: 1rem; cursor: pointer; user-select: none;">
+            Nº Garron ${state.sortOrder === 'asc' ? '▲' : '▼'}
+          </th>
+          <th style="padding: 1rem;">Mitad (Mz)</th>
+          <th style="padding: 1rem;">Categoría</th>
+          <th style="padding: 1rem;">Kilos</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${historyItems.length === 0 ? `<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No se encontraron salidas.</td></tr>` : 
+          historyItems.map(h => `
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 1rem;">${h.dispatchDate ? new Date(h.dispatchDate).toLocaleDateString() : 'N/A'}</td>
+              <td style="padding: 1rem; font-weight: 500; color: #ef4444;">${h.destination || 'Sin Destino'}</td>
+              <td style="padding: 1rem;">#${h.garron}</td>
+              <td style="padding: 1rem;">Mitad ${h.half || '1'}</td>
+              <td style="padding: 1rem;">${h.standardizedCategory || h.category}</td>
+              <td style="padding: 1rem;">${h.kg ? h.kg.toFixed(1) : 0} kg</td>
+            </tr>
+          `).join('')
+        }
+      </tbody>
+    `;
+    tableWrap.appendChild(table);
+    
+    setTimeout(() => {
+      document.getElementById('sort-garron-hist').onclick = () => onToggleSort();
+    }, 0);
+
+    histCard.appendChild(tableWrap);
+    wrapper.appendChild(histCard);
+  }
+
+  container.appendChild(wrapper);
+}
+

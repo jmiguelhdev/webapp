@@ -20,4 +20,31 @@ export class FirebaseTravelRepository {
   async fetchMasterData(uid, type) {
     return api.fetchMasterData(db, uid, type);
   }
+
+  async updateTravel(uid, travelId, travelObject) {
+    await api.updateTravel(db, uid, travelId, travelObject);
+    // Clear cache to force reload
+    localStorage.removeItem(`travels_${uid}`);
+  }
+
+  async saveFaenaDetalle(uid, faenaRecords) {
+    await api.saveFaenaDetalle(db, uid, faenaRecords);
+  }
+
+  async getFaenaStock(uid) {
+    return await api.fetchFaenaDetalle(db, uid);
+  }
+
+  async dispatchFaenas(uid, recordIds, destination) {
+    const updateData = {
+      status: 'DISPATCHED',
+      destination,
+      dispatchDate: Date.now()
+    };
+    await api.updateFaenasStatus(db, uid, recordIds, updateData);
+  }
+
+  async checkIfFaenaExists(uid, fileName) {
+    return api.checkIfFaenaExists(db, uid, fileName);
+  }
 }

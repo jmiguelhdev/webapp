@@ -3,6 +3,7 @@ import { Buy } from './Buy.js';
 
 export class Travel {
   constructor(data = {}) {
+    this._raw = data; // Preserve raw payload to avoid data loss on updates
     this.id = data.id || data.firebaseId || '';
     this.date = data.date || '';
     this.description = data.description || '';

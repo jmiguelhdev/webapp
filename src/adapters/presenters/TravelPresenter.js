@@ -1,11 +1,15 @@
 // src/adapters/presenters/TravelPresenter.js
 import { GetTravels } from '../../domain/usecases/GetTravels.js';
 import { CalculateCategoryStats } from '../../domain/usecases/CalculateCategoryStats.js';
+import { PdfFaenaService } from '../../services/PdfFaenaService.js';
+import { SHARED_DATA_SOURCE_UID } from '../../config.js';
 
 export class TravelPresenter {
   constructor(travelRepository, ui) {
+    this.travelRepository = travelRepository;
     this.getTravelsUseCase = new GetTravels(travelRepository);
     this.calculateStatsUseCase = new CalculateCategoryStats();
+    this.pdfService = new PdfFaenaService();
     this.ui = ui;
     this.allTravels = [];
     this.state = {
@@ -205,7 +209,9 @@ export class TravelPresenter {
       timeFilterValue: this.state.timeFilterValue,
       onTimeFilter: (type, val) => this.setTimeFilter(type, val),
       searchQuery: this.state.searchQuery,
-      onSearch: (q) => this.setSearchQuery(q)
+      onSearch: (q) => this.setSearchQuery(q),
+      onPdfUpload: (file) => this.handlePdfFaenaUpload(file, SHARED_DATA_SOURCE_UID),
+      onScanDirectory: (files) => this.handleScanDirectory(SHARED_DATA_SOURCE_UID, files)
     });
   }
 
@@ -254,6 +260,49 @@ export class TravelPresenter {
     });
   }
 
+  async handleScanDirectory(uid, filesArray) {
+    if (!filesArray || filesArray.length === 0) return;
+
+    this.ui.showLoading();
+    try {
+      let newCount = 0;
+      let existCount = 0;
+      let errorCount = 0;
+      let errorMessages = [];
+
+      for (const file of filesArray) {
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+          try {
+            const result = await this.handlePdfFaenaUpload(file, uid, true);
+            if (result.skipped) {
+              existCount++;
+            } else {
+              newCount++;
+            }
+          } catch (e) {
+            console.error(`Error procesando ${file.name}:`, e);
+            errorMessages.push(`- ${file.name}: ${e.stack || e.message}`);
+            errorCount++;
+          }
+        }
+      }
+
+      await this.loadTravels(uid);
+      
+      this.ui.renderScanResultsModal({
+        newCount,
+        existCount,
+        errorCount,
+        errorMessages
+      });
+
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this.updateView();
+    }
+  }
+
   async handleExport(options) {
     const { type, value } = options;
     let toExport = this.allTravels
@@ -296,5 +345,118 @@ export class TravelPresenter {
     }
 
     this.ui.generateExcelReport(toExport);
+  }
+
+  async handlePdfFaenaUpload(file, uid, isBulk = false) {
+    if (!isBulk) this.ui.showLoading();
+    try {
+      // 1. Check for duplicates early using the file name
+      const alreadyExists = await this.travelRepository.checkIfFaenaExists(uid, file.name);
+      if (alreadyExists) {
+        if (!isBulk) {
+          alert(`⚠️ El archivo "${file.name}" ya fue procesado anteriormente.`);
+          this.updateView();
+        }
+        return { skipped: true, fileName: file.name };
+      }
+
+      const pdfData = await this.pdfService.parse(file);
+      console.log("PDF Data Extracted:", pdfData);
+
+      if (!pdfData.producer.cuit) {
+        throw new Error(`[${file.name}] No se pudo encontrar el CUIT del productor en el PDF.`);
+      }
+
+      // Convert PDF date (dd/mm/yyyy) to Date object
+      const [d, m, y] = pdfData.date.split('/');
+      const pdfDate = new Date(`${y}-${m}-${d}`);
+
+      // Find matching travel
+      const match = this.allTravels.find(t => {
+        // 1. Check Producer CUIT
+        const hasProducer = (t.buy?.listOfProducers || []).some(p => {
+          const pCuit = (p.producer?.cuit || '').replace(/\D/g, '');
+          const targetCuit = pdfData.producer.cuit.replace(/\D/g, '');
+          return pCuit === targetCuit;
+        });
+
+        if (!hasProducer) return false;
+
+        // 2. Check Date Range (+/- 7 days)
+        const tDate = new Date(t.date);
+        const diffTime = Math.abs(pdfDate - tDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        return diffDays <= 7;
+      });
+
+      if (!match) {
+        throw new Error(`[${file.name}] No se encontró un viaje para el productor con CUIT ${pdfData.producer.cuit} cerca de la fecha ${pdfData.date}.`);
+      }
+
+      console.log("Matching Travel Found:", match);
+
+      // Create a deep copy to modify using the RAW backend data to prevent dropping fields
+      const updatedTravel = JSON.parse(JSON.stringify(match._raw || match));
+      const firebaseId = String(updatedTravel.id || updatedTravel.firebaseId || match.id);
+      delete updatedTravel.firebaseId; // Metadata cleanup
+
+      // Update kgFaena in the matching producer
+      const producer = updatedTravel.buy.listOfProducers.find(p => {
+        const pCuit = (p.producer?.cuit || '').replace(/\D/g, '');
+        const targetCuit = pdfData.producer.cuit.replace(/\D/g, '');
+        return pCuit === targetCuit;
+      });
+
+      if (producer) {
+        // Update individual products if categories match
+        producer.listOfProducts.forEach(pr => {
+          const categoryMatchedItems = pdfData.items.filter(item => item.standardizedCategory === pr.standardizedCategory);
+          if (categoryMatchedItems.length > 0) {
+            const totalCatKg = categoryMatchedItems.reduce((sum, item) => sum + item.kg, 0);
+            pr.kgFaena = totalCatKg;
+          }
+        });
+
+        // Update summaries
+        updatedTravel.buy.kgFaenaGlobal = pdfData.totalKgFaena;
+        updatedTravel.kgFaenaTotal = pdfData.totalKgFaena;
+      }
+
+      // 1. Save updated travel
+      await this.travelRepository.updateTravel(uid, firebaseId, updatedTravel);
+
+      // 2. Save detailed records (Garrones) to new collection
+      const detailRecords = pdfData.items.map(item => ({
+        travelId: firebaseId,
+        fileName: file.name, // Save for deduplication
+        tropa: pdfData.tropa,
+        garron: item.garron,
+        half: item.half,
+        category: item.category,
+        standardizedCategory: item.standardizedCategory,
+        kg: item.kg,
+        status: 'AVAILABLE', // Default logic for Stock
+        producerCuit: pdfData.producer.cuit,
+        producerName: pdfData.producer.name,
+        pdfDate: pdfData.date
+      }));
+      await this.travelRepository.saveFaenaDetalle(uid, detailRecords);
+
+      if (!isBulk) {
+        // 3. Refresh display only if not bulk (bulk refreshes once at the end)
+        await this.loadTravels(uid);
+        alert(`✅ Faena procesada con éxito: ${pdfData.totalKgFaena} kg, ${pdfData.totalHeadCount} cabezas.`);
+      }
+      return { success: true, fileName: file.name };
+
+    } catch (error) {
+      console.error(error);
+      if (!isBulk) {
+        alert(`❌ Error al procesar PDF: ${error.message}`);
+        this.updateView();
+      }
+      throw error;
+    }
   }
 }
