@@ -285,6 +285,53 @@ function navigateTo(view) {
                 <p>Los badges <span style="color: #3b82f6;">IVA</span> (azul) y <span style="color: #f59e0b;">Ganancias</span> (ámbar) solo aparecen si tienen valor mayor a cero.</p>
               </div>
             </div>
+
+            <!-- NUEVA SECCIÓN: Procesamiento de Faena (PDF) -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>📂 Procesamiento de Faena (PDF)</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Automatiza la carga de datos extrayendo información directamente de los reportes de faena de los frigoríficos.</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Escaneo</span> Usar "Escanear Carpeta" para procesar múltiples PDFs de una sola vez.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Vínculo</span> El sistema busca coincidencias por <strong>CUIT</strong> y <strong>Fecha</strong> (±7 días) para asignar los kilos al viaje correspondiente.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Deduplicación</span> Los archivos ya procesados se omiten automáticamente para evitar duplicar stock.
+                </div>
+                <p>Al procesar un PDF, el sistema divide cada registro en <strong>dos medias reses</strong> independientes para un control de inventario preciso.</p>
+              </div>
+            </div>
+
+            <!-- NUEVA SECCIÓN: Módulo de Consumo y Stock -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>🥩 Módulo de Consumo y Stock</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Gestión dinámica del inventario de piezas faenadas y control de salidas a clientes.</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Stock</span> Visualiza el total de kilos "colgados" y el conteo de piezas por categoría.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Despacho</span> Seleccionar piezas -> Ingresar Destino -> "🚚 Salida". La pieza pasa de Disponible a Despachada.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Filtros</span> Búsqueda por Tropa, Garron o Kg, y filtrado rápido por categorías (Chips).
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Historial</span> Registro completo de salidas con filtros de fecha y cliente para auditoría rápida.
+                </div>
+                <p>El sistema está preparado para futuras integraciones de precios de venta y cuentas corrientes de clientes.</p>
+              </div>
+            </div>
           </div>
 
           <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">

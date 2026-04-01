@@ -997,6 +997,11 @@ export function renderFaenaConsumption(container, options) {
     onCategoryChange
   } = options;
 
+  // Capture current focus info to restore it after re-render
+  const activeId = document.activeElement ? document.activeElement.id : null;
+  const selectionStart = document.activeElement ? document.activeElement.selectionStart : null;
+  const selectionEnd = document.activeElement ? document.activeElement.selectionEnd : null;
+
   container.innerHTML = '';
   const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
 
@@ -1100,21 +1105,22 @@ export function renderFaenaConsumption(container, options) {
     
     // Header row of list
     const listHeader = el('div', { style: 'display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;' });
-    listHeader.innerHTML = `
-      <h3 style="margin: 0; min-width: 200px;">Medias Reses en Cámara</h3>
-      <input type="text" id="stock-search" class="form-input" style="flex: 1; max-width: 300px; padding: 0.5rem; font-size: 0.9rem;" placeholder="🔎 Buscar Tropa, Garron, Kg..." value="${state.stockSearch}">
-      <div style="flex-grow: 1;"></div>
-    `;
+    
+    const stockSearchInput = el('input', { 
+        classes: ['form-input'], 
+        style: 'flex: 1; max-width: 300px; padding: 0.5rem; font-size: 0.9rem;',
+        attrs: { id: 'stock-search', type: 'text', placeholder: '🔎 Buscar Tropa, Garron, Kg...', value: state.stockSearch }
+    });
+    stockSearchInput.addEventListener('input', (e) => onStockSearch(e.target.value));
+
+    listHeader.innerHTML = `<h3 style="margin: 0; min-width: 200px;">Medias Reses en Cámara</h3>`;
+    listHeader.appendChild(stockSearchInput);
+    listHeader.appendChild(el('div', { style: 'flex-grow: 1;' }));
     
     const selectAllBtn = el('button', { classes: ['btn-outline'], text: 'Seleccionar Todas', style: 'font-size: 0.8rem;' });
     selectAllBtn.onclick = () => onSelectAll(stockItems.map(i => i.id));
     listHeader.appendChild(selectAllBtn);
     listCard.appendChild(listHeader);
-
-    // List Container events
-    setTimeout(() => {
-      document.getElementById('stock-search').addEventListener('input', (e) => onStockSearch(e.target.value));
-    }, 0);
 
     // Table
     const tableWrap = el('div', { style: 'overflow-x: auto;' });
@@ -1139,9 +1145,7 @@ export function renderFaenaConsumption(container, options) {
       <tbody id="stock-tbody"></tbody>
     `;
 
-    setTimeout(() => {
-      document.getElementById('sort-garron-stock').onclick = () => onToggleSort();
-    }, 0);
+    table.querySelector('#sort-garron-stock').onclick = () => onToggleSort();
 
     const tbody = table.querySelector('#stock-tbody');
     if (stockItems.length === 0) {
@@ -1240,14 +1244,23 @@ export function renderFaenaConsumption(container, options) {
     `;
     tableWrap.appendChild(table);
     
-    setTimeout(() => {
-      document.getElementById('sort-garron-hist').onclick = () => onToggleSort();
-    }, 0);
+    table.querySelector('#sort-garron-hist').onclick = () => onToggleSort();
 
     histCard.appendChild(tableWrap);
     wrapper.appendChild(histCard);
   }
 
   container.appendChild(wrapper);
+
+  // Restore focus and cursor position
+  if (activeId) {
+    const elToFocus = document.getElementById(activeId);
+    if (elToFocus) {
+      elToFocus.focus();
+      if (selectionStart !== null && selectionEnd !== null && (elToFocus.type === 'text' || elToFocus.type === 'search')) {
+        elToFocus.setSelectionRange(selectionStart, selectionEnd);
+      }
+    }
+  }
 }
 
