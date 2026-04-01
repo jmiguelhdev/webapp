@@ -354,6 +354,31 @@ function navigateTo(view) {
                 <p>El sistema está preparado para futuras integraciones de precios de venta y cuentas corrientes de clientes.</p>
               </div>
             </div>
+            
+            <!-- NUEVA SECCIÓN: Gestión de Clientes y Cuentas Corrientes -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>👥 Gestión de Clientes y Cuentas Corrientes</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Módulo centralizado para la administración de la cartera de clientes y el control de saldos pendientes:</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Configuración</span> Registrar clientes y definir <strong>Precios por Categoría</strong> ($/kg) en la pestaña ⚙️ Configuración.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Débito Automático</span> Al despachar mercadería (Salida), el sistema genera un movimiento de <strong>DEUDA</strong>: Monto = Kg Despachados × Precio Categoría.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Crédito Manual</span> Los pagos se registran desde la ficha individual de cada cliente en la sección 👥 Clientes.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Saldo</span> Saldo Pendiente = ∑ Deuda (Despachos) - ∑ Haber (Pagos)
+                </div>
+                <p>El historial permite ver el detalle de cada despacho (Garrón, Peso, Precio) para una conciliación rápida con el cliente.</p>
+              </div>
+            </div>
           </div>
 
           <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">
