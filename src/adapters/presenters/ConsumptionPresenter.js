@@ -1,15 +1,19 @@
 // src/adapters/presenters/ConsumptionPresenter.js
 
 export class ConsumptionPresenter {
-  constructor(travelRepository, ui) {
+  constructor(travelRepository, ui, clientRepository) {
     this.travelRepository = travelRepository;
+    this.clientRepository = clientRepository;
     this.ui = ui;
     this.allFaenas = [];
+    this.clients = [];
+    this.categoryPrices = {};
     
     this.state = {
       activeTab: 'STOCK', // 'STOCK' | 'HISTORY'
       selectedIds: new Set(),
       destinationInput: '',
+      priceInput: '', // Manual price input
       sortOrder: 'asc', // 'asc' or 'desc'
       stockSearch: '',
       categoryFilter: 'ALL', // 'ALL' | 'NOVILLO' | 'VACA' | 'TORO' | 'VAQUILLONA'
@@ -26,6 +30,8 @@ export class ConsumptionPresenter {
     this.ui.showLoading();
     try {
       this.allFaenas = await this.travelRepository.getFaenaStock(uid);
+      this.clients = await this.clientRepository.getClients();
+      this.categoryPrices = await this.clientRepository.getCategoryPrices();
       
       // Sort desc by creation/faena date
       this.allFaenas.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -50,21 +56,46 @@ export class ConsumptionPresenter {
     } else {
       this.state.selectedIds.add(id);
     }
+    this._autoSuggestPrice();
     this.updateView();
   }
 
   selectAll(ids) {
     ids.forEach(id => this.state.selectedIds.add(id));
+    this._autoSuggestPrice();
     this.updateView();
   }
 
   clearSelection() {
     this.state.selectedIds.clear();
+    this.state.priceInput = '';
     this.updateView();
   }
 
   setDestination(val) {
     this.state.destinationInput = val;
+  }
+
+  setPrice(val) {
+    this.state.priceInput = val;
+  }
+
+  _autoSuggestPrice() {
+    // If only one category is present in selection, suggest price
+    const selectedItems = this.allFaenas.filter(f => this.state.selectedIds.has(f.id));
+    if (selectedItems.length === 0) {
+      this.state.priceInput = '';
+      return;
+    }
+    const categories = [...new Set(selectedItems.map(i => i.standardizedCategory || 'OTRO'))];
+    if (categories.length === 1) {
+      const cat = categories[0];
+      if (this.categoryPrices[cat]) {
+        this.state.priceInput = this.categoryPrices[cat].toString();
+      }
+    } else {
+      this.state.priceInput = '';
+    }
   }
 
   toggleSort() {
@@ -81,6 +112,7 @@ export class ConsumptionPresenter {
     this.state.categoryFilter = cat;
     // Clear selection when filters change to avoid dispatching invisible items by accident
     this.state.selectedIds.clear(); 
+    this.state.priceInput = '';
     this.updateView();
   }
 
@@ -92,17 +124,52 @@ export class ConsumptionPresenter {
       return;
     }
 
-    if (!confirm(`¿Estás seguro de despachar ${this.state.selectedIds.size} medias reses a "${dest}"?`)) {
+    const price = parseFloat(this.state.priceInput);
+    if (isNaN(price) || price <= 0) {
+      alert("Debes ingresar un precio válido por kg.");
+      return;
+    }
+
+    const selectedItems = this.allFaenas.filter(i => this.state.selectedIds.has(i.id));
+    const totalKg = selectedItems.reduce((s, i) => s + (i.kg || 0), 0);
+    const totalDebt = totalKg * price;
+
+    if (!confirm(`¿Estás seguro de despachar ${this.state.selectedIds.size} medias reses a "${dest}" por un total de $${totalDebt.toFixed(2)} ($${price}/kg)?`)) {
       return;
     }
 
     this.ui.showLoading();
     try {
+      // 1. Create/Update Client
+      const clientData = { name: dest };
+      const clientId = await this.clientRepository.saveClient(clientData);
+
+      // 2. Record Debt Transaction
+      const breakout = selectedItems.map(item => ({
+        id: item.id,
+        garron: item.garron,
+        weight: item.kg,
+        price: price,
+        total: (item.kg || 0) * price
+      }));
+
+      const transaction = {
+        clientId: clientId,
+        type: 'DEBT',
+        amount: totalDebt,
+        description: `Despacho de ${selectedItems.length} reses (${totalKg.toFixed(1)} kg) a $${price}/kg`,
+        breakout: breakout, // Detailed info
+        date: Date.now()
+      };
+      await this.clientRepository.addTransaction(transaction);
+
+      // 3. Mark as Dispatched
       const idsArray = Array.from(this.state.selectedIds);
       await this.travelRepository.dispatchFaenas(uid, idsArray, dest);
       
       this.state.selectedIds.clear();
       this.state.destinationInput = '';
+      this.state.priceInput = '';
       
       // Reload raw data
       await this.loadFaenas(uid);
@@ -173,11 +240,13 @@ export class ConsumptionPresenter {
       state: this.state,
       stockItems: stock,
       historyItems: history,
+      clients: this.clients, // List of suggestions
       onTabSwitch: this.toggleTab.bind(this),
       onToggleSelection: this.toggleSelection.bind(this),
       onSelectAll: this.selectAll.bind(this),
       onClearSelection: this.clearSelection.bind(this),
       onDestinationInput: this.setDestination.bind(this),
+      onPriceInput: this.setPrice.bind(this),
       onDispatch: () => { this.dispatchSelected(this.currentUid); },
       onFilterChange: this.setHistoryFilter.bind(this),
       onToggleSort: this.toggleSort.bind(this),

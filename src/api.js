@@ -108,3 +108,65 @@ export async function updateFaenasStatus(db, uid, recordIds, updateData) {
   });
   await Promise.all(promises);
 }
+
+/** 
+ * CLIENTS API
+ */
+export async function fetchClients(db) {
+  const collRef = collection(db, 'clientes');
+  const snapshot = await getDocs(collRef);
+  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+export async function saveClient(db, clientRecord) {
+  const collRef = collection(db, 'clientes');
+  let clientRef;
+  
+  if (clientRecord.id) {
+    clientRef = doc(db, 'clientes', clientRecord.id);
+    await updateDoc(clientRef, { ...clientRecord, updatedAt: Date.now() });
+  } else {
+    // Check if client with same name already exists to avoid duplicates
+    const q = query(collRef, where("name", "==", clientRecord.name), limit(1));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      clientRef = doc(db, 'clientes', snapshot.docs[0].id);
+      await updateDoc(clientRef, { ...clientRecord, updatedAt: Date.now() });
+    } else {
+      const addedDoc = await addDoc(collRef, { ...clientRecord, createdAt: Date.now() });
+      clientRef = addedDoc;
+    }
+  }
+  return clientRef.id;
+}
+
+/**
+ * CONFIG API (Prices by Category)
+ */
+export async function fetchCategoryPrices(db) {
+  const docRef = doc(db, 'config', 'prices');
+  const snapshot = await getDocs(collection(db, 'config'));
+  // We look for the 'prices' document specifically
+  const pricesDoc = snapshot.docs.find(d => d.id === 'prices');
+  return pricesDoc ? pricesDoc.data() : {};
+}
+
+export async function saveCategoryPrices(db, pricesRecord) {
+  const docRef = doc(db, 'config', 'prices');
+  await setDoc(docRef, { ...pricesRecord, updatedAt: Date.now() });
+}
+
+/**
+ * TRANSACTIONS API (Debt and Payments)
+ */
+export async function fetchTransactions(db, clientId) {
+  const collRef = collection(db, 'transactions');
+  const q = query(collRef, where("clientId", "==", clientId));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+export async function addTransaction(db, transactionRecord) {
+  const collRef = collection(db, 'transactions');
+  await addDoc(collRef, { ...transactionRecord, createdAt: Date.now() });
+}

@@ -901,7 +901,7 @@ export async function generateExcelReport(travels) {
 }
 
 /** Render Settings Panel */
-export function renderSettings(container) {
+export function renderSettings(container, options) {
   const currentSettings = SettingsService.loadSettings();
   
   const wrapper = el('div', { classes: ['simulator-wrapper'] }); // Reusing layout for settings form
@@ -930,15 +930,101 @@ export function renderSettings(container) {
     
     <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
     
+    <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">💸 Precios por Categoría ($/kg)</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Precios sugeridos para el despacho de carne a clientes.</p>
+    <div id="category-prices-grid" class="grid-2-cols" style="gap: 1.5rem; margin-bottom: 2rem;">
+      <div class="loading">Cargando precios...</div>
+    </div>
+
     <div style="display: flex; gap: 1rem;">
       <button class="btn-primary" id="save-settings">Guardar Cambios</button>
       <button class="btn-outline" id="reset-settings">Restaurar Valores por Defecto</button>
     </div>
     <div id="settings-msg" style="margin-top: 1rem; color: var(--success); font-weight: 500; display: none;">¡Configuración guardada exitosamente!</div>
+
+    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
+    
+    <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">👥 Gestión de Clientes</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Crea o modifica información de facturación de los clientes.</p>
+    
+    <div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid var(--primary);">
+      <h4 style="margin-bottom: 1rem;" id="client-form-title">Añadir Nuevo Cliente</h4>
+      <input type="hidden" id="client-id" value="">
+      <div class="grid-2-cols" style="gap: 1rem; margin-bottom: 0;">
+        <div class="form-group" style="margin: 0;"><label>Razón Social / Nombre *</label><input type="text" id="client-name" class="form-input"></div>
+        <div class="form-group" style="margin: 0;"><label>CUIT</label><input type="text" id="client-cuit" class="form-input"></div>
+        <div class="form-group" style="margin: 0;"><label>Dirección</label><input type="text" id="client-address" class="form-input"></div>
+        <div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="text" id="client-phone" class="form-input"></div>
+        <div class="form-group" style="margin: 0;"><label>CBU</label><input type="text" id="client-cbu" class="form-input"></div>
+        <div class="form-group" style="margin: 0;"><label>Nº Cuenta</label><input type="text" id="client-account" class="form-input"></div>
+      </div>
+      <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+        <button class="btn-primary" id="save-client-btn" style="margin: 0;">Guardar Cliente</button>
+        <button class="btn-outline" id="clear-client-btn" style="margin: 0;">Limpiar Campos</button>
+      </div>
+    </div>
+
+    <div id="settings-clients-list" class="card-list" style="margin-bottom: 2rem;"></div>
   `;
   
   wrapper.appendChild(form);
   container.appendChild(wrapper);
+
+  const priceGrid = document.getElementById('category-prices-grid');
+  const categories = ['NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO'];
+  
+  const renderPriceInputs = (prices = {}) => {
+    priceGrid.innerHTML = '';
+    categories.forEach(cat => {
+      const fg = el('div', { classes: ['form-group'], style: 'margin: 0;' });
+      fg.innerHTML = `<label>${cat}</label><input type="number" class="cat-price-input" data-cat="${cat}" value="${prices[cat] || ''}" placeholder="Ej: 5000">`;
+      priceGrid.appendChild(fg);
+    });
+  };
+
+  if (options && options.categoryPrices) {
+    renderPriceInputs(options.categoryPrices);
+  } else {
+    renderPriceInputs({});
+  }
+
+  const renderClientsList = (clientsList = []) => {
+    const listEl = document.getElementById('settings-clients-list');
+    listEl.innerHTML = '';
+    clientsList.forEach(c => {
+      const card = el('div', { classes: ['card', 'glass-card'], style: 'padding: 1rem; display: flex; justify-content: space-between; align-items: center;' });
+      card.innerHTML = `
+        <div>
+          <h4 style="margin: 0 0 0.3rem 0;">${c.name}</h4>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">CUIT: ${c.cuit || '-'} | Tel: ${c.phone || '-'}</span>
+        </div>
+        <button class="btn-outline edit-client-btn" data-id="${c.id}" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Editar</button>
+      `;
+      listEl.appendChild(card);
+    });
+
+    listEl.querySelectorAll('.edit-client-btn').forEach(btn => {
+      btn.onclick = () => {
+        const c = clientsList.find(x => x.id === btn.dataset.id);
+        if (c) {
+          document.getElementById('client-id').value = c.id || '';
+          document.getElementById('client-name').value = c.name || '';
+          document.getElementById('client-cuit').value = c.cuit || '';
+          document.getElementById('client-address').value = c.address || '';
+          document.getElementById('client-phone').value = c.phone || '';
+          document.getElementById('client-cbu').value = c.cbu || '';
+          document.getElementById('client-account').value = c.account || '';
+          document.getElementById('client-form-title').textContent = 'Editar Cliente: ' + c.name;
+          document.getElementById('client-name').focus();
+          window.scrollTo({ top: document.getElementById('client-form-title').offsetTop - 20, behavior: 'smooth' });
+        }
+      };
+    });
+  };
+
+  if (options && options.clients) {
+    renderClientsList(options.clients);
+  }
 
   const msgBox = document.getElementById('settings-msg');
   const showMsg = (text, isError = false) => {
@@ -948,7 +1034,7 @@ export function renderSettings(container) {
     setTimeout(() => { msgBox.style.display = 'none'; }, 3000);
   };
 
-  document.getElementById('save-settings').onclick = () => {
+  document.getElementById('save-settings').onclick = async () => {
     const newSettings = {
       margenGanancia: 1 + (parseFloat(document.getElementById('set-margen').value) / 100),
       pesoJaulaDoble: parseFloat(document.getElementById('set-jdd-kg').value),
@@ -957,10 +1043,18 @@ export function renderSettings(container) {
       precioKmSimple: parseFloat(document.getElementById('set-js-km').value),
     };
     
+    const prices = {};
+    document.querySelectorAll('.cat-price-input').forEach(input => {
+      prices[input.dataset.cat] = parseFloat(input.value) || 0;
+    });
+
     if (SettingsService.saveSettings(newSettings)) {
-      showMsg('¡Configuración guardada exitosamente!');
+      if (options && options.onSavePrices) {
+        await options.onSavePrices(prices);
+      }
+      showMsg('¡Configuración de precios y general guardada exitosamente!');
     } else {
-      showMsg('Hubo un error al guardar.', true);
+      showMsg('Hubo un error al guardar general.', true);
     }
   };
 
@@ -974,6 +1068,50 @@ export function renderSettings(container) {
     
     SettingsService.saveSettings(defaults);
     showMsg('¡Restaurado a los valores originales!');
+  };
+
+  const clearClientForm = () => {
+    document.getElementById('client-id').value = '';
+    document.getElementById('client-name').value = '';
+    document.getElementById('client-cuit').value = '';
+    document.getElementById('client-address').value = '';
+    document.getElementById('client-phone').value = '';
+    document.getElementById('client-cbu').value = '';
+    document.getElementById('client-account').value = '';
+    document.getElementById('client-form-title').textContent = 'Añadir Nuevo Cliente';
+  };
+
+  document.getElementById('clear-client-btn').onclick = clearClientForm;
+
+  document.getElementById('save-client-btn').onclick = async () => {
+    const name = document.getElementById('client-name').value.trim();
+    if (!name) return alert('El nombre o razón social es obligatorio');
+    
+    const clientData = {
+      id: document.getElementById('client-id').value || null,
+      name,
+      cuit: document.getElementById('client-cuit').value,
+      address: document.getElementById('client-address').value,
+      phone: document.getElementById('client-phone').value,
+      cbu: document.getElementById('client-cbu').value,
+      account: document.getElementById('client-account').value,
+    };
+    if (!clientData.id) delete clientData.id;
+
+    document.getElementById('save-client-btn').textContent = 'Guardando...';
+    document.getElementById('save-client-btn').disabled = true;
+
+    if (options && options.onSaveClient) {
+       await options.onSaveClient(clientData);
+       showMsg('Cliente guardado exitosamente.');
+       clearClientForm();
+       if (options.onReloadClients) {
+         options.onReloadClients();
+       }
+    } else {
+      document.getElementById('save-client-btn').textContent = 'Guardar Cliente';
+      document.getElementById('save-client-btn').disabled = false;
+    }
   };
 }
 
@@ -1078,24 +1216,41 @@ export function renderFaenaConsumption(container, options) {
     if (state.selectedIds.size > 0) {
       const selectedItems = stockItems.filter(i => state.selectedIds.has(i.id));
       const selKg = selectedItems.reduce((s, i) => s + (i.kg || 0), 0);
+      const estPrice = parseFloat(state.priceInput) || 0;
+      const totalEst = selKg * estPrice;
 
       const panel = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #ef4444; background: var(--bg-hover); padding: 1.5rem;' });
       panel.innerHTML = `
-        <h3 style="margin-bottom: 1rem; color: #ef4444; display: flex; align-items: center; justify-content: space-between;">
-          <span>📦 Preparando Despacho: ${selectedItems.length} medias reses (${selKg.toFixed(1)} kg)</span>
+        <h3 style="margin-bottom: 1.5rem; color: #ef4444; display: flex; align-items: center; justify-content: space-between;">
+          <span>📦 Preparando Despacho: ${selectedItems.length} piezas (${selKg.toFixed(1)} kg)</span>
           <button id="clear-sel-btn" class="btn-outline" style="font-size: 0.8rem; padding: 0.2rem 0.6rem;">Limpiar Selección</button>
         </h3>
-        <div style="display: flex; gap: 1rem; align-items: flex-end;">
-          <div class="form-group" style="flex: 1; margin: 0;">
-            <label>Destino / Operador (Carnicería)</label>
-            <input type="text" id="dispatch-dest" class="form-input" style="width: 100%; border: 1px solid var(--border); padding: 0.75rem; border-radius: 12px; background: var(--bg-main); color: var(--text-main);" placeholder="Ej: Carnicería Centro" value="${state.destinationInput}">
+        
+        <div class="grid-2-cols" style="gap: 1rem; align-items: flex-end; margin-bottom: 1rem;">
+          <div class="form-group" style="margin: 0; position: relative;">
+            <label>Destino / Cliente</label>
+            <input type="text" id="dispatch-dest" class="form-input" list="clients-list" style="width: 100%;" placeholder="Ej: Carnicería Centro" value="${state.destinationInput}">
+            <datalist id="clients-list">
+              ${(options.clients || []).map(c => `<option value="${c.name}">`).join('')}
+            </datalist>
           </div>
-          <button id="dispatch-btn" class="btn-primary" style="background: #ef4444; padding: 0.75rem 1rem; font-weight: 600; font-size: 0.9rem; max-width: 160px;">🚚 Salida</button>
+          <div class="form-group" style="margin: 0;">
+            <label>Precio por Kg ($/kg)</label>
+            <input type="number" id="dispatch-price" class="form-input" style="width: 100%;" placeholder="0.00" value="${state.priceInput}">
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border);">
+          <div style="font-size: 1.1rem; font-weight: 600;">
+            Total Estimado: <span style="color: #10b981;">$${totalEst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+          </div>
+          <button id="dispatch-btn" class="btn-primary" style="background: #ef4444; margin: 0; width: auto; min-width: 151px;">🚚 Confirmar Salida</button>
         </div>
       `;
       wrapper.appendChild(panel);
 
       panel.querySelector('#dispatch-dest').addEventListener('input', (e) => onDestinationInput(e.target.value));
+      panel.querySelector('#dispatch-price').addEventListener('input', (e) => onPriceInput(e.target.value));
       panel.querySelector('#clear-sel-btn').onclick = () => onClearSelection();
       panel.querySelector('#dispatch-btn').onclick = () => onDispatch();
     }
@@ -1262,5 +1417,188 @@ export function renderFaenaConsumption(container, options) {
       }
     }
   }
+}
+
+/** 
+ * Render Client Accounts System
+ */
+export function renderClientAccounts(options) {
+  const { clients, selectedClient, transactions, onSelectClient, onAddPayment, onBack } = options;
+  const container = document.getElementById('content');
+  container.innerHTML = '';
+  const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
+
+  if (selectedClient) {
+    // --- DETAILS VIEW ---
+    const header = el('div', { classes: ['dashboard-header'] });
+    header.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <button id="back-clients" class="btn-outline" style="padding: 0.5rem;">⬅️ Volver</button>
+        <h2 style="margin: 0;">👤 ${selectedClient.name}</h2>
+      </div>
+    `;
+    wrapper.appendChild(header);
+
+    const statsGrid = el('div', { classes: ['stats-grid'], style: 'margin-bottom: 2rem;' });
+    const addStat = (title, val, color) => {
+      statsGrid.appendChild(el('div', { classes: ['stat-card', 'glass-card'], html: `<h3>${title}</h3><div class="stat-value" style="color: ${color};">${val}</div>` }));
+    };
+
+    const debt = transactions.filter(t => t.type === 'DEBT').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const payments = transactions.filter(t => t.type === 'PAYMENT').reduce((sum, t) => sum + (t.amount || 0), 0);
+    const balance = debt - payments;
+
+    addStat('Deuda Total', `$${debt.toLocaleString()}`, 'var(--text-main)');
+    addStat('Pagos Totales', `$${payments.toLocaleString()}`, '#10b981');
+    addStat('Saldo Pendiente', `$${balance.toLocaleString()}`, balance > 0 ? '#ef4444' : '#10b981');
+    wrapper.appendChild(statsGrid);
+
+    // Form to add payment
+    const paymentCard = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #10b981;' });
+    paymentCard.innerHTML = `
+      <h3 style="margin-bottom: 1rem; color: #10b981;">➕ Registrar Pago</h3>
+      <div style="display: flex; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; margin: 0;"><label>Monto ($)</label><input type="number" id="pay-amount" class="form-input" placeholder="0.00"></div>
+        <div class="form-group" style="flex: 2; margin: 0;"><label>Descripción / Concepto</label><input type="text" id="pay-desc" class="form-input" placeholder="Ej: Pago efectivo, Transferencia..."></div>
+        <button id="pay-btn" class="btn-primary" style="background: #10b981; margin: 0;">Registrar</button>
+      </div>
+    `;
+    wrapper.appendChild(paymentCard);
+
+    // Transactions Table
+    const histCard = el('div', { classes: ['glass-card'] });
+    histCard.innerHTML = `<h3 style="margin-bottom: 1rem;">Historial de Movimientos</h3>`;
+    
+    const tableWrap = el('div', { style: 'overflow-x: auto;' });
+    const table = document.createElement('table');
+    table.className = 'faena-table';
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.innerHTML = `
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;">
+          <th style="padding: 1rem;">Fecha</th>
+          <th style="padding: 1rem;">Concepto</th>
+          <th style="padding: 1rem;">Debe</th>
+          <th style="padding: 1rem;">Haber</th>
+          <th style="padding: 1rem;">Detalle</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${transactions.length === 0 ? '<tr><td colspan="5" style="padding: 2rem; text-align: center;">Sin movimientos.</td></tr>' : 
+          transactions.map(t => {
+            const isDebt = t.type === 'DEBT';
+            return `
+              <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 1rem;">${new Date(t.date || t.createdAt).toLocaleDateString()}</td>
+                <td style="padding: 1rem;">${t.description || (isDebt ? 'Despacho' : 'Pago')}</td>
+                <td style="padding: 1rem; color: #ef4444; font-weight: 500;">${isDebt ? '$' + t.amount.toLocaleString() : '-'}</td>
+                <td style="padding: 1rem; color: #10b981; font-weight: 500;">${!isDebt ? '$' + t.amount.toLocaleString() : '-'}</td>
+                <td style="padding: 1rem;">
+                  ${t.breakout ? `<button class="btn-outline view-detail-btn" data-id="${t.id}" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Ver Detalle</button>` : ''}
+                </td>
+              </tr>
+            `;
+          }).join('')
+        }
+      </tbody>
+    `;
+    tableWrap.appendChild(table);
+    histCard.appendChild(tableWrap);
+    wrapper.appendChild(histCard);
+
+    header.querySelector('#back-clients').onclick = onBack;
+    paymentCard.querySelector('#pay-btn').onclick = () => {
+      const amt = document.getElementById('pay-amount').value;
+      const desc = document.getElementById('pay-desc').value;
+      if (amt) onAddPayment(amt, desc);
+    };
+
+    // Detail Logic
+    wrapper.querySelectorAll('.view-detail-btn').forEach(btn => {
+      btn.onclick = () => {
+        const tx = transactions.find(t => t.id === btn.dataset.id);
+        if (tx && tx.breakout) {
+          renderTransactionDetailModal(tx);
+        }
+      };
+    });
+
+  } else {
+    // --- LIST VIEW ---
+    const header = el('div', { classes: ['dashboard-header'] });
+    header.innerHTML = `<h2>👥 Cuentas de Clientes</h2><p>Administración de saldos y cobranzas.</p>`;
+    wrapper.appendChild(header);
+
+    const clientGrid = el('div', { classes: ['card-list'] });
+    if (clients.length === 0) {
+      const emptyMsg = el('div', { classes: ['glass-card'], style: 'padding: 3rem; text-align: center; grid-column: 1 / -1;' });
+      emptyMsg.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
+        <h3>No hay clientes registrados</h3>
+        <p style="color: var(--text-muted);">Puedes agregar clientes desde la configuración del sistema.</p>
+        <button id="go-to-settings" class="btn-primary" style="margin-top: 1.5rem;">Ir a Configuración</button>
+      `;
+      emptyMsg.querySelector('#go-to-settings').onclick = () => {
+        // Trigger a click on the settings menu item
+        const settingsLi = document.querySelector('li[data-view="settings"]');
+        if (settingsLi) settingsLi.click();
+      };
+      clientGrid.appendChild(emptyMsg);
+    } else {
+      clients.forEach(c => {
+      const card = el('div', { classes: ['card', 'glass-card'], style: 'cursor: pointer; transition: transform 0.2s;' });
+      const balanceColor = (c.balance || 0) > 0 ? '#ef4444' : '#10b981';
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <h3 style="margin: 0 0 0.5rem 0;">${c.name}</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">${c.address || 'Sin dirección'}</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">CUIT: ${c.cuit || 'N/A'}</p>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">Saldo</div>
+            <div style="font-size: 1.25rem; font-weight: bold; color: ${balanceColor};">$${(c.balance || 0).toLocaleString()}</div>
+          </div>
+        </div>
+      `;
+      card.onclick = () => onSelectClient(c);
+      clientGrid.appendChild(card);
+      });
+    }
+    wrapper.appendChild(clientGrid);
+  }
+
+  container.appendChild(wrapper);
+}
+
+function renderTransactionDetailModal(transaction) {
+  const overlay = el('div', { classes: ['modal-overlay'] });
+  const modal = el('div', { classes: ['modal'], style: 'max-width: 500px;' });
+  
+  const breakoutHtml = transaction.breakout.map(item => `
+    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem;">
+      <span>Garron #${item.garron} (${item.weight} kg)</span>
+      <span>$${item.price}/kg = <b>$${item.total.toLocaleString()}</b></span>
+    </div>
+  `).join('');
+
+  modal.innerHTML = `
+    <h2 style="margin-bottom: 1rem;">Detalle de Despacho</h2>
+    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">${transaction.description}</p>
+    <div style="background: var(--bg-hover); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+      ${breakoutHtml}
+      <div style="display: flex; justify-content: space-between; padding-top: 1rem; margin-top: 0.5rem; border-top: 2px solid var(--border); font-weight: bold; font-size: 1.1rem;">
+        <span>Total Operación</span>
+        <span style="color: #10b981;">$${transaction.amount.toLocaleString()}</span>
+      </div>
+    </div>
+    <button class="btn-primary" style="width: 100%; border:0;" id="close-detail">Cerrar</button>
+  `;
+
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  modal.querySelector('#close-detail').onclick = () => overlay.remove();
 }
 

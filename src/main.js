@@ -8,10 +8,13 @@ import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
 import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
 import { ConsumptionPresenter } from './adapters/presenters/ConsumptionPresenter.js';
+import { ClientPresenter } from './adapters/presenters/ClientPresenter.js';
+import { ClientRepository } from './adapters/repositories/ClientRepository.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
 
 // Dependencies
 const travelRepository = new FirebaseTravelRepository();
+const clientRepository = new ClientRepository();
 
 // State
 let currentUser = null;
@@ -36,11 +39,13 @@ const uiInterface = {
   renderExportModal: (options) => uiLib.renderExportModal(options),
   renderScanResultsModal: (options) => uiLib.renderScanResultsModal(options),
   generateTravelReport: (data) => uiLib.generateTravelReport(data),
-  generateExcelReport: (data) => uiLib.generateExcelReport(data)
+  generateExcelReport: (data) => uiLib.generateExcelReport(data),
+  renderClientAccounts: (options) => uiLib.renderClientAccounts(options)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
-const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface);
+const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface, clientRepository);
+const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
 
 // Auth Listener
 onAuthStateChanged(auth, (user) => {
@@ -118,8 +123,25 @@ function navigateTo(view) {
     case 'consumption':
       consumptionPresenter.loadFaenas(SHARED_DATA_SOURCE_UID);
       break;
+    case 'clients':
+      clientPresenter.loadClients();
+      break;
     case 'simulator': uiLib.renderSimulator(content); break;
-    case 'settings': uiLib.renderSettings(content); break;
+    case 'settings': {
+      const loadSettingsData = async () => {
+        const prices = await clientRepository.getCategoryPrices();
+        const clients = await clientRepository.getClients();
+        uiLib.renderSettings(content, { 
+          categoryPrices: prices,
+          clients: clients,
+          onSavePrices: (newPrices) => clientRepository.saveCategoryPrices(newPrices),
+          onSaveClient: (client) => clientRepository.saveClient(client),
+          onReloadClients: loadSettingsData
+        });
+      };
+      loadSettingsData();
+      break;
+    }
     case 'contact':  
       content.innerHTML = `
         <div class="glass-card" style="padding: 2rem; max-width: 900px; margin: 0 auto;">
