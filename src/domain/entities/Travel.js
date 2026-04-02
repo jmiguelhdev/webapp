@@ -4,7 +4,10 @@ import { Buy } from './Buy.js';
 export class Travel {
   constructor(data = {}) {
     this._raw = data; // Preserve raw payload to avoid data loss on updates
-    this.id = data.id || data.firebaseId || '';
+    // firebaseId = Firestore document ID (string, e.g. "AbCdEf").
+    // data.id = KMP internal numeric ID (e.g. 15). We MUST use firebaseId for Firestore operations.
+    this.id = data.firebaseId || String(data.id || '');
+
     this.date = data.date || '';
     this.description = data.description || '';
     this.status = data.status || 'DRAFT'; // DRAFT, ACTIVE, COMPLETED
@@ -15,7 +18,9 @@ export class Travel {
     this.litersOnPump = data.litersOnPump || 0;
     this.fuelPrice = data.fuelPrice || 0;
 
-    this.buy = data.buy ? new Buy(data.buy) : null;
+    const buyData = data.buy || {};
+    if (data.reduce !== undefined) buyData.reduce = data.reduce;
+    this.buy = data.buy ? new Buy(buyData) : (data.reduce !== undefined ? new Buy({ reduce: data.reduce }) : null);
   }
 
   get distanceKm() {

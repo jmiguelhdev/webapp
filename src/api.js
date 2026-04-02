@@ -9,10 +9,18 @@ async function fetchAndParseRootCollection(db, uid, collName) {
   
   return snapshot.docs.map(docSnap => {
     const dto = docSnap.data();
+    
     try {
-      // The domain object is stored as a JSON string in the 'data' field
-      if (dto.data && typeof dto.data === 'string') {
-        return { ...JSON.parse(dto.data), firebaseId: docSnap.id };
+      // The domain object may be stored as a JSON string in the 'data' field.
+      // BUT some fields like 'reduce' live at the TOP LEVEL of the Firestore document.
+      // We must merge both: top-level fields FIRST, then parsed 'data' overrides them,
+      // so that structured domain properties win over any stale top-level copies.
+      const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
+      if (rawData && typeof rawData === 'string') {
+        const parsed = JSON.parse(rawData);
+        // Top-level fields fill in any gaps not covered by the parsed 'data' object.
+        // e.g. { reduce: 13800000 } at root merged with parsed buy/producers/etc.
+        return { ...topLevelFields, ...parsed, firebaseId: docSnap.id };
       }
       return { id: docSnap.id, ...dto };
     } catch (e) {
@@ -49,7 +57,7 @@ export async function fetchMasterData(db, uid, type) {
  */
 export async function updateTravel(db, uid, travelId, travelObject) {
   if (!uid) throw new Error("UID is required to update data");
-  const docRef = doc(db, 'travels', travelId);
+  const docRef = doc(db, 'travels', String(travelId)); // Always string for Firestore
   const dataToSave = {
     data: JSON.stringify(travelObject),
     updatedAt: Date.now()

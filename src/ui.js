@@ -9,11 +9,12 @@ import * as XLSX from 'xlsx';
 let chartInstances = {};
 
 /** Utility to create an element with optional classes and text */
-function el(tag, { classes = [], text = '', html = '', attrs = {} } = {}) {
+function el(tag, { classes = [], text = '', html = '', attrs = {}, style = '' } = {}) {
   const element = document.createElement(tag);
   if (classes.length) element.classList.add(...classes);
   if (text) element.textContent = text;
   if (html) element.innerHTML = html;
+  if (style) element.style.cssText = style;
   for (const [key, value] of Object.entries(attrs)) {
     element.setAttribute(key, value);
   }
@@ -355,8 +356,15 @@ export function renderTravels(container, options) {
           <div class="detail-row"><span>Operación Total:</span> <strong>$${totalOp.toLocaleString()}</strong></div>
           <div class="detail-row"><span>Comisión Agente:</span> <strong>$${commission.toLocaleString()}</strong></div>
           <div class="detail-row highlight"><span>Total con Comis.:</span> <strong>$${totalOpWithComm.toLocaleString()}</strong></div>
-          <div class="detail-row"><span>Precio Prom.:</span> <strong>$${buy.avgPrice?.toFixed(2) || '0.00'}</strong></div>
-          <div class="detail-row"><span>Precio Prom. (c/Comis):</span> <strong>$${buy.avgPriceWithCommission?.toFixed(2) || '0.00'}</strong></div>
+          <div class="detail-row" style="margin-top: 0.5rem; border-top: 1px dashed var(--border); padding-top: 0.5rem;">
+            <span>Achique Total (Viaje):</span>
+            <div style="display: flex; gap: 0.3rem; align-items: center;">
+              <span style="font-size: 0.8rem; opacity: 0.7;">$</span>
+              <input type="number" class="compact-input" value="${buy.reduce || 0}" 
+                style="width: 100px; padding: 2px 5px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-main);"
+                onchange="this.dataset.id='${travel.id}'; window._ui_onReduceUpdate && window._ui_onReduceUpdate('${travel.id}', this.value)">
+            </div>
+          </div>
         </div>
         <div class="metrics-column">
           <h4>Rendimiento</h4>
@@ -369,35 +377,64 @@ export function renderTravels(container, options) {
       <hr>
     `;
 
+    // Global callbacks for UI events (attached to window for simplicity in innerHTML strings, or use el() better)
+    window._ui_onReduceUpdate = (id, val) => {
+      if (options.onReduceUpdate) options.onReduceUpdate(id, parseFloat(val));
+    };
+
     const producersList = el('div', { classes: ['producers-list'] });
     (buy.listOfProducers || []).forEach(p => {
       const pItem = el('div', { classes: ['producer-item'] });
-      const iva = p.totalIva || 0;
-      const ganancias = p.totalGanancias || 0;
+      const iva = p.iva || 0;
+      const ganancias = p.retencionGanancias || 0;
       const producerName = p.producer?.name || 'Productor';
       const cuit = p.producer?.cuit || '';
       const cbu = p.producer?.cbu || '';
-      pItem.innerHTML = `
-        <div class="producer-header">
+      const totalAPagar = p.totalAPagar || 0;
+      
+      const pHeader = el('div', { classes: ['producer-header'], style: 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.5rem;' });
+      pHeader.innerHTML = `
+        <div style="flex: 1;">
           <strong>👤 ${producerName}</strong>
-          <span>${p.origin || ''}</span>
-        </div>
-        <div class="producer-info">
-          ${cuit ? `<span class="info-badge">CUIT: ${cuit}</span>` : ''}
-          ${cbu ? `<span class="info-badge">CBU: ${cbu}</span>` : ''}
-        </div>
-        <div class="producer-taxes">
-          ${iva > 0 ? `<span class="tax-badge tax-iva">IVA: $${iva.toLocaleString()}</span>` : ''}
-          ${ganancias > 0 ? `<span class="tax-badge tax-ganancias">Gan: $${ganancias.toLocaleString()}</span>` : ''}
+          <span style="margin-left: 0.5rem; font-size: 0.85em; opacity: 0.8;">${p.origin || ''}</span>
         </div>
       `;
+      
+      const liqBtn = el('button', { 
+        classes: ['btn-action'], 
+        text: '📊 Liq.',
+        style: 'background: #841d1d; color: white; border: none; border-radius: 8px; padding: 3px 10px; font-size: 0.72rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0;'
+      });
+      liqBtn.onclick = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (options.onProducerSettlement) options.onProducerSettlement(travel, p);
+      };
+      pHeader.appendChild(liqBtn);
+      pItem.appendChild(pHeader);
+
+      const pInfo = el('div', { classes: ['producer-info'] });
+      pInfo.innerHTML = `
+        ${cuit ? `<span class="info-badge">CUIT: ${cuit}</span>` : ''}
+        ${cbu ? `<span class="info-badge">CBU: ${cbu}</span>` : ''}
+      `;
+      pItem.appendChild(pInfo);
+
+      const pTaxes = el('div', { classes: ['producer-taxes'], style: 'display: flex; gap: 0.5rem; margin-top: 0.2rem;' });
+      pTaxes.innerHTML = `
+        ${iva > 0 ? `<span class="tax-badge tax-iva">IVA: $${iva.toLocaleString()}</span>` : ''}
+        ${ganancias > 0 ? `<span class="tax-badge tax-ganancias">Ret. Gan: $${ganancias.toLocaleString()}</span>` : ''}
+        <span class="tax-badge" style="background: var(--accent-subtle); color: var(--accent-main); font-weight: bold;">Pago: $${totalAPagar.toLocaleString()}</span>
+      `;
+      pItem.appendChild(pTaxes);
+
       const pMiniList = el('div', { classes: ['product-mini-list'] });
       (p.listOfProducts || []).forEach(pr => {
         const row = el('div', { classes: ['product-mini-row'], html: `
           <span>${pr.name}: ${pr.quantity}x</span>
           <span>
-            ${pr.kgClean.toLocaleString()} kg | 
-            <b>Total Factura: $${pr.billFactura.toLocaleString()}</b>
+            ${pr.kgClean.toFixed(0).toLocaleString()} kg limpio (${pr.roughing}%) | 
+            <b>$${pr.price.toLocaleString()}</b>
           </span>
         ` });
         pMiniList.appendChild(row);
@@ -409,6 +446,7 @@ export function renderTravels(container, options) {
     cardBody.appendChild(producersList);
     card.appendChild(cardBody);
     list.appendChild(card);
+
   });
   container.appendChild(list);
 
@@ -1139,6 +1177,8 @@ export function renderFaenaConsumption(container, options) {
     state, 
     stockItems, 
     historyItems,
+    allTropas = [],
+    finishedTropas = [],
     onTabSwitch,
     onToggleSelection,
     onSelectAll,
@@ -1148,7 +1188,9 @@ export function renderFaenaConsumption(container, options) {
     onFilterChange,
     onToggleSort,
     onStockSearch,
-    onCategoryChange
+    onCategoryChange,
+    onTropaChange,
+    onCategoryPriceInput = () => {}
   } = options;
 
   // Capture current focus info to restore it after re-render
@@ -1203,8 +1245,52 @@ export function renderFaenaConsumption(container, options) {
   
   wrapper.appendChild(categoryFilters);
 
+  // --- Tropa Filter ---
+  const tropaFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;' });
+  tropaFilterRow.appendChild(el('span', { text: 'Tropa:', style: 'font-size: 0.8rem; color: var(--text-muted); font-weight: 600; white-space: nowrap;' }));
+  
+  const tropaChipsWrap = el('div', { style: 'display: flex; gap: 0.5rem; flex-wrap: wrap; overflow-x: auto;' });
+  
+  const allTropaBtn = el('button', { 
+    text: 'Todas', 
+    style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${state.tropaFilter === 'ALL' ? 'var(--primary)' : 'var(--border)'}; background: ${state.tropaFilter === 'ALL' ? 'var(--primary)' : 'transparent'}; color: ${state.tropaFilter === 'ALL' ? '#fff' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;` 
+  });
+  allTropaBtn.onclick = () => onTropaChange('ALL');
+  tropaChipsWrap.appendChild(allTropaBtn);
+
+  allTropas.forEach(tropa => {
+    const isFinished = finishedTropas.includes(tropa);
+    const isActive = state.tropaFilter === tropa;
+    const chip = el('button', { 
+      text: `Tr. ${tropa}${isFinished ? ' ✓' : ''}`,
+      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : isFinished ? '#10b981' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : isFinished ? 'rgba(16,185,129,0.1)' : 'transparent'}; color: ${isActive ? '#fff' : isFinished ? '#10b981' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s; font-weight: ${isFinished ? '600' : '400'};`
+    });
+    chip.onclick = () => onTropaChange(tropa);
+    tropaChipsWrap.appendChild(chip);
+  });
+
+  tropaFilterRow.appendChild(tropaChipsWrap);
+  wrapper.appendChild(tropaFilterRow);
+
   if (state.activeTab === 'STOCK') {
-    // --- STOCK VIEW ---
+
+    // --- Finished Troops Panel ---
+    if (finishedTropas.length > 0) {
+      const finishedPanel = el('div', { style: 'background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: 16px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;' });
+      finishedPanel.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+          <span style="font-size: 1.5rem;">✅</span>
+          <div>
+            <div style="font-weight: 700; color: #10b981; font-size: 0.95rem;">Tropas Finalizadas: ${finishedTropas.length}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Todos sus garrones fueron despachados.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          ${finishedTropas.map(t => `<span style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.4); border-radius: 8px; padding: 0.2rem 0.6rem; font-size: 0.78rem; font-weight: 600;">Tr. ${t}</span>`).join('')}
+        </div>
+      `;
+      wrapper.appendChild(finishedPanel);
+    }
 
     // Stats Grid
     const totals = stockItems.reduce((acc, item) => {
@@ -1232,43 +1318,131 @@ export function renderFaenaConsumption(container, options) {
     if (state.selectedIds.size > 0) {
       const selectedItems = stockItems.filter(i => state.selectedIds.has(i.id));
       const selKg = selectedItems.reduce((s, i) => s + (i.kg || 0), 0);
-      const estPrice = parseFloat(state.priceInput) || 0;
-      const totalEst = selKg * estPrice;
 
-      const panel = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #ef4444; background: var(--bg-hover); padding: 1.5rem;' });
-      panel.innerHTML = `
-        <h3 style="margin-bottom: 1.5rem; color: #ef4444; display: flex; align-items: center; justify-content: space-between;">
-          <span>📦 Preparando Despacho: ${selectedItems.length} piezas (${selKg.toFixed(1)} kg)</span>
-          <button id="clear-sel-btn" class="btn-outline" style="font-size: 0.8rem; padding: 0.2rem 0.6rem;">Limpiar Selección</button>
-        </h3>
-        
-        <div class="grid-2-cols" style="gap: 1rem; align-items: flex-end; margin-bottom: 1rem;">
-          <div class="form-group" style="margin: 0; position: relative;">
-            <label>Destino / Cliente</label>
-            <input type="text" id="dispatch-dest" class="form-input" list="clients-list" style="width: 100%;" placeholder="Ej: Carnicería Centro" value="${state.destinationInput}">
-            <datalist id="clients-list">
-              ${(options.clients || []).map(c => `<option value="${c.name}">`).join('')}
-            </datalist>
-          </div>
-          <div class="form-group" style="margin: 0;">
-            <label>Precio por Kg ($/kg)</label>
-            <input type="number" id="dispatch-price" class="form-input" style="width: 100%;" placeholder="0.00" value="${state.priceInput}">
-          </div>
+      // Group by category
+      const byCategory = {};
+      selectedItems.forEach(item => {
+        const cat = item.standardizedCategory || 'OTRO';
+        if (!byCategory[cat]) byCategory[cat] = { kg: 0, count: 0 };
+        byCategory[cat].kg += item.kg || 0;
+        byCategory[cat].count += 1;
+      });
+
+      const catEntries = Object.entries(byCategory);
+      const multiCat = catEntries.length > 1;
+
+      // Calculate grand total across all categories
+      let grandTotal = 0;
+      catEntries.forEach(([cat, data]) => {
+        const p = parseFloat(state.categoryPriceInputs?.[cat]) || 0;
+        grandTotal += data.kg * p;
+      });
+
+      const panel = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #ef4444; padding: 1.5rem;' });
+      
+      // Header
+      const panelHeader = el('div', { style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;' });
+      panelHeader.innerHTML = `<h3 style="color: #ef4444; margin: 0;">📦 Preparando Despacho: ${selectedItems.length} piezas (${selKg.toFixed(1)} kg)</h3>`;
+      const clearBtn = el('button', { classes: ['btn-outline'], text: 'Limpiar Selección', style: 'font-size: 0.8rem; padding: 0.2rem 0.6rem;' });
+      clearBtn.onclick = () => onClearSelection();
+      panelHeader.appendChild(clearBtn);
+      panel.appendChild(panelHeader);
+
+      // Destination input
+      const destRow = el('div', { style: 'margin-bottom: 1.25rem;' });
+      destRow.innerHTML = `
+        <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Destino / Cliente</label>
+        <input type="text" id="dispatch-dest" class="form-input" list="clients-list" style="width: 100%; max-width: 400px;" placeholder="Ej: Carnicería Centro" value="${state.destinationInput}">
+        <datalist id="clients-list">
+          ${(options.clients || []).map(c => `<option value="${c.name}">`).join('')}
+        </datalist>
+      `;
+      panel.appendChild(destRow);
+
+      // Per-category price table
+      const catTable = el('div', { style: 'margin-bottom: 1.25rem;' });
+      
+      if (multiCat) {
+        catTable.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 600;">Precio por Categoría</div>`;
+        const grid = el('div', { style: 'display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center;' });
+        grid.innerHTML = `
+          <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; padding: 0 0.5rem;">Categoría</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; padding: 0 0.5rem;">Kg totales</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; padding: 0 0.5rem;">$/kg</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; padding: 0 0.5rem;">Subtotal</div>
+        `;
+        catEntries.forEach(([cat, data]) => {
+          const priceVal = state.categoryPriceInputs?.[cat] || '';
+          const subtotal = data.kg * (parseFloat(priceVal) || 0);
+          grid.innerHTML += `
+            <div style="padding: 0.4rem 0.5rem; font-weight: 600; color: var(--text-main);">${cat}</div>
+            <div style="padding: 0.4rem 0.5rem; color: var(--text-muted);">${data.kg.toFixed(1)} kg <span style="font-size:0.75rem;">(${data.count} pz)</span></div>
+            <div style="padding: 0.4rem 0.5rem;">
+              <input type="number" class="form-input cat-price-input" data-cat="${cat}"
+                style="width: 100%; padding: 0.3rem 0.5rem; font-size: 0.85rem;"
+                placeholder="$/kg" value="${priceVal}">
+            </div>
+            <div style="padding: 0.4rem 0.5rem; font-weight: 700; color: #10b981;" id="subtotal-${cat}">
+              ${subtotal > 0 ? '$' + subtotal.toLocaleString(undefined, { minimumFractionDigits: 0 }) : '—'}
+            </div>
+          `;
+        });
+        catTable.appendChild(grid);
+      } else {
+        // Single category — simple single price input
+        const cat = catEntries[0][0];
+        const priceVal = state.categoryPriceInputs?.[cat] || '';
+        catTable.innerHTML = `
+          <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Precio por Kg — ${cat} ($/kg)</label>
+          <input type="number" class="form-input cat-price-input" data-cat="${cat}"
+            style="width: 100%; max-width: 200px;" placeholder="$/kg" value="${priceVal}">
+        `;
+      }
+      panel.appendChild(catTable);
+
+      // Grand total + dispatch button
+      const footer = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border);' });
+      footer.innerHTML = `
+        <div style="font-size: 1.1rem; font-weight: 600;">
+          Total Estimado: <span style="color: #10b981;" id="grand-total-disp">$${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
         </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border);">
-          <div style="font-size: 1.1rem; font-weight: 600;">
-            Total Estimado: <span style="color: #10b981;">$${totalEst.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-          </div>
-          <button id="dispatch-btn" class="btn-primary" style="background: #ef4444; margin: 0; width: auto; min-width: 151px;">🚚 Confirmar Salida</button>
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <button id="cancel-dispatch-btn" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 1.2rem; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;">✕ Cancelar</button>
+          <button id="dispatch-btn" style="background: #ef4444; color: white; border: none; border-radius: 12px; padding: 0.7rem 1.5rem; font-weight: 700; cursor: pointer; font-size: 0.9rem;">🚚 Confirmar Salida</button>
         </div>
       `;
+      panel.appendChild(footer);
       wrapper.appendChild(panel);
 
-      panel.querySelector('#dispatch-dest').addEventListener('input', (e) => onDestinationInput(e.target.value));
-      panel.querySelector('#dispatch-price').addEventListener('input', (e) => onPriceInput(e.target.value));
-      panel.querySelector('#clear-sel-btn').onclick = () => onClearSelection();
+      // Event listeners
+      panel.querySelector('#dispatch-dest').addEventListener('input', e => onDestinationInput(e.target.value));
+      panel.querySelector('#cancel-dispatch-btn').onclick = () => onClearSelection();
       panel.querySelector('#dispatch-btn').onclick = () => onDispatch();
+
+      // Per-category price listeners — update subtotals live without full re-render
+      panel.querySelectorAll('.cat-price-input').forEach(input => {
+        input.addEventListener('input', e => {
+          const cat = e.target.dataset.cat;
+          const val = e.target.value;
+          onCategoryPriceInput(cat, val);
+
+          // Update subtotal and grand total live in the DOM
+          const catData = byCategory[cat];
+          if (catData) {
+            const sub = catData.kg * (parseFloat(val) || 0);
+            const subtotalEl = panel.querySelector(`#subtotal-${cat}`);
+            if (subtotalEl) subtotalEl.textContent = sub > 0 ? '$' + sub.toLocaleString(undefined, { minimumFractionDigits: 0 }) : '—';
+          }
+          let newGrand = 0;
+          panel.querySelectorAll('.cat-price-input').forEach(inp => {
+            const c = inp.dataset.cat;
+            const p = parseFloat(inp.value) || 0;
+            newGrand += (byCategory[c]?.kg || 0) * p;
+          });
+          const gtEl = panel.querySelector('#grand-total-disp');
+          if (gtEl) gtEl.textContent = '$' + newGrand.toLocaleString(undefined, { minimumFractionDigits: 0 });
+        });
+      });
     }
 
     // List Container
@@ -1617,4 +1791,221 @@ function renderTransactionDetailModal(transaction) {
   document.body.appendChild(overlay);
   modal.querySelector('#close-detail').onclick = () => overlay.remove();
 }
+
+
+/**
+ * Render Producer Settlement Detail & Edit Modal
+ */
+/**
+ * Render Producer Settlement Detail & Edit Modal
+ */
+export function renderSettlementModal(travel, producer, options) {
+  const overlay = el('div', { classes: ['modal-overlay'] });
+  const modal = el('div', { classes: ['modal'], style: 'max-width: 800px; width: 95%; max-height: 90vh; overflow-y: auto;' });
+  
+  const updateContent = () => {
+    const buy = travel.buy;
+    modal.innerHTML = '';
+    
+    const title = el('h2', { text: 'Detalle de Liquidación' });
+    const subtitle = el('p', { 
+      classes: ['card-subtitle'], 
+      html: `Productor: <strong>${producer.producer.name}</strong> | Viaje: <strong>${travel.truck?.name || 'ID: ' + travel.id}</strong>`,
+      style: 'margin-bottom: 1.5rem;'
+    });
+    
+    modal.appendChild(title);
+    modal.appendChild(subtitle);
+    
+    const tableContainer = el('div', { style: 'overflow-x: auto; margin-bottom: 1.5rem;' });
+    const table = el('table', { 
+      style: 'width: 100%; border-collapse: collapse; font-size: 0.9rem;',
+      html: `
+        <thead>
+          <tr style="border-bottom: 2px solid var(--border); text-align: left;">
+            <th style="padding: 0.5rem;">Producto</th>
+            <th style="padding: 0.5rem;">Cant.</th>
+            <th style="padding: 0.5rem;">Kg Sucio</th>
+            <th style="padding: 0.5rem;">% Desv.</th>
+            <th style="padding: 0.5rem;">Kg Limpio</th>
+            <th style="padding: 0.5rem;">Precio</th>
+            <th style="padding: 0.5rem;">Operación</th>
+            <th style="padding: 0.5rem;">Comis.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${producer.listOfProducts.map((pr, idx) => `
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 0.5rem;">${pr.name}</td>
+              <td style="padding: 0.5rem;">${pr.quantity}</td>
+              <td style="padding: 0.5rem;">${pr.kg.toLocaleString()}</td>
+              <td style="padding: 0.5rem;">
+                <input type="number" step="0.1" value="${pr.roughing}" 
+                  class="compact-input product-roughing" data-idx="${idx}"
+                  style="width: 60px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-main);">
+              </td>
+              <td style="padding: 0.5rem;">${pr.kgClean.toFixed(0).toLocaleString()}</td>
+              <td style="padding: 0.5rem;">
+                <input type="number" step="1" value="${pr.price}" 
+                  class="compact-input product-price" data-idx="${idx}"
+                  style="width: 80px; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-main);">
+              </td>
+              <td style="padding: 0.5rem;">$${pr.operation.toLocaleString()}</td>
+              <td style="padding: 0.5rem;">$${pr.commission.toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `
+    });
+    tableContainer.appendChild(table);
+    modal.appendChild(tableContainer);
+    
+    // IVA MANUAL TOGGLE & INPUT
+    const ivaManualArea = el('div', { 
+      style: 'margin-bottom: 1.5rem; padding: 1rem; border: 1px solid var(--accent-subtle); border-radius: 12px; background: rgba(132, 29, 29, 0.05); display: flex; align-items: center; gap: 2rem;' 
+    });
+    
+    const isManual = producer.manualIva !== null && producer.manualIva !== undefined;
+    const toggleLabel = el('label', { 
+      style: 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500;',
+      html: `<input type="checkbox" id="toggle-manual-iva" ${isManual ? 'checked' : ''}> Usar IVA Manual` 
+    });
+    
+    const manualIvaInput = el('input', { 
+      attrs: { type: 'number', step: '1', value: isManual ? producer.manualIva : '', placeholder: 'Monto IVA', id: 'manual-iva-input' },
+      style: `padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); visibility: ${isManual ? 'visible' : 'hidden'};`
+    });
+    
+    ivaManualArea.appendChild(toggleLabel);
+    ivaManualArea.appendChild(manualIvaInput);
+    modal.appendChild(ivaManualArea);
+
+    // RATIO DISPLAY
+    const ratio = producer.facturaOverOpRatio;
+    const ratioColor = ratio < 0.4 ? '#ef4444' : (ratio > 1.0 ? '#f59e0b' : '#10b981');
+    const ratioMsg = ratio < 0.4 ? '⚠️ Ratio Factura/Operación muy bajo (< 40%)' : (ratio > 1.0 ? '⚠️ Ratio Factura/Operación superior al 100%' : '✅ Ratio Factura/Operación dentro del rango normal');
+
+    const ratioArea = el('div', { 
+      style: `margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 8px; background: ${ratioColor}15; border: 1px solid ${ratioColor}40; display: flex; align-items: center; gap: 0.75rem;` 
+    });
+    ratioArea.innerHTML = `<span style="font-size: 1.2rem;">${ratio < 0.4 || ratio > 1.0 ? '🚩' : '🛡️'}</span>
+      <div style="flex: 1;">
+        <div style="font-weight: 600; color: ${ratioColor};">Ratio Factura/Op: ${(ratio * 100).toFixed(1)}%</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">${ratioMsg}</div>
+      </div>`;
+    modal.appendChild(ratioArea);
+    
+    // Summary Cards / Desglose
+    const summaryGrid = el('div', { 
+      classes: ['grid-2-cols'], 
+      style: 'background: var(--bg-hover); padding: 1rem; border-radius: 12px; gap: 2rem;' 
+    });
+    
+    const leftCol = el('div');
+    leftCol.innerHTML = `
+      <div class="detail-row"><span>Total Operación:</span> <strong>$${producer.totalOperation.toLocaleString()}</strong></div>
+      <div class="detail-row"><span>Total Comisión (${producer.buy?.agent?.percent || 0}%):</span> <strong>$${producer.totalCommission.toLocaleString()}</strong></div>
+      <div class="detail-row highlight"><span>Op + Comisión:</span> <strong>$${producer.totalOpPlusComm.toLocaleString()}</strong></div>
+    `;
+    
+    const rightCol = el('div');
+    rightCol.innerHTML = `
+      <div class="detail-row"><span>Achique Total Viaje:</span> <strong>$${buy.reduce.toLocaleString()}</strong></div>
+      <div class="detail-row"><span>Achique Prorrateado (${producer.totalQuantity}/${buy.totalQuantity}):</span> <strong style="color: #ef4444;">- $${producer.achiqueProrrateado.toLocaleString()}</strong></div>
+      <div class="detail-row highlight"><span>Base Factura:</span> <strong>$${producer.totalFactura.toLocaleString()}</strong></div>
+    `;
+    
+    summaryGrid.appendChild(leftCol);
+    summaryGrid.appendChild(rightCol);
+    modal.appendChild(summaryGrid);
+    
+    const taxesArea = el('div', { style: 'margin-top: 1rem; padding: 1rem; border-top: 1px solid var(--border);' });
+    taxesArea.innerHTML = `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span>Neto (1/1.105):</span> <strong>$${producer.neto.toLocaleString()}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+        <span>IVA (10.5%):</span> <strong>$${producer.iva.toLocaleString()}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+        <span>Retención Ganancias (2% Neto):</span> <strong style="color: #ef4444;">- $${producer.retencionGanancias.toLocaleString()}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 1.2rem; border-top: 2px solid var(--accent-main); padding-top: 1rem;">
+        <strong>TOTAL A PAGAR:</strong> <strong style="color: var(--accent-main);">$${producer.totalAPagar.toLocaleString()}</strong>
+      </div>
+    `;
+    modal.appendChild(taxesArea);
+    
+    const actions = el('div', { classes: ['modal-actions'], style: 'margin-top: 2rem;' });
+    const cancelBtn = el('button', { classes: ['btn-outline'], text: 'Cerrar' });
+    const saveBtn = el('button', { classes: ['btn-primary'], text: '💾 Guardar Cambios', style: 'flex: 1; background: #059669;' });
+    
+    cancelBtn.onclick = () => overlay.remove();
+    saveBtn.onclick = () => {
+      const productUpdates = [];
+      modal.querySelectorAll('.product-roughing').forEach(input => {
+        const idx = parseInt(input.dataset.idx);
+        const priceInput = modal.querySelector(`.product-price[data-idx="${idx}"]`);
+        productUpdates.push({
+          index: idx,
+          roughing: parseFloat(input.value),
+          price: parseFloat(priceInput.value)
+        });
+      });
+      
+      const manualIvaValue = toggleLabel.querySelector('input').checked ? parseFloat(manualIvaInput.value) : null;
+      
+      if (options.onUpdateSettlement) {
+        options.onUpdateSettlement(travel.id, String(producer.producer.cuit || ''), productUpdates, manualIvaValue);
+      }
+      overlay.remove();
+    };
+    
+    actions.appendChild(cancelBtn);
+    actions.appendChild(saveBtn);
+    modal.appendChild(actions);
+    
+    // UI Event Handlers
+    toggleLabel.querySelector('input').onchange = (e) => {
+      manualIvaInput.style.visibility = e.target.checked ? 'visible' : 'hidden';
+      if (!e.target.checked) {
+        producer.manualIva = null;
+        updateContent();
+      }
+    };
+    
+    manualIvaInput.oninput = (e) => {
+      producer.manualIva = parseFloat(e.target.value) || 0;
+      updateContent();
+      const newInp = modal.querySelector('#manual-iva-input');
+      newInp.focus();
+      const val = newInp.value;
+      newInp.value = '';
+      newInp.value = val;
+    };
+    
+    modal.querySelectorAll('.product-roughing, .product-price').forEach(input => {
+      input.oninput = (e) => {
+        const idx = parseInt(e.target.dataset.idx);
+        const rough = modal.querySelector(`.product-roughing[data-idx="${idx}"]`).value;
+        const price = modal.querySelector(`.product-price[data-idx="${idx}"]`).value;
+        producer.listOfProducts[idx].roughing = parseFloat(rough) || 0;
+        producer.listOfProducts[idx].price = parseFloat(price) || 0;
+        updateContent();
+        // Restore focus
+        const focusId = e.target.classList.contains('product-roughing') ? 'r' : 'p';
+        const newInp = modal.querySelector(`${focusId === 'r' ? '.product-roughing' : '.product-price'}[data-idx="${idx}"]`);
+        newInp.focus();
+        const v = newInp.value;
+        newInp.value = '';
+        newInp.value = v;
+      };
+    });
+  };
+  
+  updateContent();
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+}
+
 

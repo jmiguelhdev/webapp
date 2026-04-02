@@ -15,10 +15,11 @@ export class ConsumptionPresenter {
       activeTab: 'STOCK', // 'STOCK' | 'HISTORY'
       selectedIds: new Set(),
       destinationInput: '',
-      priceInput: '', // Manual price input
-      sortOrder: 'asc', // 'asc' or 'desc'
+      categoryPriceInputs: {}, // { 'NOVILLO': '5100', 'VACA': '3200', ... }
+      sortOrder: 'asc',
       stockSearch: '',
-      categoryFilter: 'ALL', // 'ALL' | 'NOVILLO' | 'VACA' | 'TORO' | 'VAQUILLONA'
+      tropaFilter: 'ALL', // 'ALL' | specific tropa number
+      categoryFilter: 'ALL',
       historyFilters: {
         destination: '',
         date: '',
@@ -80,7 +81,7 @@ export class ConsumptionPresenter {
 
   clearSelection() {
     this.state.selectedIds.clear();
-    this.state.priceInput = '';
+    this.state.categoryPriceInputs = {};
     this.updateView();
   }
 
@@ -88,26 +89,21 @@ export class ConsumptionPresenter {
     this.state.destinationInput = val;
   }
 
-  setPrice(val) {
-    this.state.priceInput = val;
+  setCategoryPrice(cat, val) {
+    this.state.categoryPriceInputs = { ...this.state.categoryPriceInputs, [cat]: val };
   }
 
   _autoSuggestPrice() {
-    // If only one category is present in selection, suggest price
+    // Pre-fill prices from saved categoryPrices for each selected category
     const selectedItems = this.allFaenas.filter(f => this.state.selectedIds.has(f.id));
-    if (selectedItems.length === 0) {
-      this.state.priceInput = '';
-      return;
-    }
-    const categories = [...new Set(selectedItems.map(i => i.standardizedCategory || 'OTRO'))];
-    if (categories.length === 1) {
-      const cat = categories[0];
-      if (this.categoryPrices[cat]) {
-        this.state.priceInput = this.categoryPrices[cat].toString();
+    const newPrices = { ...this.state.categoryPriceInputs };
+    selectedItems.forEach(item => {
+      const cat = item.standardizedCategory || 'OTRO';
+      if (!newPrices[cat] && this.categoryPrices[cat]) {
+        newPrices[cat] = String(this.categoryPrices[cat]);
       }
-    } else {
-      this.state.priceInput = '';
-    }
+    });
+    this.state.categoryPriceInputs = newPrices;
   }
 
   toggleSort() {
@@ -122,8 +118,14 @@ export class ConsumptionPresenter {
 
   setCategoryFilter(cat) {
     this.state.categoryFilter = cat;
-    // Clear selection when filters change to avoid dispatching invisible items by accident
-    this.state.selectedIds.clear(); 
+    this.state.selectedIds.clear();
+    this.state.priceInput = '';
+    this.updateView();
+  }
+
+  setTropaFilter(tropa) {
+    this.state.tropaFilter = tropa;
+    this.state.selectedIds.clear();
     this.state.priceInput = '';
     this.updateView();
   }
@@ -136,54 +138,63 @@ export class ConsumptionPresenter {
       return;
     }
 
-    const price = parseFloat(this.state.priceInput);
-    if (isNaN(price) || price <= 0) {
-      alert("Debes ingresar un precio válido por kg.");
-      return;
-    }
-
+    // Build per-category breakdown
     const selectedItems = this.allFaenas.filter(i => this.state.selectedIds.has(i.id));
-    const totalKg = selectedItems.reduce((s, i) => s + (i.kg || 0), 0);
-    const totalDebt = totalKg * price;
+    const byCategory = {};
+    selectedItems.forEach(item => {
+      const cat = item.standardizedCategory || 'OTRO';
+      if (!byCategory[cat]) byCategory[cat] = { items: [], kg: 0 };
+      byCategory[cat].items.push(item);
+      byCategory[cat].kg += item.kg || 0;
+    });
 
-    if (!confirm(`¿Estás seguro de despachar ${this.state.selectedIds.size} medias reses a "${dest}" por un total de $${totalDebt.toFixed(2)} ($${price}/kg)?`)) {
-      return;
+    // Validate all categories have a price
+    for (const cat of Object.keys(byCategory)) {
+      const price = parseFloat(this.state.categoryPriceInputs[cat]);
+      if (isNaN(price) || price <= 0) {
+        alert(`Debes ingresar un precio válido para la categoría ${cat}.`);
+        return;
+      }
+      byCategory[cat].price = price;
+      byCategory[cat].subtotal = byCategory[cat].kg * price;
     }
+
+    const totalDebt = Object.values(byCategory).reduce((s, c) => s + c.subtotal, 0);
+    const totalKg = selectedItems.reduce((s, i) => s + (i.kg || 0), 0);
+
+    const catSummary = Object.entries(byCategory)
+      .map(([cat, d]) => `${cat}: ${d.kg.toFixed(1)} kg × $${d.price} = $${d.subtotal.toLocaleString()}`)
+      .join('\n');
+
+    if (!confirm(`¿Confirmar despacho de ${selectedItems.length} piezas a "${dest}"?\n\n${catSummary}\n\nTOTAL: $${totalDebt.toLocaleString()}`)) return;
 
     this.ui.showLoading();
     try {
-      // 1. Create/Update Client
-      const clientData = { name: dest };
-      const clientId = await this.clientRepository.saveClient(clientData);
+      const clientId = await this.clientRepository.saveClient({ name: dest });
 
-      // 2. Record Debt Transaction
-      const breakout = selectedItems.map(item => ({
-        id: item.id,
-        garron: item.garron,
-        weight: item.kg,
-        price: price,
-        total: (item.kg || 0) * price
-      }));
+      const breakout = selectedItems.map(item => {
+        const cat = item.standardizedCategory || 'OTRO';
+        const price = byCategory[cat].price;
+        return { id: item.id, garron: item.garron, weight: item.kg, price, total: (item.kg || 0) * price };
+      });
 
       const transaction = {
-        clientId: clientId,
+        clientId,
         type: 'DEBT',
         amount: totalDebt,
-        description: `Despacho de ${selectedItems.length} reses (${totalKg.toFixed(1)} kg) a $${price}/kg`,
-        breakout: breakout, // Detailed info
+        description: `Despacho de ${selectedItems.length} reses (${totalKg.toFixed(1)} kg) a "${dest}"`,
+        breakout,
         date: Date.now()
       };
       await this.clientRepository.addTransaction(transaction);
 
-      // 3. Mark as Dispatched
       const idsArray = Array.from(this.state.selectedIds);
       await this.travelRepository.dispatchFaenas(uid, idsArray, dest);
-      
+
       this.state.selectedIds.clear();
       this.state.destinationInput = '';
-      this.state.priceInput = '';
-      
-      // Reload raw data
+      this.state.categoryPriceInputs = {};
+
       await this.loadFaenas(uid);
     } catch (e) {
       console.error(e);
@@ -226,11 +237,20 @@ export class ConsumptionPresenter {
   }
 
   updateView() {
-    // Separate Stock vs History
     let stock = this.allFaenas.filter(f => f.status === 'AVAILABLE');
     let history = this.allFaenas.filter(f => f.status === 'DISPATCHED');
 
-    // Apply specific History Filters
+    // Compute all unique tropas from ALL faenas
+    const allTropas = [...new Set(this.allFaenas.map(f => String(f.tropa || '')).filter(Boolean))]
+      .sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Compute finished tropas: all garrones of that tropa are DISPATCHED
+    const finishedTropas = allTropas.filter(tropa => {
+      const members = this.allFaenas.filter(f => String(f.tropa || '') === tropa);
+      return members.length > 0 && members.every(f => f.status === 'DISPATCHED');
+    });
+
+    // Apply history filters
     if (this.state.historyFilters.destination) {
       const q = this.state.historyFilters.destination;
       history = history.filter(f => (f.destination || '').toLowerCase().includes(q));
@@ -243,11 +263,17 @@ export class ConsumptionPresenter {
       });
     }
 
-    // Apply General Search and Garron Sort
+    // Apply tropa filter
+    if (this.state.tropaFilter !== 'ALL') {
+      stock = stock.filter(f => String(f.tropa || '') === this.state.tropaFilter);
+      history = history.filter(f => String(f.tropa || '') === this.state.tropaFilter);
+    }
+
+    // Apply general search and sort
     stock = this._applySearchAndSort(stock, this.state.stockSearch);
     history = this._applySearchAndSort(history, this.state.historyFilters.search);
 
-    // Apply Global Category Filter
+    // Apply category filter
     if (this.state.categoryFilter !== 'ALL') {
       stock = stock.filter(f => f.standardizedCategory === this.state.categoryFilter);
       history = history.filter(f => f.standardizedCategory === this.state.categoryFilter);
@@ -257,18 +283,21 @@ export class ConsumptionPresenter {
       state: this.state,
       stockItems: stock,
       historyItems: history,
-      clients: this.clients, // List of suggestions
+      allTropas,
+      finishedTropas,
+      clients: this.clients,
       onTabSwitch: this.toggleTab.bind(this),
       onToggleSelection: this.toggleSelection.bind(this),
       onSelectAll: this.selectAll.bind(this),
       onClearSelection: this.clearSelection.bind(this),
       onDestinationInput: this.setDestination.bind(this),
-      onPriceInput: this.setPrice.bind(this),
       onDispatch: () => { this.dispatchSelected(this.currentUid); },
       onFilterChange: this.setHistoryFilter.bind(this),
       onToggleSort: this.toggleSort.bind(this),
       onStockSearch: this.setStockSearch.bind(this),
-      onCategoryChange: this.setCategoryFilter.bind(this)
+      onCategoryChange: this.setCategoryFilter.bind(this),
+      onTropaChange: this.setTropaFilter.bind(this),
+      onCategoryPriceInput: this.setCategoryPrice.bind(this)
     };
 
     this.ui.renderFaenaConsumption(options);

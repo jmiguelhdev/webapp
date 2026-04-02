@@ -30,8 +30,10 @@ const menuToggle = document.getElementById('menu-toggle');
 
 // Unified UI Interface for Presenter
 const uiInterface = {
-  showLoading: () => { content.innerHTML = `<div class="loading">Cargando...</div>`; },
-  hideLoading: () => {}, // Handled by updateView rendering over the container
+  showLoading: (active = true) => { 
+    if (active) content.innerHTML = `<div class="loading">Cargando...</div>`; 
+  },
+  hideLoading: () => {},
   showError: (msg) => { content.innerHTML = `<div class="alert error">Error: ${msg}</div>`; },
   renderTravels: (options) => uiLib.renderTravels(content, options),
   renderDashboard: (options) => uiLib.renderDashboard(content, options),
@@ -40,7 +42,8 @@ const uiInterface = {
   renderScanResultsModal: (options) => uiLib.renderScanResultsModal(options),
   generateTravelReport: (data) => uiLib.generateTravelReport(data),
   generateExcelReport: (data) => uiLib.generateExcelReport(data),
-  renderClientAccounts: (options) => uiLib.renderClientAccounts(options)
+  renderClientAccounts: (options) => uiLib.renderClientAccounts(options),
+  renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);

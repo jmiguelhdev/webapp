@@ -220,8 +220,75 @@ export class TravelPresenter {
       searchQuery: this.state.searchQuery,
       onSearch: (q) => this.setSearchQuery(q),
       onPdfUpload: (file) => this.handlePdfFaenaUpload(file, SHARED_DATA_SOURCE_UID),
-      onScanDirectory: (files) => this.handleScanDirectory(SHARED_DATA_SOURCE_UID, files)
+      onScanDirectory: (files) => this.handleScanDirectory(SHARED_DATA_SOURCE_UID, files),
+      onReduceUpdate: (id, val) => this.handleReduceUpdate(SHARED_DATA_SOURCE_UID, id, val),
+      onProducerSettlement: (travel, producer) => this.handleProducerSettlement(travel, producer)
     });
+  }
+
+  async handleReduceUpdate(uid, travelId, newValue) {
+    const travel = this.allTravels.find(t => t.id === travelId);
+    if (!travel) return;
+    
+    // Update local state
+    if (!travel.buy) travel.buy = {};
+    travel.buy.reduce = newValue;
+    
+    // Persist to Firebase
+    try {
+      const updatedRaw = JSON.parse(JSON.stringify(travel._raw || travel));
+      if (!updatedRaw.buy) updatedRaw.buy = {};
+      updatedRaw.buy.reduce = newValue;
+      updatedRaw.reduce = newValue; // Picked up by updated Travel.js constructor 
+      
+      await this.travelRepository.updateTravel(uid, travelId, updatedRaw);
+      this.refresh();
+    } catch (error) {
+      this.ui.showError("Error al actualizar achique: " + error.message);
+    }
+  }
+
+  handleProducerSettlement(travel, producer) {
+    // Open the modal via UI
+    this.ui.renderSettlementModal(travel, producer, {
+      onUpdateSettlement: (tid, pCuit, updates, mIva) => this.handleSettlementUpdate(SHARED_DATA_SOURCE_UID, tid, pCuit, updates, mIva)
+    });
+  }
+
+  async handleSettlementUpdate(uid, travelId, producerCuit, productUpdates, manualIvaValue) {
+    this.ui.showLoading();
+    try {
+      const travel = this.allTravels.find(t => t.id === travelId);
+      if (!travel) throw new Error("Viaje no encontrado");
+      
+      const updatedRaw = JSON.parse(JSON.stringify(travel._raw || travel));
+      const rawProducers = updatedRaw.buy?.listOfProducers || [];
+      const targetCuit = String(producerCuit || '').replace(/\D/g, '');
+      const producer = rawProducers.find(p => {
+        // KMP stores cuit directly on producer (p.cuit), possibly as a number
+        // Web app legacy stores it nested (p.producer.cuit)
+        const pCuit = String(p.cuit || p.producer?.cuit || '').replace(/\D/g, '');
+        return pCuit === targetCuit && targetCuit.length > 0;
+      });
+      
+      if (!producer) throw new Error("Productor no encontrado en el viaje");
+      
+      productUpdates.forEach(upd => {
+        const pr = producer.listOfProducts[upd.index];
+        if (pr) {
+          pr.price = upd.price;
+          pr.roughing = upd.roughing;
+        }
+      });
+
+      producer.manualIva = manualIvaValue;
+      
+      await this.travelRepository.updateTravel(uid, travelId, updatedRaw);
+      await this.loadTravels(uid); // Full reload to refresh all calculations
+      this.ui.showLoading(false);
+    } catch (error) {
+      this.ui.showError("Error al guardar liquidación: " + error.message);
+    }
   }
 
   showDashboard() {
