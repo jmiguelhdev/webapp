@@ -19,6 +19,14 @@ export class ClientRepository {
     return api.saveCategoryPrices(db, prices);
   }
 
+  async getCamaras() {
+    return api.fetchCamaras(db);
+  }
+
+  async saveCamaras(camarasList) {
+    return api.saveCamaras(db, camarasList);
+  }
+
   async getTransactions(clientId) {
     return api.fetchTransactions(db, clientId);
   }

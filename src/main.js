@@ -18,6 +18,7 @@ const clientRepository = new ClientRepository();
 
 // State
 let currentUser = null;
+let currentUserRole = null; // 'ADMIN', 'OPERARIO', or 'VISOR'
 
 // Acceso compartido desde config.js
 
@@ -51,16 +52,30 @@ const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterf
 const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
 
 // Auth Listener
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     document.body.classList.add('authenticated');
     
+    // Fetch user role
+    uiInterface.showLoading(true);
+    try {
+      currentUserRole = await api.fetchUserRole(api.db, user.email);
+    } catch (e) {
+      console.error("Error fetching role:", e);
+      currentUserRole = 'VISOR'; // fallback
+    }
+    uiInterface.hideLoading();
+    
+    enforcePermissions(currentUserRole);
+
     // Todos los usuarios autentificados pueden acceder a la app
     // Usamos el UID compartido para que todos vean la misma base de datos global
     const uidToLoad = SHARED_DATA_SOURCE_UID;
 
-    travelPresenter.loadTravels(uidToLoad);
+    // Check if the current view (or 'travels') is allowed
+    const startView = (currentUserRole === 'VISOR') ? 'dashboard' : 'travels';
+    navigateTo(startView);
   } else {
     currentUser = null;
     document.body.classList.remove('authenticated');
@@ -111,8 +126,40 @@ function showLogin() {
   });
 }
 
+function getAllowedViews(role) {
+  if (role === 'ADMIN') {
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'settings', 'contact', 'logout'];
+  } else if (role === 'OPERARIO') {
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'contact', 'logout'];
+  } else {
+    // VISOR
+    return ['dashboard', 'simulator', 'contact', 'logout'];
+  }
+}
+
+function enforcePermissions(role) {
+  const allowed = getAllowedViews(role);
+  document.querySelectorAll('#entity-list li').forEach(li => {
+    const view = li.dataset.view;
+    if (view && !allowed.includes(view)) {
+      li.style.display = 'none';
+    } else {
+      li.style.display = 'block';
+    }
+  });
+}
+
 function navigateTo(view) {
-  if (!currentUser && view !== 'simulator') return showLogin();
+  if (!currentUser && view !== 'simulator' && view !== 'logout') return showLogin();
+  
+  if (currentUser) {
+    const allowed = getAllowedViews(currentUserRole);
+    if (!allowed.includes(view)) {
+      alert(`Acceso denegado: No tienes permiso para acceder a esta sección (${view}).`);
+      return;
+    }
+  }
+
   document.querySelectorAll('#entity-list li').forEach(li => li.classList.toggle('active', li.dataset.view === view));
   document.body.classList.remove('sidebar-open');
   content.innerHTML = '';
@@ -134,11 +181,23 @@ function navigateTo(view) {
       const loadSettingsData = async () => {
         const prices = await clientRepository.getCategoryPrices();
         const clients = await clientRepository.getClients();
+        const camaras = await clientRepository.getCamaras() || [];
+        
+        let usersList = [];
+        if (currentUserRole === 'ADMIN') {
+          usersList = await api.fetchAllUsersRoles(api.db);
+        }
+
         uiLib.renderSettings(content, { 
           categoryPrices: prices,
           clients: clients,
+          camarasList: camaras,
+          userRole: currentUserRole,
+          usersList: usersList,
           onSavePrices: (newPrices) => clientRepository.saveCategoryPrices(newPrices),
           onSaveClient: (client) => clientRepository.saveClient(client),
+          onSaveCamaras: (list) => clientRepository.saveCamaras(list),
+          onSaveUserRole: (email, role) => api.saveUserRole(api.db, email, role),
           onReloadClients: loadSettingsData
         });
       };
@@ -358,6 +417,31 @@ function navigateTo(view) {
               </div>
             </div>
             
+            <!-- NUEVA SECCIÓN: Gestión de Cámaras de Frío -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>❄️ Gestión de Cámaras de Frío</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Sistema de trazabilidad de ubicación para el acopio de medias reses con control de movimientos:</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Configuración</span> Definir los nombres de las cámaras en ⚙️ Configuración (separados por coma).
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Movimientos</span> Seleccionar piezas en Stock -> "Mover a [Cámara]" -> "Mover". Se registra el historial automático (Log).
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Trazabilidad</span> Cada pieza guarda su historial interno de movimientos: <code>{ de: Cámara A, a: Cámara B, fecha: 01/01 }</code>.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Filtros</span> Uso de chips dinámicos en el encabezado para aislar el stock por cámara de frío.
+                </div>
+                <p>Esta funcionalidad asegura que el personal de planta sepa exactamente qué mercadería hay en cada sector de frío en tiempo real.</p>
+              </div>
+            </div>
+            
             <!-- NUEVA SECCIÓN: Gestión de Clientes y Cuentas Corrientes -->
             <div class="accordion-item">
               <div class="accordion-header">
@@ -380,6 +464,30 @@ function navigateTo(view) {
                   <span class="tech-tag">Saldo</span> Saldo Pendiente = ∑ Deuda (Despachos) - ∑ Haber (Pagos)
                 </div>
                 <p>El historial permite ver el detalle de cada despacho (Garrón, Peso, Precio) para una conciliación rápida con el cliente.</p>
+              </div>
+            </div>
+
+            <!-- NUEVA SECCIÓN: Gestión de Accesos (RBAC) -->
+            <div class="accordion-item">
+              <div class="accordion-header">
+                <span>🔐 Control de Privilegios y Roles (RBAC)</span>
+                <i>▼</i>
+              </div>
+              <div class="accordion-content">
+                <p>Sistema de gestión de accesos basado en roles para asegurar la información de la plataforma.</p>
+                
+                <div class="formula-card">
+                  <span class="tech-tag">Administrador</span> Tiene acceso total a todas las herramientas de la plataforma, incluyendo el panel de Configuración y asignación de permisos a otros usuarios.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Operario</span> Tiene permiso de escritura para registrar despachos, faenas y ver clientes, pero sin acceso al panel de configuraciones maestras.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Visor</span> Acceso de solo lectura al dashboard estadístico, simuladores de costos y panel de soporte.
+                </div>
+                <div class="formula-card">
+                  <span class="tech-tag">Seguridad y Alta</span> El primer usuario en iniciar sesión en el sistema obtiene privilegios de <strong>ADMIN</strong> automáticamente. Los nuevos registros son limitados al perfil <strong>VISOR</strong> por defecto hasta ser autorizados.
+                </div>
               </div>
             </div>
           </div>

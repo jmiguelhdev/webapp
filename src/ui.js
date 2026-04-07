@@ -998,6 +998,14 @@ export function renderSettings(container, options) {
 
     <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
     
+    <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">❄️ Cámaras de Frío</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Definí los nombres de las cámaras disponibles (separados por coma).</p>
+    <div class="form-group">
+      <input type="text" id="set-camaras" class="form-input" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-main);" placeholder="Ej: Cámara Ppal, Cámara Desposte">
+    </div>
+
+    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
+    
     <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">👥 Gestión de Clientes</h3>
     <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Crea o modifica información de facturación de los clientes.</p>
     
@@ -1019,6 +1027,8 @@ export function renderSettings(container, options) {
     </div>
 
     <div id="settings-clients-list" class="card-list" style="margin-bottom: 2rem;"></div>
+
+    <div id="settings-rbac-section"></div>
   `;
   
   wrapper.appendChild(form);
@@ -1040,6 +1050,10 @@ export function renderSettings(container, options) {
     renderPriceInputs(options.categoryPrices);
   } else {
     renderPriceInputs({});
+  }
+
+  if (options && options.camarasList) {
+    document.getElementById('set-camaras').value = options.camarasList.join(', ');
   }
 
   const renderClientsList = (clientsList = []) => {
@@ -1080,6 +1094,58 @@ export function renderSettings(container, options) {
     renderClientsList(options.clients);
   }
 
+  // --- RBAC SECTION ---
+  if (options && options.userRole === 'ADMIN') {
+    const rbacEl = document.getElementById('settings-rbac-section');
+    rbacEl.innerHTML = `
+      <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
+      <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">🔐 Gestión de Usuarios y Permisos</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Administra el nivel de acceso (rol) de los usuarios que han iniciado sesión.</p>
+      <div id="rbac-list" class="card-list" style="margin-bottom: 2rem;"></div>
+    `;
+    
+    const rbacListEl = document.getElementById('rbac-list');
+    const users = options.usersList || [];
+    if (users.length === 0) {
+      rbacListEl.innerHTML = `<div style="padding: 1rem; color: var(--text-muted); text-align: center;">No hay usuarios registrados.</div>`;
+    } else {
+      users.forEach(u => {
+        const card = el('div', { classes: ['card', 'glass-card'], style: 'padding: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;' });
+        card.innerHTML = `
+          <div style="flex: 1;">
+            <h4 style="margin: 0 0 0.3rem 0; font-size: 0.95rem;">${u.email}</h4>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Registrado: ${new Date(u.createdAt).toLocaleDateString()}</span>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <select class="form-input rbac-select" data-email="${u.email}" style="padding: 0.4rem; font-size: 0.85rem;">
+              <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>Administrador</option>
+              <option value="OPERARIO" ${u.role === 'OPERARIO' ? 'selected' : ''}>Operario</option>
+              <option value="VISOR" ${u.role === 'VISOR' ? 'selected' : ''}>Solo Lectura (Visor)</option>
+            </select>
+            <button class="btn-primary btn-save-role" data-email="${u.email}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0;">Actualizar</button>
+          </div>
+        `;
+        rbacListEl.appendChild(card);
+      });
+
+      rbacListEl.querySelectorAll('.btn-save-role').forEach(btn => {
+        btn.onclick = async () => {
+          const email = btn.dataset.email;
+          const select = rbacListEl.querySelector(`.rbac-select[data-email="${email}"]`);
+          const newRole = select.value;
+          btn.textContent = '...';
+          btn.disabled = true;
+          if (options.onSaveUserRole) {
+            await options.onSaveUserRole(email, newRole);
+            showMsg(`Rol de ${email} actualizado a ${newRole}`);
+          }
+          btn.textContent = 'Actualizar';
+          btn.disabled = false;
+        };
+      });
+    }
+  }
+
   const msgBox = document.getElementById('settings-msg');
   const showMsg = (text, isError = false) => {
     msgBox.textContent = text;
@@ -1106,7 +1172,12 @@ export function renderSettings(container, options) {
       if (options && options.onSavePrices) {
         await options.onSavePrices(prices);
       }
-      showMsg('¡Configuración de precios y general guardada exitosamente!');
+      if (options && options.onSaveCamaras) {
+        const camarasStr = document.getElementById('set-camaras').value;
+        const camarasArray = camarasStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        await options.onSaveCamaras(camarasArray);
+      }
+      showMsg('¡Configuración de precios, cámaras y general guardada exitosamente!');
     } else {
       showMsg('Hubo un error al guardar general.', true);
     }
@@ -1244,6 +1315,32 @@ export function renderFaenaConsumption(container, options) {
   });
   
   wrapper.appendChild(categoryFilters);
+
+  // --- Camara Filter ---
+  const camaraFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;' });
+  camaraFilterRow.appendChild(el('span', { text: 'Cámara:', style: 'font-size: 0.8rem; color: var(--text-muted); font-weight: 600; white-space: nowrap;' }));
+  
+  const camaraChipsWrap = el('div', { style: 'display: flex; gap: 0.5rem; flex-wrap: wrap; overflow-x: auto;' });
+  
+  const allCamaraBtn = el('button', { 
+    text: 'Todas', 
+    style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${state.camaraFilter === 'ALL' ? 'var(--primary)' : 'var(--border)'}; background: ${state.camaraFilter === 'ALL' ? 'var(--primary)' : 'transparent'}; color: ${state.camaraFilter === 'ALL' ? '#fff' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;` 
+  });
+  allCamaraBtn.onclick = () => options.onCamaraChange('ALL');
+  camaraChipsWrap.appendChild(allCamaraBtn);
+
+  (options.camarasList || []).forEach(camara => {
+    const isActive = state.camaraFilter === camara;
+    const chip = el('button', { 
+      text: camara,
+      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : 'transparent'}; color: ${isActive ? '#fff' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;`
+    });
+    chip.onclick = () => options.onCamaraChange(camara);
+    camaraChipsWrap.appendChild(chip);
+  });
+
+  camaraFilterRow.appendChild(camaraChipsWrap);
+  wrapper.appendChild(camaraFilterRow);
 
   // --- Tropa Filter ---
   const tropaFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;' });
@@ -1401,8 +1498,20 @@ export function renderFaenaConsumption(container, options) {
       panel.appendChild(catTable);
 
       // Grand total + dispatch button
-      const footer = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border);' });
-      footer.innerHTML = `
+      const footer = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border); flex-wrap: wrap; gap: 1rem;' });
+      
+      const moveControls = el('div', { style: 'display: flex; gap: 0.5rem; align-items: center; border-right: 1px solid var(--border); padding-right: 1rem;' });
+      moveControls.innerHTML = `
+        <select id="move-camara-select" class="form-input" style="padding: 0.5rem; max-width: 150px;">
+          <option value="">-- Mover a --</option>
+          ${(options.camarasList || []).map(c => `<option value="${c}">${c}</option>`).join('')}
+        </select>
+        <button id="move-camara-btn" class="btn-outline" style="padding: 0.5rem 1rem; margin: 0; font-size: 0.85rem;">⮂ Mover</button>
+      `;
+      footer.appendChild(moveControls);
+
+      const dispatchControls = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; flex: 1;' });
+      dispatchControls.innerHTML = `
         <div style="font-size: 1.1rem; font-weight: 600;">
           Total Estimado: <span style="color: #10b981;" id="grand-total-disp">$${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
         </div>
@@ -1411,10 +1520,20 @@ export function renderFaenaConsumption(container, options) {
           <button id="dispatch-btn" style="background: #ef4444; color: white; border: none; border-radius: 12px; padding: 0.7rem 1.5rem; font-weight: 700; cursor: pointer; font-size: 0.9rem;">🚚 Confirmar Salida</button>
         </div>
       `;
+      footer.appendChild(dispatchControls);
+      
       panel.appendChild(footer);
       wrapper.appendChild(panel);
 
       // Event listeners
+      panel.querySelector('#move-camara-btn').onclick = () => {
+        const sel = panel.querySelector('#move-camara-select').value;
+        if (sel) {
+          options.onMoveToCamara(sel);
+        } else {
+          alert('Selecciona una cámara destino');
+        }
+      };
       panel.querySelector('#dispatch-dest').addEventListener('input', e => onDestinationInput(e.target.value));
       panel.querySelector('#cancel-dispatch-btn').onclick = () => onClearSelection();
       panel.querySelector('#dispatch-btn').onclick = () => onDispatch();
@@ -1484,6 +1603,7 @@ export function renderFaenaConsumption(container, options) {
           <th style="padding: 1rem;">Mitad (Mz)</th>
           <th style="padding: 1rem;">Categoría</th>
           <th style="padding: 1rem;">Kilos</th>
+          <th style="padding: 1rem;">Cámara</th>
           <th style="padding: 1rem;">Ingreso</th>
         </tr>
       </thead>
@@ -1494,7 +1614,7 @@ export function renderFaenaConsumption(container, options) {
 
     const tbody = table.querySelector('#stock-tbody');
     if (stockItems.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay stock disponible. Carga reportes de faena desde la pestaña Viajes.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay stock disponible. Carga reportes de faena desde la pestaña Viajes.</td></tr>`;
     } else {
       stockItems.forEach(item => {
         const isSel = state.selectedIds.has(item.id);
@@ -1509,6 +1629,7 @@ export function renderFaenaConsumption(container, options) {
           <td style="padding: 1rem;">Mitad ${item.half || '1'}</td>
           <td style="padding: 1rem;">${item.standardizedCategory || item.category}</td>
           <td style="padding: 1rem; font-weight: bold; color: #10b981;">${item.kg.toFixed(1)} kg</td>
+          <td style="padding: 1rem; font-weight: 500; color: var(--primary);">${item.camaraId || '-'}</td>
           <td style="padding: 1rem; font-size: 0.85rem; color: var(--text-muted);">${item.pdfDate} (Tr. ${item.tropa})</td>
         `;
         

@@ -10,6 +10,7 @@ export class ConsumptionPresenter {
     this.allFaenas = [];
     this.clients = [];
     this.categoryPrices = {};
+    this.camarasList = [];
     
     this.state = {
       activeTab: 'STOCK', // 'STOCK' | 'HISTORY'
@@ -20,6 +21,7 @@ export class ConsumptionPresenter {
       stockSearch: '',
       tropaFilter: 'ALL', // 'ALL' | specific tropa number
       categoryFilter: 'ALL',
+      camaraFilter: 'ALL', // 'ALL' | specific camara name
       historyFilters: {
         destination: '',
         date: '',
@@ -45,6 +47,7 @@ export class ConsumptionPresenter {
       this.allFaenas = await this.travelRepository.getFaenaStock(uid);
       this.clients = await this.clientRepository.getClients();
       this.categoryPrices = await this.clientRepository.getCategoryPrices();
+      this.camarasList = await this.clientRepository.getCamaras() || [];
       
       // Sort desc by creation/faena date
       this.allFaenas.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -128,6 +131,34 @@ export class ConsumptionPresenter {
     this.state.selectedIds.clear();
     this.state.priceInput = '';
     this.updateView();
+  }
+
+  setCamaraFilter(camara) {
+    this.state.camaraFilter = camara;
+    this.state.selectedIds.clear();
+    this.updateView();
+  }
+
+  async moveSelectedToCamara(uid, camaraId) {
+    if (this.state.selectedIds.size === 0 || !camaraId) return;
+    
+    this.ui.showLoading();
+    try {
+      const selectedItems = this.allFaenas.filter(i => this.state.selectedIds.has(i.id));
+      const recordsInfo = selectedItems.map(item => ({
+        id: item.id,
+        fromCamaraId: item.camaraId || null
+      }));
+
+      await this.travelRepository.moveFaenasToCamara(uid, recordsInfo, camaraId);
+
+      this.state.selectedIds.clear();
+      await this.loadFaenas(uid);
+    } catch (e) {
+      console.error(e);
+      alert(`Error al mover a cámara: ${e.message}`);
+      this.ui.hideLoading();
+    }
   }
 
   async dispatchSelected(uid) {
@@ -279,6 +310,11 @@ export class ConsumptionPresenter {
       history = history.filter(f => f.standardizedCategory === this.state.categoryFilter);
     }
 
+    // Apply camara filter
+    if (this.state.camaraFilter !== 'ALL') {
+      stock = stock.filter(f => (f.camaraId || '') === this.state.camaraFilter);
+    }
+
     const options = {
       state: this.state,
       stockItems: stock,
@@ -297,7 +333,10 @@ export class ConsumptionPresenter {
       onStockSearch: this.setStockSearch.bind(this),
       onCategoryChange: this.setCategoryFilter.bind(this),
       onTropaChange: this.setTropaFilter.bind(this),
-      onCategoryPriceInput: this.setCategoryPrice.bind(this)
+      onCategoryPriceInput: this.setCategoryPrice.bind(this),
+      camarasList: this.camarasList,
+      onCamaraChange: this.setCamaraFilter.bind(this),
+      onMoveToCamara: (camaraId) => this.moveSelectedToCamara(this.currentUid, camaraId)
     };
 
     this.ui.renderFaenaConsumption(options);

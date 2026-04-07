@@ -1,5 +1,5 @@
 // webApp/src/api.js
-import { collection, getDocs, doc, updateDoc, setDoc, addDoc, query, where, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion } from 'firebase/firestore';
 
 /** Helper to fetch and parse a root collection */
 async function fetchAndParseRootCollection(db, uid, collName) {
@@ -117,6 +117,23 @@ export async function updateFaenasStatus(db, uid, recordIds, updateData) {
   await Promise.all(promises);
 }
 
+/**
+ * Move faenas to another camera, recording the event in the history.
+ */
+export async function moveFaenasToCamara(db, uid, recordsInfo, camaraId) {
+  if (!uid || !recordsInfo || recordsInfo.length === 0) return;
+  const now = Date.now();
+  const promises = recordsInfo.map(info => {
+    const docRef = doc(db, 'faenas_detalle', info.id);
+    const movement = { from: info.fromCamaraId || null, to: camaraId, date: now };
+    return updateDoc(docRef, {
+      camaraId: camaraId,
+      movements: arrayUnion(movement)
+    });
+  });
+  await Promise.all(promises);
+}
+
 /** 
  * CLIENTS API
  */
@@ -162,6 +179,55 @@ export async function fetchCategoryPrices(db) {
 export async function saveCategoryPrices(db, pricesRecord) {
   const docRef = doc(db, 'config', 'prices');
   await setDoc(docRef, { ...pricesRecord, updatedAt: Date.now() });
+}
+
+/**
+ * CONFIG API (Camaras de Frio)
+ */
+export async function fetchCamaras(db) {
+  const docRef = doc(db, 'config', 'camaras');
+  const snapshot = await getDocs(collection(db, 'config'));
+  const camarasDoc = snapshot.docs.find(d => d.id === 'camaras');
+  return camarasDoc ? camarasDoc.data().list || [] : [];
+}
+
+export async function saveCamaras(db, camarasList) {
+  const docRef = doc(db, 'config', 'camaras');
+  await setDoc(docRef, { list: camarasList, updatedAt: Date.now() });
+}
+
+/**
+ * USER PERMISSIONS API (RBAC)
+ */
+export async function fetchUserRole(db, email) {
+  if (!email) return null;
+  const docRef = doc(db, 'user_metadata', email);
+  const snapshot = await getDocs(query(collection(db, 'user_metadata'), where('__name__', '==', email)));
+  if (!snapshot.empty) {
+    return snapshot.docs[0].data().role || 'VISOR';
+  }
+  
+  // If no role, check if it's the first user
+  const allUsersSnap = await getDocs(collection(db, 'user_metadata'));
+  if (allUsersSnap.empty) {
+    // First user becomes ADMIN
+    await setDoc(doc(db, 'user_metadata', email), { role: 'ADMIN', createdAt: Date.now() });
+    return 'ADMIN';
+  }
+  
+  // Default to VISOR for new users if not the first
+  await setDoc(doc(db, 'user_metadata', email), { role: 'VISOR', createdAt: Date.now() });
+  return 'VISOR';
+}
+
+export async function fetchAllUsersRoles(db) {
+  const snapshot = await getDocs(collection(db, 'user_metadata'));
+  return snapshot.docs.map(doc => ({ email: doc.id, ...doc.data() }));
+}
+
+export async function saveUserRole(db, email, role) {
+  const docRef = doc(db, 'user_metadata', email);
+  await setDoc(docRef, { role, updatedAt: Date.now() }, { merge: true });
 }
 
 /**
