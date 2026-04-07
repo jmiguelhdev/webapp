@@ -1,5 +1,5 @@
 // webApp/src/api.js
-import { collection, getDocs, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion } from 'firebase/firestore';
 
 /** Helper to fetch and parse a root collection */
 async function fetchAndParseRootCollection(db, uid, collName) {
@@ -202,21 +202,22 @@ export async function saveCamaras(db, camarasList) {
 export async function fetchUserRole(db, email) {
   if (!email) return null;
   const docRef = doc(db, 'user_metadata', email);
-  const snapshot = await getDocs(query(collection(db, 'user_metadata'), where('__name__', '==', email)));
-  if (!snapshot.empty) {
-    return snapshot.docs[0].data().role || 'VISOR';
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    return docSnap.data().role || 'VISOR';
   }
   
   // If no role, check if it's the first user
   const allUsersSnap = await getDocs(collection(db, 'user_metadata'));
   if (allUsersSnap.empty) {
     // First user becomes ADMIN
-    await setDoc(doc(db, 'user_metadata', email), { role: 'ADMIN', createdAt: Date.now() });
+    await setDoc(docRef, { role: 'ADMIN', createdAt: Date.now() });
     return 'ADMIN';
   }
   
   // Default to VISOR for new users if not the first
-  await setDoc(doc(db, 'user_metadata', email), { role: 'VISOR', createdAt: Date.now() });
+  await setDoc(docRef, { role: 'VISOR', createdAt: Date.now() });
   return 'VISOR';
 }
 
