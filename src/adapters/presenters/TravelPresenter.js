@@ -69,7 +69,7 @@ export class TravelPresenter {
         seen.add(t.id);
         return true;
       });
-      this.updateView();
+      this.refresh();
     } catch (error) {
       this.ui.showError(error.message);
     }

@@ -76,6 +76,7 @@ onAuthStateChanged(auth, async (user) => {
     // Check if the current view (or 'travels') is allowed
     const startView = (currentUserRole === 'VISOR') ? 'dashboard' : 'travels';
     navigateTo(startView);
+    travelPresenter.loadTravels(SHARED_DATA_SOURCE_UID);
   } else {
     currentUser = null;
     document.body.classList.remove('authenticated');
