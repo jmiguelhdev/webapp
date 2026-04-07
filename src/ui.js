@@ -1117,12 +1117,12 @@ export function renderSettings(container, options) {
             <span style="font-size: 0.8rem; color: var(--text-muted);">Registrado: ${new Date(u.createdAt).toLocaleDateString()}</span>
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <select class="form-input rbac-select" data-email="${u.email}" style="padding: 0.4rem; font-size: 0.85rem;">
+            <select class="form-input rbac-select" data-uid="${u.uid}" style="padding: 0.4rem; font-size: 0.85rem;">
               <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>Administrador</option>
               <option value="OPERARIO" ${u.role === 'OPERARIO' ? 'selected' : ''}>Operario</option>
               <option value="VISOR" ${u.role === 'VISOR' ? 'selected' : ''}>Solo Lectura (Visor)</option>
             </select>
-            <button class="btn-primary btn-save-role" data-email="${u.email}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0;">Actualizar</button>
+            <button class="btn-primary btn-save-role" data-uid="${u.uid}" data-email="${u.email}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0;">Actualizar</button>
           </div>
         `;
         rbacListEl.appendChild(card);
@@ -1130,14 +1130,15 @@ export function renderSettings(container, options) {
 
       rbacListEl.querySelectorAll('.btn-save-role').forEach(btn => {
         btn.onclick = async () => {
+          const uid = btn.dataset.uid;
           const email = btn.dataset.email;
-          const select = rbacListEl.querySelector(`.rbac-select[data-email="${email}"]`);
+          const select = rbacListEl.querySelector(`.rbac-select[data-uid="${uid}"]`);
           const newRole = select.value;
           btn.textContent = '...';
           btn.disabled = true;
           if (options.onSaveUserRole) {
-            await options.onSaveUserRole(email, newRole);
-            showMsg(`Rol de ${email} actualizado a ${newRole}`);
+            await options.onSaveUserRole(uid, newRole);
+            showMsg(`Rol de ${email || 'usuario'} actualizado a ${newRole}`);
           }
           btn.textContent = 'Actualizar';
           btn.disabled = false;

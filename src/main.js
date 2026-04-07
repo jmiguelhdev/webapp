@@ -60,7 +60,7 @@ onAuthStateChanged(auth, async (user) => {
     // Fetch user role
     uiInterface.showLoading(true);
     try {
-      currentUserRole = await api.fetchUserRole(api.db, user.email);
+      currentUserRole = await api.fetchUserRole(api.db, user);
     } catch (e) {
       console.error("Error fetching role:", e);
       currentUserRole = 'VISOR'; // fallback

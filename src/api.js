@@ -199,35 +199,36 @@ export async function saveCamaras(db, camarasList) {
 /**
  * USER PERMISSIONS API (RBAC)
  */
-export async function fetchUserRole(db, email) {
-  if (!email) return null;
-  const docRef = doc(db, 'user_metadata', email);
+export async function fetchUserRole(db, user) {
+  if (!user || !user.uid) return 'VISOR';
+  const docRef = doc(db, 'user_metadata', user.uid);
   const docSnap = await getDoc(docRef);
   
   if (docSnap.exists()) {
+    if (user.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2' && docSnap.data().role !== 'ADMIN') {
+      await setDoc(docRef, { role: 'ADMIN', email: user.email || '', updatedAt: Date.now() }, { merge: true });
+      return 'ADMIN';
+    }
     return docSnap.data().role || 'VISOR';
   }
   
-  // If no role, check if it's the first user
-  const allUsersSnap = await getDocs(collection(db, 'user_metadata'));
-  if (allUsersSnap.empty) {
-    // First user becomes ADMIN
-    await setDoc(docRef, { role: 'ADMIN', createdAt: Date.now() });
+  if (user.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2') {
+    await setDoc(docRef, { role: 'ADMIN', email: user.email || '', createdAt: Date.now() });
     return 'ADMIN';
   }
   
   // Default to VISOR for new users if not the first
-  await setDoc(docRef, { role: 'VISOR', createdAt: Date.now() });
+  await setDoc(docRef, { role: 'VISOR', email: user.email || '', createdAt: Date.now() });
   return 'VISOR';
 }
 
 export async function fetchAllUsersRoles(db) {
   const snapshot = await getDocs(collection(db, 'user_metadata'));
-  return snapshot.docs.map(doc => ({ email: doc.id, ...doc.data() }));
+  return snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
 }
 
-export async function saveUserRole(db, email, role) {
-  const docRef = doc(db, 'user_metadata', email);
+export async function saveUserRole(db, uid, role) {
+  const docRef = doc(db, 'user_metadata', uid);
   await setDoc(docRef, { role, updatedAt: Date.now() }, { merge: true });
 }
 
