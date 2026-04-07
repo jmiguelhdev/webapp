@@ -69,6 +69,21 @@ export class TravelPresenter {
         seen.add(t.id);
         return true;
       });
+
+      // Cache completed travels and their categories to prevent recalculation on every filter change
+      this.completedTravelsCache = this.allTravels.filter(t => {
+        const s = String(t.status || '').toUpperCase();
+        return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+      });
+
+      const categoriesSet = new Set();
+      this.completedTravelsCache.forEach(t => {
+        if (t.buy && t.buy.categories) {
+          t.buy.categories.forEach(cat => categoriesSet.add(cat));
+        }
+      });
+      this.allCategoriesCache = ['TODOS', ...Array.from(categoriesSet).sort()];
+
       this.refresh();
     } catch (error) {
       this.ui.showError(error.message);
@@ -127,19 +142,8 @@ export class TravelPresenter {
 
   updateView() {
     this.state.currentView = 'travels';
-    // 0. Extract Categories (from Buy entity directly)
-    const completed = this.allTravels.filter(t => {
-      const s = String(t.status || '').toUpperCase();
-      return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
-    });
-    const categoriesSet = new Set();
-    completed.forEach(t => {
-      if (t.buy) {
-        t.buy.categories.forEach(cat => categoriesSet.add(cat));
-      }
-    });
-    const categoriesList = Array.from(categoriesSet).sort();
-    const allCategories = ['TODOS', ...categoriesList];
+    
+    const allCategories = this.allCategoriesCache || ['TODOS'];
 
     // 1. Filter & Sort
     let filtered = this._applyTimeFilter(this.allTravels);
@@ -293,19 +297,9 @@ export class TravelPresenter {
 
   showDashboard() {
     this.state.currentView = 'dashboard';
-    // 0. Extract Categories
-    const completed = this.allTravels.filter(t => {
-      const s = String(t.status || '').toUpperCase();
-      return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
-    });
-    const categoriesSet = new Set();
-    completed.forEach(t => {
-      if (t.buy && t.buy.categories) {
-        t.buy.categories.forEach(cat => categoriesSet.add(cat));
-      }
-    });
-    const categoriesList = Array.from(categoriesSet).sort();
-    const allCategories = ['TODOS', ...categoriesList];
+    
+    const completed = this.completedTravelsCache || [];
+    const allCategories = this.allCategoriesCache || ['TODOS'];
 
     // 1. Filter data by time and categories
     let filtered = this._applyTimeFilter(completed);

@@ -52,6 +52,18 @@ export class ConsumptionPresenter {
       // Sort desc by creation/faena date
       this.allFaenas.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
+      // Pre-compute basic filtered sets for better updateView performance
+      this.stockCache = this.allFaenas.filter(f => f.status === 'AVAILABLE');
+      this.historyCache = this.allFaenas.filter(f => f.status === 'DISPATCHED');
+      
+      this.allTropasCache = [...new Set(this.allFaenas.map(f => String(f.tropa || '')).filter(Boolean))]
+        .sort((a, b) => parseInt(a) - parseInt(b));
+
+      this.finishedTropasCache = this.allTropasCache.filter(tropa => {
+        const members = this.allFaenas.filter(f => String(f.tropa || '') === tropa);
+        return members.length > 0 && members.every(f => f.status === 'DISPATCHED');
+      });
+
       this.updateView();
     } catch (e) {
       console.error("Error loading faena stock:", e);
@@ -268,18 +280,11 @@ export class ConsumptionPresenter {
   }
 
   updateView() {
-    let stock = this.allFaenas.filter(f => f.status === 'AVAILABLE');
-    let history = this.allFaenas.filter(f => f.status === 'DISPATCHED');
+    let stock = this.stockCache || [];
+    let history = this.historyCache || [];
 
-    // Compute all unique tropas from ALL faenas
-    const allTropas = [...new Set(this.allFaenas.map(f => String(f.tropa || '')).filter(Boolean))]
-      .sort((a, b) => parseInt(a) - parseInt(b));
-
-    // Compute finished tropas: all garrones of that tropa are DISPATCHED
-    const finishedTropas = allTropas.filter(tropa => {
-      const members = this.allFaenas.filter(f => String(f.tropa || '') === tropa);
-      return members.length > 0 && members.every(f => f.status === 'DISPATCHED');
-    });
+    const allTropas = this.allTropasCache || [];
+    const finishedTropas = this.finishedTropasCache || [];
 
     // Apply history filters
     if (this.state.historyFilters.destination) {

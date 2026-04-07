@@ -1,5 +1,5 @@
 // webApp/src/api.js
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion, writeBatch } from 'firebase/firestore';
 
 /** Helper to fetch and parse a root collection */
 async function fetchAndParseRootCollection(db, uid, collName) {
@@ -71,15 +71,18 @@ export async function updateTravel(db, uid, travelId, travelObject) {
 export async function saveFaenaDetalle(db, uid, faenaRecords) {
   if (!uid) throw new Error("UID is required to save details");
   const collRef = collection(db, 'faenas_detalle');
-  // Using a batch or sequential adds. For simplicity, sequential for now.
-  const promises = faenaRecords.map(record => {
-    return addDoc(collRef, {
+  const batch = writeBatch(db);
+  
+  faenaRecords.forEach(record => {
+    const newDocRef = doc(collRef);
+    batch.set(newDocRef, {
       ...record,
       ownerUid: uid,
       createdAt: Date.now()
     });
   });
-  await Promise.all(promises);
+  
+  await batch.commit();
 }
 
 /**
@@ -109,12 +112,14 @@ export async function fetchFaenaDetalle(db, uid) {
  */
 export async function updateFaenasStatus(db, uid, recordIds, updateData) {
   if (!uid || !recordIds || recordIds.length === 0) return;
-  // Doing sequential updates for now. For large arrays, a WriteBatch is better.
-  const promises = recordIds.map(id => {
+  const batch = writeBatch(db);
+  
+  recordIds.forEach(id => {
     const docRef = doc(db, 'faenas_detalle', id);
-    return updateDoc(docRef, updateData);
+    batch.update(docRef, updateData);
   });
-  await Promise.all(promises);
+  
+  await batch.commit();
 }
 
 /**
@@ -123,15 +128,18 @@ export async function updateFaenasStatus(db, uid, recordIds, updateData) {
 export async function moveFaenasToCamara(db, uid, recordsInfo, camaraId) {
   if (!uid || !recordsInfo || recordsInfo.length === 0) return;
   const now = Date.now();
-  const promises = recordsInfo.map(info => {
+  const batch = writeBatch(db);
+  
+  recordsInfo.forEach(info => {
     const docRef = doc(db, 'faenas_detalle', info.id);
     const movement = { from: info.fromCamaraId || null, to: camaraId, date: now };
-    return updateDoc(docRef, {
+    batch.update(docRef, {
       camaraId: camaraId,
       movements: arrayUnion(movement)
     });
   });
-  await Promise.all(promises);
+  
+  await batch.commit();
 }
 
 /** 
@@ -170,10 +178,8 @@ export async function saveClient(db, clientRecord) {
  */
 export async function fetchCategoryPrices(db) {
   const docRef = doc(db, 'config', 'prices');
-  const snapshot = await getDocs(collection(db, 'config'));
-  // We look for the 'prices' document specifically
-  const pricesDoc = snapshot.docs.find(d => d.id === 'prices');
-  return pricesDoc ? pricesDoc.data() : {};
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() ? docSnap.data() : {};
 }
 
 export async function saveCategoryPrices(db, pricesRecord) {
@@ -186,9 +192,8 @@ export async function saveCategoryPrices(db, pricesRecord) {
  */
 export async function fetchCamaras(db) {
   const docRef = doc(db, 'config', 'camaras');
-  const snapshot = await getDocs(collection(db, 'config'));
-  const camarasDoc = snapshot.docs.find(d => d.id === 'camaras');
-  return camarasDoc ? camarasDoc.data().list || [] : [];
+  const docSnap = await getDoc(docRef);
+  return docSnap.exists() && docSnap.data().list ? docSnap.data().list : [];
 }
 
 export async function saveCamaras(db, camarasList) {
