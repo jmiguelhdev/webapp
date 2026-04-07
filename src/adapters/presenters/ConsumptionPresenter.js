@@ -320,6 +320,15 @@ export class ConsumptionPresenter {
       stock = stock.filter(f => (f.camaraId || '') === this.state.camaraFilter);
     }
 
+    // Calculate unassigned and camera occupancies BEFORE applying any filters so it's accurate for the total stock
+    const unassignedCount = (this.stockCache || []).filter(f => !f.camaraId).length;
+    const camaraOccupancy = {};
+    (this.stockCache || []).forEach(f => {
+      if (f.camaraId) {
+        camaraOccupancy[f.camaraId] = (camaraOccupancy[f.camaraId] || 0) + 1;
+      }
+    });
+
     const options = {
       state: this.state,
       stockItems: stock,
@@ -340,6 +349,8 @@ export class ConsumptionPresenter {
       onTropaChange: this.setTropaFilter.bind(this),
       onCategoryPriceInput: this.setCategoryPrice.bind(this),
       camarasList: this.camarasList,
+      camaraOccupancy,
+      unassignedCount,
       onCamaraChange: this.setCamaraFilter.bind(this),
       onMoveToCamara: (camaraId) => this.moveSelectedToCamara(this.currentUid, camaraId)
     };

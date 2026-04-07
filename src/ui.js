@@ -958,77 +958,96 @@ export async function generateExcelReport(travels) {
 export function renderSettings(container, options) {
   const currentSettings = SettingsService.loadSettings();
   
-  const wrapper = el('div', { classes: ['simulator-wrapper'] }); // Reusing layout for settings form
-  const form = el('div', { classes: ['simulator-form', 'glass-card'], style: 'grid-column: 1 / -1; max-width: 600px; margin: 0 auto;' });
+  const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
+  const header = el('div', { classes: ['dashboard-header'] });
+  header.innerHTML = `<h2>⚙️ Configuración del Sistema</h2>`;
+  wrapper.appendChild(header);
+
+  const form = el('div', { style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; width: 100%; align-items: start;' });
   
   form.innerHTML = `
-    <h2 style="color: var(--primary); margin-bottom: 1.5rem;">⚙️ Configuración Logística</h2>
-    <p style="color: var(--text-muted); margin-bottom: 2rem;">Ajustá los valores predeterminados para las simulaciones y simulador de costos. Estos cambios solo afectan a tu navegador local.</p>
-    
-    <div class="form-group">
-      <label>Margen Operativo (%)</label>
-      <input type="number" id="set-margen" value="${((currentSettings.margenGanancia - 1) * 100).toFixed(0)}" step="1">
-    </div>
-    
-    <h3 style="margin-top: 1.5rem; margin-bottom: 1rem; font-size: 1.1rem;">🚛 Jaula Doble</h3>
-    <div class="grid-2-cols" style="gap: 1rem; margin-bottom: 0;">
-      <div class="form-group"><label>Kg Capacidad</label><input type="number" id="set-jdd-kg" value="${currentSettings.pesoJaulaDoble}" step="100"></div>
-      <div class="form-group"><label>Precio Flete ($/km)</label><input type="number" id="set-jdd-km" value="${currentSettings.precioKmDouble}" step="50"></div>
-    </div>
-
-    <h3 style="margin-top: 1.5rem; margin-bottom: 1rem; font-size: 1.1rem;">🚚 Jaula Simple</h3>
-    <div class="grid-2-cols" style="gap: 1rem; margin-bottom: 0;">
-      <div class="form-group"><label>Kg Capacidad</label><input type="number" id="set-js-kg" value="${currentSettings.pesoJaulaSimple}" step="100"></div>
-      <div class="form-group"><label>Precio Flete ($/km)</label><input type="number" id="set-js-km" value="${currentSettings.precioKmSimple}" step="50"></div>
-    </div>
-    
-    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
-    
-    <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">💸 Precios por Categoría ($/kg)</h3>
-    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Precios sugeridos para el despacho de carne a clientes.</p>
-    <div id="category-prices-grid" class="grid-2-cols" style="gap: 1.5rem; margin-bottom: 2rem;">
-      <div class="loading">Cargando precios...</div>
-    </div>
-
-    <div style="display: flex; gap: 1rem;">
-      <button class="btn-primary" id="save-settings">Guardar Cambios</button>
-      <button class="btn-outline" id="reset-settings">Restaurar Valores por Defecto</button>
-    </div>
-    <div id="settings-msg" style="margin-top: 1rem; color: var(--success); font-weight: 500; display: none;">¡Configuración guardada exitosamente!</div>
-
-    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
-    
-    <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">❄️ Cámaras de Frío</h3>
-    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Definí los nombres de las cámaras disponibles (separados por coma).</p>
-    <div class="form-group">
-      <input type="text" id="set-camaras" class="form-input" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-main);" placeholder="Ej: Cámara Ppal, Cámara Desposte">
-    </div>
-
-    <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
-    
-    <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">👥 Gestión de Clientes</h3>
-    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Crea o modifica información de facturación de los clientes.</p>
-    
-    <div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid var(--primary);">
-      <h4 style="margin-bottom: 1rem;" id="client-form-title">Añadir Nuevo Cliente</h4>
-      <input type="hidden" id="client-id" value="">
-      <div class="grid-2-cols" style="gap: 1rem; margin-bottom: 0;">
-        <div class="form-group" style="margin: 0;"><label>Razón Social / Nombre *</label><input type="text" id="client-name" class="form-input"></div>
-        <div class="form-group" style="margin: 0;"><label>CUIT</label><input type="text" id="client-cuit" class="form-input"></div>
-        <div class="form-group" style="margin: 0;"><label>Dirección</label><input type="text" id="client-address" class="form-input"></div>
-        <div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="text" id="client-phone" class="form-input"></div>
-        <div class="form-group" style="margin: 0;"><label>CBU</label><input type="text" id="client-cbu" class="form-input"></div>
-        <div class="form-group" style="margin: 0;"><label>Nº Cuenta</label><input type="text" id="client-account" class="form-input"></div>
+    <!-- Settings: Logistics -->
+    <div class="glass-card card">
+      <h3 style="color: var(--primary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">🚚 Transporte y Logística</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Ajustá los valores predeterminados para el cálculo de fletes y costos (guardados localmente).</p>
+      
+      <div class="form-group">
+        <label>Margen Operativo (%)</label>
+        <input type="number" class="form-input" id="set-margen" value="${((currentSettings.margenGanancia - 1) * 100).toFixed(0)}" step="1">
       </div>
-      <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-        <button class="btn-primary" id="save-client-btn" style="margin: 0;">Guardar Cliente</button>
-        <button class="btn-outline" id="clear-client-btn" style="margin: 0;">Limpiar Campos</button>
+      
+      <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.95rem;">Jaula Doble</h4>
+      <div class="grid-2-cols" style="gap: 1rem; margin-bottom: 1rem;">
+        <div class="form-group" style="margin: 0;"><label>Kg Capacidad</label><input type="number" class="form-input" id="set-jdd-kg" value="${currentSettings.pesoJaulaDoble}" step="100"></div>
+        <div class="form-group" style="margin: 0;"><label>Precio Flete ($/km)</label><input type="number" class="form-input" id="set-jdd-km" value="${currentSettings.precioKmDouble}" step="50"></div>
+      </div>
+
+      <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; font-size: 0.95rem;">Jaula Simple</h4>
+      <div class="grid-2-cols" style="gap: 1rem; margin-bottom: 1rem;">
+        <div class="form-group" style="margin: 0;"><label>Kg Capacidad</label><input type="number" class="form-input" id="set-js-kg" value="${currentSettings.pesoJaulaSimple}" step="100"></div>
+        <div class="form-group" style="margin: 0;"><label>Precio Flete ($/km)</label><input type="number" class="form-input" id="set-js-km" value="${currentSettings.precioKmSimple}" step="50"></div>
+      </div>
+      
+      <div style="display: flex; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); margin-top: 1rem;">
+        <button class="btn-primary" id="save-settings" style="flex: 1; padding: 0.6rem; font-size: 0.9rem;">Guardar Variables</button>
+        <button class="btn-outline" id="reset-settings" style="flex: 1; padding: 0.6rem; font-size: 0.9rem;">Restaurar</button>
+      </div>
+      <div id="settings-msg" style="margin-top: 1rem; color: var(--success); font-weight: 500; font-size: 0.85rem; display: none;"></div>
+    </div>
+    
+    <!-- Column 2 (Prices & Cameras) -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      <div class="glass-card card">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">💸 Precios Sugeridos por Categoría</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">($/kg) utilizados para cotizar despachos y consumos.</p>
+        <div id="category-prices-grid" class="grid-2-cols" style="gap: 1rem; margin-bottom: 0.5rem;">
+          <div class="loading">Cargando precios...</div>
+        </div>
+      </div>
+      
+      <div class="glass-card card">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">❄️ Cámaras de Frío</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Maneja el espacio disponible en las cámaras e inventario.</p>
+        <div id="camaras-config-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <!-- dynamic inputs here -->
+        </div>
+        <button class="btn-outline" id="add-camara-btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; margin-top: 1rem; border-style: dashed; width: 100%;">+ Agregar Cámara</button>
       </div>
     </div>
-
-    <div id="settings-clients-list" class="card-list" style="margin-bottom: 2rem;"></div>
-
-    <div id="settings-rbac-section"></div>
+    
+    <!-- Clients & RBAC -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem; grid-column: 1 / -1;">
+      <div class="glass-card card">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">👥 Cuentas de Compradores</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Información de despachos y facturación.</p>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 2rem;">
+          <div style="flex: 1; min-width: 320px;">
+            <h4 style="margin-bottom: 1rem;" id="client-form-title">Añadir Nuevo Comprador</h4>
+            <input type="hidden" id="client-id" value="">
+            <div class="grid-2-cols" style="gap: 0.75rem;">
+              <div class="form-group" style="margin: 0; grid-column: 1 / -1;"><label>Razón Social / Nombre *</label><input type="text" id="client-name" class="form-input"></div>
+              <div class="form-group" style="margin: 0;"><label>CUIT</label><input type="text" id="client-cuit" class="form-input"></div>
+              <div class="form-group" style="margin: 0;"><label>Dirección</label><input type="text" id="client-address" class="form-input"></div>
+              <div class="form-group" style="margin: 0;"><label>Teléfono</label><input type="text" id="client-phone" class="form-input"></div>
+              <div class="form-group" style="margin: 0;"><label>CBU / Banco</label><input type="text" id="client-cbu" class="form-input"></div>
+              <div class="form-group" style="margin: 0;"><label>Nº Cuenta</label><input type="text" id="client-account" class="form-input"></div>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+              <button class="btn-primary" id="save-client-btn" style="flex: 2; padding: 0.6rem; font-size: 0.9rem; border-radius: 8px;">Guardar Cliente</button>
+              <button class="btn-outline" id="clear-client-btn" style="flex: 1; padding: 0.6rem; font-size: 0.9rem; border-radius: 8px;">Limpiar</button>
+            </div>
+          </div>
+          
+          <div style="flex: 1; min-width: 320px;">
+            <h4 style="margin-bottom: 1rem;">Directorio</h4>
+            <div id="settings-clients-list" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;"></div>
+          </div>
+        </div>
+      </div>
+    
+      <div id="settings-rbac-section"></div>
+    </div>
   `;
   
   wrapper.appendChild(form);
@@ -1052,9 +1071,30 @@ export function renderSettings(container, options) {
     renderPriceInputs({});
   }
 
-  if (options && options.camarasList) {
-    document.getElementById('set-camaras').value = options.camarasList.join(', ');
+  const camarasContainer = document.getElementById('camaras-config-container');
+  
+  const renderCamaraRow = (camara = { name: '', capacity: '' }) => {
+    const row = el('div', { style: 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;' });
+    const nameVal = typeof camara === 'string' ? camara : (camara.name || '');
+    const capVal = typeof camara === 'string' ? '' : (camara.capacity || '');
+    
+    row.innerHTML = `
+      <input type="text" class="camara-name-input form-input" placeholder="Nombre (Ej: Cámara 1)" value="${nameVal}" style="flex: 2; padding: 0.6rem;">
+      <input type="number" class="camara-capacity-input form-input" placeholder="Capacidad" value="${capVal}" style="flex: 1; padding: 0.6rem;" min="1">
+      <button class="btn-outline remove-camara-btn" style="padding: 0.6rem; color: var(--danger); border-color: var(--danger); margin: 0;">X</button>
+    `;
+    
+    row.querySelector('.remove-camara-btn').onclick = () => row.remove();
+    camarasContainer.appendChild(row);
+  };
+
+  if (options && options.camarasList && options.camarasList.length > 0) {
+    options.camarasList.forEach(c => renderCamaraRow(c));
+  } else {
+    renderCamaraRow();
   }
+
+  document.getElementById('add-camara-btn').onclick = () => renderCamaraRow();
 
   const renderClientsList = (clientsList = []) => {
     const listEl = document.getElementById('settings-clients-list');
@@ -1098,10 +1138,11 @@ export function renderSettings(container, options) {
   if (options && options.userRole === 'ADMIN') {
     const rbacEl = document.getElementById('settings-rbac-section');
     rbacEl.innerHTML = `
-      <hr style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);">
-      <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">🔐 Gestión de Usuarios y Permisos</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Administra el nivel de acceso (rol) de los usuarios que han iniciado sesión.</p>
-      <div id="rbac-list" class="card-list" style="margin-bottom: 2rem;"></div>
+      <div class="glass-card card" style="margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">🔐 Gestión de Usuarios y Permisos</h3>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Administra el nivel de acceso (rol) de los usuarios que han iniciado sesión.</p>
+        <div id="rbac-list" class="card-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;"></div>
+      </div>
     `;
     
     const rbacListEl = document.getElementById('rbac-list');
@@ -1174,8 +1215,14 @@ export function renderSettings(container, options) {
         await options.onSavePrices(prices);
       }
       if (options && options.onSaveCamaras) {
-        const camarasStr = document.getElementById('set-camaras').value;
-        const camarasArray = camarasStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        const camarasArray = [];
+        document.querySelectorAll('#camaras-config-container > div').forEach(row => {
+          const name = row.querySelector('.camara-name-input').value.trim();
+          const capacity = parseInt(row.querySelector('.camara-capacity-input').value, 10) || 0;
+          if (name) {
+            camarasArray.push({ name, capacity });
+          }
+        });
         await options.onSaveCamaras(camarasArray);
       }
       showMsg('¡Configuración de precios, cámaras y general guardada exitosamente!');
@@ -1331,12 +1378,25 @@ export function renderFaenaConsumption(container, options) {
   camaraChipsWrap.appendChild(allCamaraBtn);
 
   (options.camarasList || []).forEach(camara => {
-    const isActive = state.camaraFilter === camara;
+    const camaraName = typeof camara === 'string' ? camara : camara.name;
+    const capacity = typeof camara === 'object' && camara.capacity ? camara.capacity : 0;
+    const occupancy = options.camaraOccupancy[camaraName] || 0;
+    
+    let displayStr = camaraName;
+    if (capacity > 0) {
+       displayStr += ` (${occupancy}/${capacity})`;
+    } else {
+       displayStr += ` (${occupancy})`;
+    }
+
+    const isWarning = capacity > 0 && occupancy > capacity;
+    const isActive = state.camaraFilter === camaraName;
+    
     const chip = el('button', { 
-      text: camara,
-      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : 'transparent'}; color: ${isActive ? '#fff' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;`
+      text: displayStr,
+      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : isWarning ? 'var(--danger)' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : isWarning ? 'rgba(239,68,68,0.1)' : 'transparent'}; color: ${isActive ? '#fff' : isWarning ? 'var(--danger)' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s; font-weight: ${isWarning ? '600' : '400'}`
     });
-    chip.onclick = () => options.onCamaraChange(camara);
+    chip.onclick = () => options.onCamaraChange(camaraName);
     camaraChipsWrap.appendChild(chip);
   });
 
@@ -1371,6 +1431,19 @@ export function renderFaenaConsumption(container, options) {
   wrapper.appendChild(tropaFilterRow);
 
   if (state.activeTab === 'STOCK') {
+
+    // --- Unassigned Warning ---
+    if (options.unassignedCount > 0) {
+      const banner = el('div', { style: 'background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;' });
+      banner.innerHTML = `
+        <span style="font-size: 1.5rem;">⚠️</span>
+        <div>
+          <div style="font-weight: 700; color: var(--danger); font-size: 0.95rem;">Reses sin cámara asignada</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Hay ${options.unassignedCount} medias reses que no se encuentran especificadas en ninguna cámara.</div>
+        </div>
+      `;
+      wrapper.appendChild(banner);
+    }
 
     // --- Finished Troops Panel ---
     if (finishedTropas.length > 0) {
@@ -1505,7 +1578,10 @@ export function renderFaenaConsumption(container, options) {
       moveControls.innerHTML = `
         <select id="move-camara-select" class="form-input" style="padding: 0.5rem; max-width: 150px;">
           <option value="">-- Mover a --</option>
-          ${(options.camarasList || []).map(c => `<option value="${c}">${c}</option>`).join('')}
+          ${(options.camarasList || []).map(c => {
+             const cName = typeof c === 'string' ? c : c.name;
+             return `<option value="${cName}">${cName}</option>`;
+          }).join('')}
         </select>
         <button id="move-camara-btn" class="btn-outline" style="padding: 0.5rem 1rem; margin: 0; font-size: 0.85rem;">⮂ Mover</button>
       `;
@@ -1624,13 +1700,16 @@ export function renderFaenaConsumption(container, options) {
         tr.style.background = isSel ? 'rgba(239, 68, 68, 0.1)' : 'transparent';
         tr.style.cursor = 'pointer';
         
+        const isUnassigned = !item.camaraId;
+        const camaraDisplay = isUnassigned ? '<span style="color: var(--danger); font-weight: 600;">⚠️ Sin Asignar</span>' : `<span style="color: var(--primary);">${item.camaraId}</span>`;
+
         tr.innerHTML = `
           <td style="padding: 1rem;"><input type="checkbox" ${isSel ? 'checked' : ''} style="transform: scale(1.2); cursor: pointer; pointer-events: none;"></td>
           <td style="padding: 1rem; font-weight: 500;">#${item.garron}</td>
           <td style="padding: 1rem;">Mitad ${item.half || '1'}</td>
           <td style="padding: 1rem;">${item.standardizedCategory || item.category}</td>
           <td style="padding: 1rem; font-weight: bold; color: #10b981;">${item.kg.toFixed(1)} kg</td>
-          <td style="padding: 1rem; font-weight: 500; color: var(--primary);">${item.camaraId || '-'}</td>
+          <td style="padding: 1rem; font-weight: 500;">${camaraDisplay}</td>
           <td style="padding: 1rem; font-size: 0.85rem; color: var(--text-muted);">${item.pdfDate} (Tr. ${item.tropa})</td>
         `;
         
