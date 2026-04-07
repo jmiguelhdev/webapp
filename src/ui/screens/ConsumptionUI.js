@@ -29,8 +29,17 @@ export function renderFaenaConsumption(container, options) {
   const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
 
   // 1. Header & Tabs
-  const header = el('div', { classes: ['dashboard-header'] });
-  header.innerHTML = `<h2>🥩 Módulo Faena</h2>`;
+  const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem;' });
+  header.innerHTML = `
+    <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
+      <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+    </button>
+    <div>
+      <h2 style="margin: 0;">🥩 Control de Faena e Inventario</h2>
+      <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Gestión de stock, cámaras de frío y despachos.</p>
+    </div>
+  `;
+  header.querySelector('#back-to-dash').onclick = options.onBack;
   
   const tabs = el('div', { classes: ['dashboard-filters'] });
   const btnStock = el('button', { classes: [state.activeTab === 'STOCK' ? 'btn-primary' : 'btn-outline'], text: 'Inventario Disponible' });

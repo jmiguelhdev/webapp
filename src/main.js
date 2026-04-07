@@ -32,14 +32,21 @@ const menuToggle = document.getElementById('menu-toggle');
 // Unified UI Interface for Presenter
 const uiInterface = {
   showLoading: (active = true) => { 
-    if (active) content.innerHTML = `<div class="loading">Cargando...</div>`; 
+    if (active) {
+      content.innerHTML = `
+        <div class="loading-wrapper">
+          <div class="spinner"></div>
+          <div>Cargando sistema...</div>
+        </div>
+      `;
+    } 
   },
   hideLoading: () => {},
   showError: (msg) => { content.innerHTML = `<div class="alert error">Error: ${msg}</div>`; },
-  renderTravels: (options) => uiLib.renderTravels(content, options),
+  renderTravels: (options) => uiLib.renderTravels(content, { ...options, onBack: () => navigateTo('dashboard') }),
   renderDashboard: (options) => uiLib.renderDashboard(content, options),
-  renderFaenaConsumption: (options) => uiLib.renderFaenaConsumption(content, options),
-  renderExportModal: (options) => uiLib.renderExportModal(options),
+  renderFaenaConsumption: (options) => uiLib.renderFaenaConsumption(content, { ...options, onBack: () => navigateTo('dashboard') }),
+  renderClientAccounts: (options) => uiLib.renderClientAccounts({ ...options, onBackToDashboard: () => navigateTo('dashboard') }),
   renderScanResultsModal: (options) => uiLib.renderScanResultsModal(options),
   generateTravelReport: (data) => uiLib.generateTravelReport(data),
   generateExcelReport: (data) => uiLib.generateExcelReport(data),
@@ -177,8 +184,9 @@ function navigateTo(view) {
     case 'clients':
       clientPresenter.loadClients();
       break;
-    case 'simulator': uiLib.renderSimulator(content); break;
+    case 'simulator': uiLib.renderSimulator(content, { onBack: () => navigateTo('dashboard') }); break;
     case 'settings': {
+      uiInterface.showLoading(true);
       const loadSettingsData = async () => {
         const prices = await clientRepository.getCategoryPrices();
         const clients = await clientRepository.getClients();
@@ -199,77 +207,53 @@ function navigateTo(view) {
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
           onSaveUserRole: (uid, role) => api.saveUserRole(db, uid, role),
-          onReloadClients: loadSettingsData
+          onReloadClients: loadSettingsData,
+          onBack: () => navigateTo('dashboard')
         });
       };
       loadSettingsData();
       break;
     }
-    case 'contact':  
+    case 'contact': {
       content.innerHTML = `
-        <div class="glass-card" style="padding: 2rem; max-width: 900px; margin: 0 auto;">
-          <h2 style="text-align: center; margin-bottom: 2rem;">Centro de Documentación Técnica</h2>
-          
+        <div class="dashboard-header" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem;">
+          <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
+            <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+          </button>
+          <h2 style="margin: 0;">Centro de Documentación Técnica</h2>
+        </div>
+        <div class="glass-card" style="padding: 2rem; width: 100%;">
           <div class="accordion">
             <!-- Sección Viajes -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>🚛 Gestión de Viajes y Métricas</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>🚛 Gestión de Viajes y Métricas</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>La sección de viajes procesa datos operativos para generar reportes financieros precisos. Las métricas se calculan dinámicamente según los filtros de categoría seleccionados:</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Cálculo</span> Precio Promedio = Total Operación / ∑ Kg Limpios
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Cálculo</span> Precio c/ Comis. = (Total Operación + Comisión Agente) / ∑ Kg Limpios
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Cálculo</span> Peso Media Res Prom. = ∑ Kg Limpios / Total Unidades
-                </div>
-                <p>El sistema también monitorea la relación <strong>Factura vs. Operación</strong> para detectar desviaciones impositivas o administrativas (⚠️ se muestra si supera el umbral configurado).</p>
+                <div class="formula-card"><span class="tech-tag">Cálculo</span> Precio Promedio = Total Operación / ∑ Kg Limpios</div>
+                <div class="formula-card"><span class="tech-tag">Cálculo</span> Precio c/ Comis. = (Total Operación + Comisión Agente) / ∑ Kg Limpios</div>
+                <div class="formula-card"><span class="tech-tag">Cálculo</span> Peso Media Res Prom. = ∑ Kg Limpios / Total Unidades</div>
+                <p>El sistema también monitorea la relación <strong>Factura vs. Operación</strong> para detectar desviaciones impositivas o administrativas.</p>
               </div>
             </div>
 
             <!-- Sección Simulador -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>🧮 Algoritmos del Simulador de Costo</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>🧮 Algoritmos del Simulador de Costo</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>El simulador utiliza un modelo de costos en cascada para proyectar la utilidad final basada en la logística y el rendimiento de faena:</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Logística</span> Kg Faena = Kg Vivos * (Rendimiento / 100)
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Hacienda</span> Costo Inic. (Carne) = Precio Vivo / (Rendimiento / 100)
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Flete</span> Costo Flete (Carne) = (Distancia * $/km) / Kg Faena
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Impuestos</span> Tasa Efectiva = Margen * (IIBB / 100)
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Venta</span> Factura Venta = Costo Final * Margen Ganancia
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Final</span> Utilidad Total = (Precio Venta - Costo Final) * Kg Faena
-                </div>
+                <div class="formula-card"><span class="tech-tag">Logística</span> Kg Faena = Kg Vivos * (Rendimiento / 100)</div>
+                <div class="formula-card"><span class="tech-tag">Hacienda</span> Costo Inic. (Carne) = Precio Vivo / (Rendimiento / 100)</div>
+                <div class="formula-card"><span class="tech-tag">Flete</span> Costo Flete (Carne) = (Distancia * $/km) / Kg Faena</div>
+                <div class="formula-card"><span class="tech-tag">Impuestos</span> Tasa Efectiva = Margen * (IIBB / 100)</div>
+                <div class="formula-card"><span class="tech-tag">Venta</span> Factura Venta = Costo Final * Margen Ganancia</div>
+                <div class="formula-card"><span class="tech-tag">Final</span> Utilidad Total = (Precio Venta - Costo Final) * Kg Faena</div>
                 <p>Nota: El costo final se ajusta automáticamente mediante una base bruta dividida por la tasa impositiva residual para asegurar el margen neto proyectado.</p>
               </div>
             </div>
 
             <!-- Sección Datos Técnicos -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>📋 Parámetros de Carga Logística</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>📋 Parámetros de Carga Logística</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>Valores predeterminados configurados para el transporte:</p>
                 <ul>
@@ -282,223 +266,118 @@ function navigateTo(view) {
 
             <!-- Sección Dashboard de Tendencias -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>📊 Dashboard de Tendencias Históricas</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>📊 Dashboard de Tendencias Históricas</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>El Dashboard ofrece una vista analítica de rendimiento y precio promedio a lo largo del tiempo, con filtros por categoría y comisionista.</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Uso</span> Navegar a 📊 Dashboard desde el menú lateral
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Filtros</span> Seleccionar categorías (chips) para aislar datos por tipo de hacienda
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Gráficos</span> Tendencia de precio $/kg por viaje • Distribución por categoría • Evolución de volumen
-                </div>
+                <div class="formula-card"><span class="tech-tag">Filtros</span> Seleccionar categorías (chips) para aislar datos por tipo de hacienda</div>
+                <div class="formula-card"><span class="tech-tag">Gráficos</span> Tendencia de precio $/kg por viaje • Distribución por categoría • Evolución de volumen</div>
                 <p>Los viajes en estado <strong>BORRADOR</strong> son excluidos automáticamente de todas las métricas y gráficos para garantizar la precisión del análisis.</p>
               </div>
             </div>
 
             <!-- Sección Exportación PDF -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>📄 Exportación de Reportes PDF</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>📄 Exportación de Reportes PDF</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>Genera reportes profesionales listos para compartir por WhatsApp o email directamente desde la app.</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Acceso</span> Tocar el botón 📄 en la esquina superior derecha del header
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Opción 1</span> Últimos N viajes — seleccionar cantidad desde los más recientes
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Opción 2</span> Rango de fechas — definir fecha inicio y fin para el reporte
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Contenido</span> Resumen viaje por viaje con métricas de operación, kg, precio promedio y desglose por productor
-                </div>
+                <div class="formula-card"><span class="tech-tag">Acceso</span> Tocar el botón 📄 en la esquina superior derecha del header</div>
+                <div class="formula-card"><span class="tech-tag">Opciones</span> Selección por últimos N viajes o por rango de fechas</div>
                 <p>Los borradores nunca se incluyen en los reportes exportados. El PDF se genera con <strong>jsPDF</strong> y se descarga automáticamente.</p>
               </div>
             </div>
 
             <!-- Sección Inteligencia de Mercado -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>📈 Inteligencia de Mercado (MAG)</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>📈 Inteligencia de Mercado (MAG)</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>Compara tus costos de compra contra los precios de referencia del Mercado Agroganadero (MAG) en tiempo real.</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Activación</span> Seleccionar UNA categoría específica en los filtros de Viajes (ej: NOVILLO, VACA)
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Cálculo</span> Brecha (%) = ((Tu Precio - Precio MAG) / Precio MAG) × 100
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Lectura</span> 🟢 Verde = comprás por debajo del mercado • 🔴 Rojo = comprás por encima
-                </div>
-                <p>La tarjeta de <strong>"Vs Mercado (MAG)"</strong> aparece automáticamente cuando filtras por una sola categoría. Los precios MAG se actualizan periódicamente.</p>
+                <div class="formula-card"><span class="tech-tag">Cálculo</span> Brecha (%) = ((Tu Precio - Precio MAG) / Precio MAG) × 100</div>
+                <div class="formula-card"><span class="tech-tag">Lectura</span> 🟢 Verde = comprás por debajo del mercado • 🔴 Rojo = comprás por encima</div>
+                <p>Esta tarjeta aparece automáticamente cuando filtras por una sola categoría.</p>
               </div>
             </div>
 
             <!-- Sección Tarjetas de Productor -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>👤 Tarjetas de Productor</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>👤 Tarjetas de Productor</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>Cada viaje muestra una tarjeta detallada por productor con información fiscal y operativa.</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Identidad</span> Nombre del productor, CUIT y CBU (si están cargados en la app KMP)
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Impuestos</span> IVA total y Ganancias total — sumados de todos los productos del productor
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Productos</span> Listado con cantidad, kg limpios y total factura por producto
-                </div>
-                <p>Los badges <span style="color: #3b82f6;">IVA</span> (azul) y <span style="color: #f59e0b;">Ganancias</span> (ámbar) solo aparecen si tienen valor mayor a cero.</p>
+                <div class="formula-card"><span class="tech-tag">Identidad</span> Nombre, CUIT y CBU (si existen en la app KMP)</div>
+                <div class="formula-card"><span class="tech-tag">Impuestos</span> IVA y Ganancias sumados de todos los productos del productor</div>
+                <p>Los badges <span style="color: #3b82f6;">IVA</span> y <span style="color: #f59e0b;">Ganarias</span> aparecen solo si el valor es mayor a cero.</p>
               </div>
             </div>
 
             <!-- NUEVA SECCIÓN: Procesamiento de Faena (PDF) -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>📂 Procesamiento de Faena (PDF)</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>📂 Procesamiento de Faena (PDF)</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>Automatiza la carga de datos extrayendo información directamente de los reportes de faena de los frigoríficos.</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Escaneo</span> Usar "Escanear Carpeta" para procesar múltiples PDFs de una sola vez.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Vínculo</span> El sistema busca coincidencias por <strong>CUIT</strong> y <strong>Fecha</strong> (±7 días) para asignar los kilos al viaje correspondiente.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Deduplicación</span> Los archivos ya procesados se omiten automáticamente para evitar duplicar stock.
-                </div>
-                <p>Al procesar un PDF, el sistema divide cada registro en <strong>dos medias reses</strong> independientes para un control de inventario preciso.</p>
+                <div class="formula-card"><span class="tech-tag">Vínculo</span> Búsqueda por <strong>CUIT</strong> y <strong>Fecha</strong> (±7 días) para asignar los kilos al viaje correspondiente.</div>
+                <div class="formula-card"><span class="tech-tag">Deduplicación</span> Los archivos ya procesados se omiten automáticamente para evitar duplicar stock.</div>
+                <p>El sistema divide cada registro en <strong>dos medias reses</strong> independientes para un control de inventario preciso.</p>
               </div>
             </div>
 
             <!-- NUEVA SECCIÓN: Módulo de Consumo y Stock -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>🥩 Módulo de Consumo y Stock</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>🥩 Módulo de Consumo y Stock</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>Gestión dinámica del inventario de piezas faenadas y control de salidas a clientes.</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Stock</span> Visualiza el total de kilos "colgados" y el conteo de piezas por categoría.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Despacho</span> Seleccionar piezas -> Ingresar Destino -> "🚚 Salida". La pieza pasa de Disponible a Despachada.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Filtros</span> Búsqueda por Tropa, Garron o Kg, y filtrado rápido por categorías (Chips).
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Historial</span> Registro completo de salidas con filtros de fecha y cliente para auditoría rápida.
-                </div>
-                <p>El sistema está preparado para futuras integraciones de precios de venta y cuentas corrientes de clientes.</p>
+                <div class="formula-card"><span class="tech-tag">Despacho</span> Seleccionar piezas -> Ingresar Destino -> "🚚 Salida". La pieza pasa de Disponible a Despachada.</div>
+                <p>Visualiza el total de kilos "colgados" y el conteo de piezas por categoría en tiempo real.</p>
               </div>
             </div>
             
             <!-- NUEVA SECCIÓN: Gestión de Cámaras de Frío -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>❄️ Gestión de Cámaras de Frío</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>❄️ Gestión de Cámaras de Frío</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>Sistema de trazabilidad de ubicación para el acopio de medias reses con control de movimientos:</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Configuración</span> Definir los nombres de las cámaras en ⚙️ Configuración (separados por coma).
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Movimientos</span> Seleccionar piezas en Stock -> "Mover a [Cámara]" -> "Mover". Se registra el historial automático (Log).
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Trazabilidad</span> Cada pieza guarda su historial interno de movimientos: <code>{ de: Cámara A, a: Cámara B, fecha: 01/01 }</code>.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Filtros</span> Uso de chips dinámicos en el encabezado para aislar el stock por cámara de frío.
-                </div>
-                <p>Esta funcionalidad asegura que el personal de planta sepa exactamente qué mercadería hay en cada sector de frío en tiempo real.</p>
+                <div class="formula-card"><span class="tech-tag">Movimientos</span> Seleccionar stock -> "Mover a [Cámara]" -> "Mover". Se registra historial (Log).</div>
+                <div class="formula-card"><span class="tech-tag">Trazabilidad</span> Cada pieza guarda su historial completo de ubicaciones anteriores.</div>
+                <p>Asegura que el personal sepa exactamente qué mercadería hay en cada sector de frío.</p>
               </div>
             </div>
             
             <!-- NUEVA SECCIÓN: Gestión de Clientes y Cuentas Corrientes -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>👥 Gestión de Clientes y Cuentas Corrientes</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>👥 Gestión de Clientes y Cuentas Corrientes</span><i>▼</i></div>
               <div class="accordion-content">
-                <p>Módulo centralizado para la administración de la cartera de clientes y el control de saldos pendientes:</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Configuración</span> Registrar clientes y definir <strong>Precios por Categoría</strong> ($/kg) en la pestaña ⚙️ Configuración.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Débito Automático</span> Al despachar mercadería (Salida), el sistema genera un movimiento de <strong>DEUDA</strong>: Monto = Kg Despachados × Precio Categoría.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Crédito Manual</span> Los pagos se registran desde la ficha individual de cada cliente en la sección 👥 Clientes.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Saldo</span> Saldo Pendiente = ∑ Deuda (Despachos) - ∑ Haber (Pagos)
-                </div>
-                <p>El historial permite ver el detalle de cada despacho (Garrón, Peso, Precio) para una conciliación rápida con el cliente.</p>
+                <p>Módulo centralizado para la administración de clientes y control de saldos pendientes:</p>
+                <div class="formula-card"><span class="tech-tag">Débito Automático</span> Al despachar mercadería, se genera una <strong>DEUDA</strong>: Monto = Kg × Precio Categoría.</div>
+                <div class="formula-card"><span class="tech-tag">Saldo</span> Saldo Pendiente = ∑ Deuda (Despachos) - ∑ Haber (Pagos)</div>
+                <p>Los pagos se registran manualmente desde la ficha individual de cada cliente.</p>
               </div>
             </div>
-
+            
             <!-- NUEVA SECCIÓN: Gestión de Accesos (RBAC) -->
             <div class="accordion-item">
-              <div class="accordion-header">
-                <span>🔐 Control de Privilegios y Roles (RBAC)</span>
-                <i>▼</i>
-              </div>
+              <div class="accordion-header"><span>🔐 Control de Privilegios y Roles (RBAC)</span><i>▼</i></div>
               <div class="accordion-content">
                 <p>Sistema de gestión de accesos basado en roles para asegurar la información de la plataforma.</p>
-                
-                <div class="formula-card">
-                  <span class="tech-tag">Administrador</span> Tiene acceso total a todas las herramientas de la plataforma, incluyendo el panel de Configuración y asignación de permisos a otros usuarios.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Operario</span> Tiene permiso de escritura para registrar despachos, faenas y ver clientes, pero sin acceso al panel de configuraciones maestras.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Visor</span> Acceso de solo lectura al dashboard estadístico, simuladores de costos y panel de soporte.
-                </div>
-                <div class="formula-card">
-                  <span class="tech-tag">Seguridad y Alta</span> El primer usuario en iniciar sesión en el sistema obtiene privilegios de <strong>ADMIN</strong> automáticamente. Los nuevos registros son limitados al perfil <strong>VISOR</strong> por defecto hasta ser autorizados.
-                </div>
+                <div class="formula-card"><span class="tech-tag">Admin</span> Acceso total. <span class="tech-tag">Operario</span> Escritura limitada (despachos/stock). <span class="tech-tag">Visor</span> Solo lectura.</div>
+                <p>El primer usuario es ADMIN automáticamente. Los nuevos registros son VISOR por defecto.</p>
               </div>
             </div>
           </div>
-
           <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border);">
-            <p style="color: var(--text-muted);">Para soporte técnico o consultas:</p>
-            <h3 style="margin-top: 0.5rem; color: var(--primary);">jmiguelhsg@gmail.com</h3>
+            <p style="color: var(--text-muted);">Soporte: jmiguelhsg@gmail.com</p>
           </div>
         </div>
       `;
+      content.querySelector('#back-to-dash').onclick = () => navigateTo('dashboard');
+      content.querySelectorAll('.accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const item = header.parentElement;
+          const isActive = item.classList.contains('active');
+          content.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('active'));
+          if (!isActive) item.classList.add('active');
+        });
+      });
+      break;
+    }
+
 
       // Interacción de Acordeones
       content.querySelectorAll('.accordion-header').forEach(header => {

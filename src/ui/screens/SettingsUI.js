@@ -1,14 +1,26 @@
 import { el } from '../../utils/dom.js';
-import { SettingsService } from '../../api/SettingsService.js';
+import { SettingsService } from '../../services/SettingsService.js';
 
 export function renderSettings(container, options) {
-  const current = SettingsService.getSettings();
+  if (!container) return;
+  
+  const current = SettingsService.loadSettings();
   container.innerHTML = '';
+  
   const wrapper = el('div', { classes: ['settings-wrapper', 'fade-in'], style: 'width: 100%; max-width: 100%; padding: 0 1rem;' });
 
-  const header = el('div', { classes: ['dashboard-header', 'glass-card'], style: 'margin-bottom: 2rem; width: 100%;' });
-  header.innerHTML = `<h2>⚙️ Configuración del Sistema</h2><p>Ajusta los parámetros operativos y económicos.</p>`;
+  const header = el('div', { classes: ['dashboard-header', 'glass-card'], style: 'margin-bottom: 2rem; width: 100%; display: flex; align-items: center; gap: 0.5rem;' });
+  header.innerHTML = `
+    <button id="back-btn" class="back-btn-m3" title="Volver">
+      <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+    </button>
+    <div>
+      <h2 style="margin:0;">⚙️ Configuración del Sistema</h2>
+      <p style="margin:0; color: var(--text-muted); font-size: 0.9rem;">Ajusta los parámetros operativos y económicos.</p>
+    </div>
+  `;
   wrapper.appendChild(header);
+  header.querySelector('#back-btn').onclick = options.onBack;
 
   // Message box for feedback
   const msgBox = el('div', { attrs: { id: 'settings-msg' }, classes: ['alert'], style: 'display: none; margin-bottom: 1.5rem; position: sticky; top: 1rem; z-index: 100; box-shadow: var(--shadow-lg);' });
@@ -109,10 +121,11 @@ export function renderSettings(container, options) {
   wrapper.appendChild(form);
   container.appendChild(wrapper);
 
-  const priceGrid = document.getElementById('category-prices-grid');
-  const categories = ['NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO'];
-  
+  // Sub-renderers (Using scoped selectors on wrapper)
   const renderPriceInputs = (prices = {}) => {
+    const priceGrid = wrapper.querySelector('#category-prices-grid');
+    if (!priceGrid) return;
+    const categories = ['NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO'];
     priceGrid.innerHTML = '';
     categories.forEach(cat => {
       const fg = el('div', { classes: ['form-group'], style: 'margin: 0;' });
@@ -121,15 +134,10 @@ export function renderSettings(container, options) {
     });
   };
 
-  if (options && options.categoryPrices) {
-    renderPriceInputs(options.categoryPrices);
-  } else {
-    renderPriceInputs({});
-  }
-
-  const camarasContainer = document.getElementById('camaras-config-container');
-  
   const renderCamaraRow = (camara = { name: '', capacity: '' }) => {
+    const camarasContainer = wrapper.querySelector('#camaras-config-container');
+    if (!camarasContainer) return;
+
     const row = el('div', { style: 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;' });
     const nameVal = typeof camara === 'string' ? camara : (camara.name || '');
     const capVal = typeof camara === 'string' ? '' : (camara.capacity || '');
@@ -144,16 +152,9 @@ export function renderSettings(container, options) {
     camarasContainer.appendChild(row);
   };
 
-  if (options && options.camarasList && options.camarasList.length > 0) {
-    options.camarasList.forEach(c => renderCamaraRow(c));
-  } else {
-    renderCamaraRow();
-  }
-
-  document.getElementById('add-camara-btn').onclick = () => renderCamaraRow();
-
   const renderClientsList = (clientsList = []) => {
-    const listEl = document.getElementById('settings-clients-list');
+    const listEl = wrapper.querySelector('#settings-clients-list');
+    if (!listEl) return;
     listEl.innerHTML = '';
     clientsList.forEach(c => {
       const card = el('div', { classes: ['card', 'glass-card'], style: 'padding: 1rem; display: flex; justify-content: space-between; align-items: center;' });
@@ -171,20 +172,33 @@ export function renderSettings(container, options) {
       btn.onclick = () => {
         const c = clientsList.find(x => x.id === btn.dataset.id);
         if (c) {
-          document.getElementById('client-id').value = c.id || '';
-          document.getElementById('client-name').value = c.name || '';
-          document.getElementById('client-cuit').value = c.cuit || '';
-          document.getElementById('client-address').value = c.address || '';
-          document.getElementById('client-phone').value = c.phone || '';
-          document.getElementById('client-cbu').value = c.cbu || '';
-          document.getElementById('client-account').value = c.account || '';
-          document.getElementById('client-form-title').textContent = 'Editar Cliente: ' + c.name;
-          document.getElementById('client-name').focus();
-          window.scrollTo({ top: document.getElementById('client-form-title').offsetTop - 20, behavior: 'smooth' });
+          wrapper.querySelector('#client-id').value = c.id || '';
+          wrapper.querySelector('#client-name').value = c.name || '';
+          wrapper.querySelector('#client-cuit').value = c.cuit || '';
+          wrapper.querySelector('#client-address').value = c.address || '';
+          wrapper.querySelector('#client-phone').value = c.phone || '';
+          wrapper.querySelector('#client-cbu').value = c.cbu || '';
+          wrapper.querySelector('#client-account').value = c.account || '';
+          wrapper.querySelector('#client-form-title').textContent = 'Editar Cliente: ' + c.name;
+          wrapper.querySelector('#client-name').focus();
+          window.scrollTo({ top: wrapper.querySelector('#client-form-title').offsetTop - 20, behavior: 'smooth' });
         }
       };
     });
   };
+
+  // Initial Data population
+  if (options && options.categoryPrices) {
+    renderPriceInputs(options.categoryPrices);
+  } else {
+    renderPriceInputs({});
+  }
+
+  if (options && options.camarasList && options.camarasList.length > 0) {
+    options.camarasList.forEach(c => renderCamaraRow(c));
+  } else {
+    renderCamaraRow();
+  }
 
   if (options && options.clients) {
     renderClientsList(options.clients);
@@ -192,69 +206,74 @@ export function renderSettings(container, options) {
 
   // --- RBAC SECTION ---
   if (options && options.userRole === 'ADMIN') {
-    const rbacEl = document.getElementById('settings-rbac-section');
-    rbacEl.innerHTML = `
-      <div class="glass-card card" style="margin-bottom: 2rem;">
-        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">🔐 Gestión de Usuarios y Permisos</h3>
-        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Administra el nivel de acceso (rol) de los usuarios que han iniciado sesión.</p>
-        <div id="rbac-list" class="card-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;"></div>
-      </div>
-    `;
-    
-    const rbacListEl = document.getElementById('rbac-list');
-    const users = options.usersList || [];
-    if (users.length === 0) {
-      rbacListEl.innerHTML = `<div style="padding: 1rem; color: var(--text-muted); text-align: center;">No hay usuarios registrados.</div>`;
-    } else {
-      users.forEach(u => {
-        const card = el('div', { classes: ['card', 'glass-card'], style: 'padding: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;' });
-        card.innerHTML = `
-          <div style="flex: 1;">
-            <h4 style="margin: 0 0 0.3rem 0; font-size: 0.95rem;">${u.email}</h4>
-            <span style="font-size: 0.8rem; color: var(--text-muted);">Registrado: ${new Date(u.createdAt).toLocaleDateString()}</span>
-          </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <select class="form-input rbac-select" data-uid="${u.uid}" style="padding: 0.4rem; font-size: 0.85rem;">
-              <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>Administrador</option>
-              <option value="OPERARIO" ${u.role === 'OPERARIO' ? 'selected' : ''}>Operario</option>
-              <option value="VISOR" ${u.role === 'VISOR' ? 'selected' : ''}>Solo Lectura (Visor)</option>
-            </select>
-            <button class="btn-primary btn-save-role" data-uid="${u.uid}" data-email="${u.email}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0;">Actualizar</button>
-          </div>
-        `;
-        rbacListEl.appendChild(card);
-      });
+    const rbacEl = wrapper.querySelector('#settings-rbac-section');
+    if (rbacEl) {
+      rbacEl.innerHTML = `
+        <div class="glass-card card" style="margin-bottom: 2rem;">
+          <h3 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">🔐 Gestión de Usuarios y Permisos</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Administra el nivel de acceso (rol) de los usuarios que han iniciado sesión.</p>
+          <div id="rbac-list" class="card-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;"></div>
+        </div>
+      `;
+      
+      const rbacListEl = rbacEl.querySelector('#rbac-list');
+      const users = options.usersList || [];
+      if (users.length === 0) {
+        rbacListEl.innerHTML = `<div style="padding: 1rem; color: var(--text-muted); text-align: center;">No hay usuarios registrados.</div>`;
+      } else {
+        users.forEach(u => {
+          const card = el('div', { classes: ['card', 'glass-card'], style: 'padding: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;' });
+          card.innerHTML = `
+            <div style="flex: 1;">
+              <h4 style="margin: 0 0 0.3rem 0; font-size: 0.95rem;">${u.email}</h4>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Registrado: ${new Date(u.createdAt).toLocaleDateString()}</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <select class="form-input rbac-select" data-uid="${u.uid}" style="padding: 0.4rem; font-size: 0.85rem;">
+                <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>Administrador</option>
+                <option value="OPERARIO" ${u.role === 'OPERARIO' ? 'selected' : ''}>Operario</option>
+                <option value="VISOR" ${u.role === 'VISOR' ? 'selected' : ''}>Solo Lectura (Visor)</option>
+              </select>
+              <button class="btn-primary btn-save-role" data-uid="${u.uid}" data-email="${u.email}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0;">Actualizar</button>
+            </div>
+          `;
+          rbacListEl.appendChild(card);
+        });
 
-      rbacListEl.querySelectorAll('.btn-save-role').forEach(btn => {
-        btn.onclick = async () => {
-          const uid = btn.dataset.uid;
-          const email = btn.dataset.email;
-          const select = rbacListEl.querySelector(`.rbac-select[data-uid="${uid}"]`);
-          const newRole = select.value;
-          btn.textContent = '...';
-          btn.disabled = true;
-          if (options.onSaveUserRole) {
-            await options.onSaveUserRole(uid, newRole);
-            showMsg(`Rol de ${email || 'usuario'} actualizado a ${newRole}`);
-          }
-          btn.textContent = 'Actualizar';
-          btn.disabled = false;
-        };
-      });
+        rbacListEl.querySelectorAll('.btn-save-role').forEach(btn => {
+          btn.onclick = async () => {
+            const uid = btn.dataset.uid;
+            const email = btn.dataset.email;
+            const select = rbacListEl.querySelector(`.rbac-select[data-uid="${uid}"]`);
+            const newRole = select.value;
+            btn.textContent = '...';
+            btn.disabled = true;
+            if (options.onSaveUserRole) {
+              await options.onSaveUserRole(uid, newRole);
+              showMsg(`Rol de ${email || 'usuario'} actualizado a ${newRole}`);
+            }
+            btn.textContent = 'Actualizar';
+            btn.disabled = false;
+          };
+        });
+      }
     }
   }
 
-  document.getElementById('save-settings').onclick = async () => {
+  // --- EVENT LISTENERS ---
+  wrapper.querySelector('#add-camara-btn').onclick = () => renderCamaraRow();
+
+  wrapper.querySelector('#save-settings').onclick = async () => {
     const newSettings = {
-      margenGanancia: 1 + (parseFloat(document.getElementById('set-margen').value) / 100),
-      pesoJaulaDoble: parseFloat(document.getElementById('set-jdd-kg').value),
-      precioKmDouble: parseFloat(document.getElementById('set-jdd-km').value),
-      pesoJaulaSimple: parseFloat(document.getElementById('set-js-kg').value),
-      precioKmSimple: parseFloat(document.getElementById('set-js-km').value),
+      margenGanancia: 1 + (parseFloat(wrapper.querySelector('#set-margen').value) / 100),
+      pesoJaulaDoble: parseFloat(wrapper.querySelector('#set-jdd-kg').value),
+      precioKmDouble: parseFloat(wrapper.querySelector('#set-jdd-km').value),
+      pesoJaulaSimple: parseFloat(wrapper.querySelector('#set-js-kg').value),
+      precioKmSimple: parseFloat(wrapper.querySelector('#set-js-km').value),
     };
     
     const prices = {};
-    document.querySelectorAll('.cat-price-input').forEach(input => {
+    wrapper.querySelectorAll('.cat-price-input').forEach(input => {
       prices[input.dataset.cat] = parseFloat(input.value) || 0;
     });
 
@@ -264,7 +283,7 @@ export function renderSettings(container, options) {
       }
       if (options && options.onSaveCamaras) {
         const camarasArray = [];
-        document.querySelectorAll('#camaras-config-container > div').forEach(row => {
+        wrapper.querySelectorAll('#camaras-config-container > div').forEach(row => {
           const nameInput = row.querySelector('.camara-name-input');
           const capInput = row.querySelector('.camara-capacity-input');
           if (nameInput && capInput) {
@@ -283,48 +302,49 @@ export function renderSettings(container, options) {
     }
   };
 
-  document.getElementById('reset-settings').onclick = () => {
+  wrapper.querySelector('#reset-settings').onclick = () => {
     const defaults = SettingsService.getDefaults();
-    document.getElementById('set-margen').value = ((defaults.margenGanancia - 1) * 100).toFixed(0);
-    document.getElementById('set-jdd-kg').value = defaults.pesoJaulaDoble;
-    document.getElementById('set-jdd-km').value = defaults.precioKmDouble;
-    document.getElementById('set-js-kg').value = defaults.pesoJaulaSimple;
-    document.getElementById('set-js-km').value = defaults.precioKmSimple;
+    wrapper.querySelector('#set-margen').value = ((defaults.margenGanancia - 1) * 100).toFixed(0);
+    wrapper.querySelector('#set-jdd-kg').value = defaults.pesoJaulaDoble;
+    wrapper.querySelector('#set-jdd-km').value = defaults.precioKmDouble;
+    wrapper.querySelector('#set-js-kg').value = defaults.pesoJaulaSimple;
+    wrapper.querySelector('#set-js-km').value = defaults.precioKmSimple;
     
     SettingsService.saveSettings(defaults);
     showMsg('¡Restaurado a los valores originales!');
   };
 
   const clearClientForm = () => {
-    document.getElementById('client-id').value = '';
-    document.getElementById('client-name').value = '';
-    document.getElementById('client-cuit').value = '';
-    document.getElementById('client-address').value = '';
-    document.getElementById('client-phone').value = '';
-    document.getElementById('client-cbu').value = '';
-    document.getElementById('client-account').value = '';
-    document.getElementById('client-form-title').textContent = 'Añadir Nuevo Cliente';
+    wrapper.querySelector('#client-id').value = '';
+    wrapper.querySelector('#client-name').value = '';
+    wrapper.querySelector('#client-cuit').value = '';
+    wrapper.querySelector('#client-address').value = '';
+    wrapper.querySelector('#client-phone').value = '';
+    wrapper.querySelector('#client-cbu').value = '';
+    wrapper.querySelector('#client-account').value = '';
+    wrapper.querySelector('#client-form-title').textContent = 'Añadir Nuevo Cliente';
   };
 
-  document.getElementById('clear-client-btn').onclick = clearClientForm;
+  wrapper.querySelector('#clear-client-btn').onclick = clearClientForm;
 
-  document.getElementById('save-client-btn').onclick = async () => {
-    const name = document.getElementById('client-name').value.trim();
+  wrapper.querySelector('#save-client-btn').onclick = async () => {
+    const name = wrapper.querySelector('#client-name').value.trim();
     if (!name) return alert('El nombre o razón social es obligatorio');
     
     const clientData = {
-      id: document.getElementById('client-id').value || null,
+      id: wrapper.querySelector('#client-id').value || null,
       name,
-      cuit: document.getElementById('client-cuit').value,
-      address: document.getElementById('client-address').value,
-      phone: document.getElementById('client-phone').value,
-      cbu: document.getElementById('client-cbu').value,
-      account: document.getElementById('client-account').value,
+      cuit: wrapper.querySelector('#client-cuit').value,
+      address: wrapper.querySelector('#client-address').value,
+      phone: wrapper.querySelector('#client-phone').value,
+      cbu: wrapper.querySelector('#client-cbu').value,
+      account: wrapper.querySelector('#client-account').value,
     };
     if (!clientData.id) delete clientData.id;
 
-    document.getElementById('save-client-btn').textContent = 'Guardando...';
-    document.getElementById('save-client-btn').disabled = true;
+    const btn = wrapper.querySelector('#save-client-btn');
+    btn.textContent = 'Guardando...';
+    btn.disabled = true;
 
     if (options && options.onSaveClient) {
        await options.onSaveClient(clientData);
@@ -334,8 +354,8 @@ export function renderSettings(container, options) {
          options.onReloadClients();
        }
     } else {
-      document.getElementById('save-client-btn').textContent = 'Guardar Cliente';
-      document.getElementById('save-client-btn').disabled = false;
+      btn.textContent = 'Guardar Cliente';
+      btn.disabled = false;
     }
   };
 }

@@ -29,6 +29,16 @@ export function renderTravels(container, options) {
 
   container.innerHTML = '';
 
+  const mainHeader = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;' });
+  mainHeader.innerHTML = `
+    <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
+      <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+    </button>
+    <h2 style="margin: 0;">🚛 Gestión de Viajes</h2>
+  `;
+  container.appendChild(mainHeader);
+  mainHeader.querySelector('#back-to-dash').onclick = options.onBack;
+
   // Category Statistics Area
   const statsArea = el('div', { classes: ['category-stats-container'] });
   

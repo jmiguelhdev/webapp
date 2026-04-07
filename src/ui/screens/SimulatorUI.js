@@ -1,11 +1,21 @@
 import { el } from '../../utils/dom.js';
 import { CostSimulator } from '../../domain/entities/CostSimulator.js';
 
-export function renderSimulator(container) {
+export function renderSimulator(container, options) {
   const wrapper = el('div', { classes: ['simulator-wrapper'] });
+  
+  const header = el('div', { classes: ['dashboard-header'], style: 'grid-column: 1 / -1; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;' });
+  header.innerHTML = `
+    <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
+      <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+    </button>
+    <h2 style="margin: 0;">🧮 Simulador de Costo Gancho</h2>
+  `;
+  wrapper.appendChild(header);
+  header.querySelector('#back-to-dash').onclick = options.onBack;
+
   const form = el('div', { classes: ['simulator-form', 'glass-card'] });
   form.innerHTML = `
-    <h2>Simulador Costo Gancho</h2>
     <div class="form-group"><label>Rendimiento (%)</label><input type="number" id="sim-rend" value="58.5" step="0.1"></div>
     <div class="form-group"><label>Precio Vivo ($/kg)</label><input type="number" id="sim-precio" value="5050" step="10"></div>
     <div class="form-group"><label>Distancia (km)</label><input type="number" id="sim-dist" value="400" step="5"></div>

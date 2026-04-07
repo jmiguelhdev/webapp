@@ -8,11 +8,17 @@ export function renderClientAccounts(options) {
 
   if (selectedClient) {
     // --- DETAILS VIEW ---
-    const header = el('div', { classes: ['dashboard-header'] });
+    const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; gap: 0.5rem;' });
     header.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 1rem;">
-        <button id="back-clients" class="btn-outline" style="padding: 0.5rem;">⬅️ Volver</button>
-        <h2 style="margin: 0;">👤 ${selectedClient.name}</h2>
+      <button id="back-clients" class="back-btn-m3" title="Volver">
+        <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+      </button>
+      <div>
+        <h2 style="margin: 0;">${selectedClient.name}</h2>
+        <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1rem; margin-top: 2px;">
+          <span>📍 ${selectedClient.address || 'Sin dirección'}</span>
+          <span>🆔 CUIT: ${selectedClient.cuit || 'N/A'}</span>
+        </div>
       </div>
     `;
     wrapper.appendChild(header);
@@ -103,9 +109,18 @@ export function renderClientAccounts(options) {
 
   } else {
     // --- LIST VIEW ---
-    const header = el('div', { classes: ['dashboard-header'] });
-    header.innerHTML = `<h2>👥 Cuentas de Clientes</h2><p>Administración de saldos y cobranzas.</p>`;
+    const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; gap: 0.5rem;' });
+    header.innerHTML = `
+      <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
+        <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+      </button>
+      <div>
+        <h2 style="margin: 0;">👥 Cuentas de Clientes</h2>
+        <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Administración de saldos y cobranzas.</p>
+      </div>
+    `;
     wrapper.appendChild(header);
+    header.querySelector('#back-to-dash').onclick = options.onBackToDashboard;
 
     const clientGrid = el('div', { classes: ['card-list'] });
     if (clients.length === 0) {
