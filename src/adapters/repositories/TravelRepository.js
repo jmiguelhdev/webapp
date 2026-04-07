@@ -39,7 +39,8 @@ export class FirebaseTravelRepository {
     const updateData = {
       status: 'DISPATCHED',
       destination,
-      dispatchDate: Date.now()
+      dispatchDate: Date.now(),
+      deleteAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // TTL cleanup in 90 days
     };
     await api.updateFaenasStatus(db, uid, recordIds, updateData);
   }
