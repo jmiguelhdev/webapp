@@ -63,9 +63,11 @@ export function renderSettings(container, options) {
       <div class="form-group" style="margin-bottom: 0;"><label>Precio por Km ($/km)</label><input type="number" id="set-js-km" value="${current.precioKmSimple}" step="50"></div>
     </div>
 
-    <!-- Card 4: Precios por Categoría -->
     <div class="glass-card card" style="grid-column: 1 / -1;">
-      <h3 style="margin-bottom: 1.25rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">🏷️ Precios de Referencia ($/kg)</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">🏷️ Precios de Referencia ($/kg)</h3>
+        <button id="gen-price-share-btn" class="btn-outline" style="width: auto; padding: 0.5rem 1.5rem; font-size: 0.85rem; border-color: var(--primary); color: var(--primary);">📲 Generar Placa de Precios</button>
+      </div>
       <div id="category-prices-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem;"></div>
     </div>
 
@@ -261,6 +263,9 @@ export function renderSettings(container, options) {
   }
 
   // --- EVENT LISTENERS ---
+  const shareBtn = wrapper.querySelector('#gen-price-share-btn');
+  if (shareBtn) shareBtn.onclick = options.onPriceShare;
+
   wrapper.querySelector('#add-camara-btn').onclick = () => renderCamaraRow();
 
   wrapper.querySelector('#save-settings').onclick = async () => {

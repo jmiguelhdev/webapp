@@ -136,12 +136,12 @@ function showLogin() {
 
 function getAllowedViews(role) {
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'settings', 'contact', 'logout'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'settings', 'price-share', 'contact', 'logout'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'contact', 'logout'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'price-share', 'contact', 'logout'];
   } else {
     // VISOR
-    return ['dashboard', 'simulator', 'contact', 'logout'];
+    return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
   }
 }
 
@@ -158,6 +158,7 @@ function enforcePermissions(role) {
 }
 
 function navigateTo(view) {
+  document.body.classList.remove('full-screen-view');
   if (!currentUser && view !== 'simulator' && view !== 'logout') return showLogin();
   
   if (currentUser) {
@@ -208,13 +209,31 @@ function navigateTo(view) {
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
           onSaveUserRole: (uid, role) => api.saveUserRole(db, uid, role),
           onReloadClients: loadSettingsData,
+          onPriceShare: () => navigateTo('price-share'),
           onBack: () => navigateTo('dashboard')
         });
       };
       loadSettingsData();
       break;
     }
+    case 'price-share': {
+      document.body.classList.add('full-screen-view');
+      uiInterface.showLoading(true);
+      const loadPriceData = async () => {
+        const prices = await clientRepository.getCategoryPrices();
+        uiLib.renderPriceShare(content, { 
+          prices, 
+          onBack: () => {
+            document.body.classList.remove('full-screen-view');
+            navigateTo('settings');
+          }
+        });
+      };
+      loadPriceData();
+      break;
+    }
     case 'contact': {
+      document.body.classList.remove('full-screen-view');
       content.innerHTML = `
         <div class="dashboard-header" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem;">
           <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
