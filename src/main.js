@@ -1,6 +1,6 @@
 // src/main.js
 import './style.css';
-import { auth } from './firebase.js';
+import { auth, db } from './firebase.js';
 import { CostSimulator } from './domain/entities/CostSimulator.js';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import * as api from './api.js';
@@ -60,7 +60,7 @@ onAuthStateChanged(auth, async (user) => {
     // Fetch user role
     uiInterface.showLoading(true);
     try {
-      currentUserRole = await api.fetchUserRole(api.db, user);
+      currentUserRole = await api.fetchUserRole(db, user);
     } catch (e) {
       console.error("Error fetching role:", e);
       currentUserRole = 'VISOR'; // fallback
@@ -185,7 +185,7 @@ function navigateTo(view) {
         
         let usersList = [];
         if (currentUserRole === 'ADMIN') {
-          usersList = await api.fetchAllUsersRoles(api.db);
+          usersList = await api.fetchAllUsersRoles(db);
         }
 
         uiLib.renderSettings(content, { 
@@ -197,7 +197,7 @@ function navigateTo(view) {
           onSavePrices: (newPrices) => clientRepository.saveCategoryPrices(newPrices),
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
-          onSaveUserRole: (email, role) => api.saveUserRole(api.db, email, role),
+          onSaveUserRole: (uid, role) => api.saveUserRole(db, uid, role),
           onReloadClients: loadSettingsData
         });
       };
