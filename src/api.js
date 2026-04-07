@@ -179,12 +179,17 @@ export async function saveClient(db, clientRecord) {
 export async function fetchCategoryPrices(db) {
   const docRef = doc(db, 'config', 'prices');
   const docSnap = await getDoc(docRef);
-  return docSnap.exists() ? docSnap.data() : {};
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    // Return the nested prices object if it exists, otherwise the whole object for backward compatibility
+    return data.prices || data || {};
+  }
+  return {};
 }
 
 export async function saveCategoryPrices(db, pricesRecord) {
   const docRef = doc(db, 'config', 'prices');
-  await setDoc(docRef, { ...pricesRecord, updatedAt: Date.now() });
+  await setDoc(docRef, { prices: pricesRecord, updatedAt: Date.now() });
 }
 
 /**
