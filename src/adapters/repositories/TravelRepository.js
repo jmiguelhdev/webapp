@@ -45,6 +45,10 @@ export class FirebaseTravelRepository {
     await api.updateFaenasStatus(db, uid, recordIds, updateData);
   }
 
+  async prepareFaenas(uid, recordIds, updateData) {
+    await api.updateFaenasStatus(db, uid, recordIds, updateData);
+  }
+
   async moveFaenasToCamara(uid, recordsInfo, camaraId) {
     await api.moveFaenasToCamara(db, uid, recordsInfo, camaraId);
   }

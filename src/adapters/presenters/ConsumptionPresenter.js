@@ -11,9 +11,10 @@ export class ConsumptionPresenter {
     this.clients = [];
     this.categoryPrices = {};
     this.camarasList = [];
+    this.userRole = null;
     
     this.state = {
-      activeTab: 'STOCK', // 'STOCK' | 'HISTORY'
+      activeTab: 'STOCK', // 'STOCK' | 'DRAFTS' | 'HISTORY'
       selectedIds: new Set(),
       destinationInput: '',
       categoryPriceInputs: {}, // { 'NOVILLO': '5100', 'VACA': '3200', ... }
@@ -40,6 +41,10 @@ export class ConsumptionPresenter {
     }, 400);
   }
 
+  setUserRole(role) {
+    this.userRole = role;
+  }
+
   async loadFaenas(uid) {
     this.currentUid = uid;
     this.ui.showLoading();
@@ -54,6 +59,7 @@ export class ConsumptionPresenter {
 
       // Pre-compute basic filtered sets for better updateView performance
       this.stockCache = this.allFaenas.filter(f => f.status === 'AVAILABLE');
+      this.draftCache = this.allFaenas.filter(f => f.status === 'DRAFT');
       this.historyCache = this.allFaenas.filter(f => f.status === 'DISPATCHED');
       
       this.allTropasCache = [...new Set(this.allFaenas.map(f => String(f.tropa || '')).filter(Boolean))]
@@ -204,12 +210,39 @@ export class ConsumptionPresenter {
 
     const totalDebt = Object.values(byCategory).reduce((s, c) => s + c.subtotal, 0);
     const totalKg = selectedItems.reduce((s, i) => s + (i.kg || 0), 0);
-
     const catSummary = Object.entries(byCategory)
       .map(([cat, d]) => `${cat}: ${d.kg.toFixed(1)} kg × $${d.price} = $${d.subtotal.toLocaleString()}`)
       .join('\n');
 
-    if (!confirm(`¿Confirmar despacho de ${selectedItems.length} piezas a "${dest}"?\n\n${catSummary}\n\nTOTAL: $${totalDebt.toLocaleString()}`)) return;
+    if (this.userRole === 'OPERARIO') {
+      if (!confirm(`¿Confirmar PREPARACIÓN (Borrador) de ${selectedItems.length} piezas a "${dest}"?\n(Un administrador deberá validarlo luego)`)) return;
+      this.ui.showLoading();
+      try {
+        const idsArray = Array.from(this.state.selectedIds);
+        const draftPrices = {};
+        for (const cat of Object.keys(byCategory)) {
+           draftPrices[cat] = byCategory[cat].price;
+        }
+        await this.travelRepository.prepareFaenas(uid, idsArray, {
+          status: 'DRAFT',
+          destination: dest,
+          draftPrices: draftPrices,
+          draftDate: Date.now()
+        });
+        
+        this.state.selectedIds.clear();
+        this.state.destinationInput = '';
+        this.state.categoryPriceInputs = {};
+        await this.loadFaenas(uid);
+      } catch (e) {
+        console.error(e);
+        alert(`Error al guardar borrador: ${e.message}`);
+        this.ui.hideLoading();
+      }
+      return;
+    }
+
+    if (!confirm(`¿Confirmar SALIDA DEFINITIVA de ${selectedItems.length} piezas a "${dest}"?\n\n${catSummary}\n\nTOTAL: $${totalDebt.toLocaleString()}`)) return;
 
     this.ui.showLoading();
     try {
@@ -242,6 +275,39 @@ export class ConsumptionPresenter {
     } catch (e) {
       console.error(e);
       alert(`Error al despachar: ${e.message}`);
+      this.ui.hideLoading();
+    }
+  }
+
+  async confirmDraftGroup(groupItems, destination, draftPrices) {
+    if (this.userRole !== 'ADMIN') {
+       alert("Solo Administradores pueden confirmar despachos.");
+       return;
+    }
+    this.state.selectedIds.clear();
+    groupItems.forEach(i => this.state.selectedIds.add(i.id));
+    this.state.destinationInput = destination || '';
+    
+    // Auto-set draft prices
+    if (draftPrices) {
+       this.state.categoryPriceInputs = { ...draftPrices };
+    } else {
+       this._autoSuggestPrice();
+    }
+    this.state.activeTab = 'STOCK';
+    this.updateView();
+  }
+
+  async revertDraft(uid, id) {
+    if (this.userRole !== 'ADMIN') return;
+    if (!confirm("¿Revertir este despacho preparado y devolver a Stock disponible?")) return;
+    this.ui.showLoading();
+    try {
+      await this.travelRepository.prepareFaenas(uid, [id], { status: 'AVAILABLE', destination: null, draftPrices: null, draftDate: null });
+      await this.loadFaenas(uid);
+    } catch(e) {
+      console.error(e);
+      alert(e.message);
       this.ui.hideLoading();
     }
   }
@@ -281,6 +347,7 @@ export class ConsumptionPresenter {
 
   updateView() {
     let stock = this.stockCache || [];
+    let drafts = this.draftCache || [];
     let history = this.historyCache || [];
 
     const allTropas = this.allTropasCache || [];
@@ -302,22 +369,26 @@ export class ConsumptionPresenter {
     // Apply tropa filter
     if (this.state.tropaFilter !== 'ALL') {
       stock = stock.filter(f => String(f.tropa || '') === this.state.tropaFilter);
+      drafts = drafts.filter(f => String(f.tropa || '') === this.state.tropaFilter);
       history = history.filter(f => String(f.tropa || '') === this.state.tropaFilter);
     }
 
     // Apply general search and sort
     stock = this._applySearchAndSort(stock, this.state.stockSearch);
+    drafts = this._applySearchAndSort(drafts, this.state.stockSearch);
     history = this._applySearchAndSort(history, this.state.historyFilters.search);
 
     // Apply category filter
     if (this.state.categoryFilter !== 'ALL') {
       stock = stock.filter(f => f.standardizedCategory === this.state.categoryFilter);
+      drafts = drafts.filter(f => f.standardizedCategory === this.state.categoryFilter);
       history = history.filter(f => f.standardizedCategory === this.state.categoryFilter);
     }
 
     // Apply camara filter
     if (this.state.camaraFilter !== 'ALL') {
       stock = stock.filter(f => (f.camaraId || '') === this.state.camaraFilter);
+      drafts = drafts.filter(f => (f.camaraId || '') === this.state.camaraFilter);
     }
 
     // Calculate unassigned and camera occupancies BEFORE applying any filters so it's accurate for the total stock
@@ -332,9 +403,11 @@ export class ConsumptionPresenter {
     const options = {
       state: this.state,
       stockItems: stock,
+      draftItems: drafts,
       historyItems: history,
       allTropas,
       finishedTropas,
+      userRole: this.userRole,
       clients: this.clients,
       onTabSwitch: this.toggleTab.bind(this),
       onToggleSelection: this.toggleSelection.bind(this),
@@ -352,7 +425,9 @@ export class ConsumptionPresenter {
       camaraOccupancy,
       unassignedCount,
       onCamaraChange: this.setCamaraFilter.bind(this),
-      onMoveToCamara: (camaraId) => this.moveSelectedToCamara(this.currentUid, camaraId)
+      onMoveToCamara: (camaraId) => this.moveSelectedToCamara(this.currentUid, camaraId),
+      onConfirmDraft: (groupItems, dest, prices) => this.confirmDraftGroup(groupItems, dest, prices),
+      onRevertDraft: (id) => this.revertDraft(this.currentUid, id)
     };
 
     this.ui.renderFaenaConsumption(options);

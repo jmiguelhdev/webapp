@@ -74,9 +74,30 @@ export function renderSettings(container, options) {
     <!-- Card 5: Cámaras de Frio -->
     <div class="glass-card card" style="grid-column: 1 / -1;">
       <h3 style="margin-bottom: 1.25rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">❄️ Gestión de Cámaras</h3>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Define los nombres y capacidades de tus cámaras para el control de stock.</p>
-      <div id="camaras-config-container"></div>
-      <button id="add-camara-btn" class="btn-outline" style="margin-top: 1rem; width: 100%; border-style: dashed; font-weight: 600;">+ Agregar Nueva Cámara</button>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 2rem;">Administra tus cámaras de frío para el control de stock y despacho.</p>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem;">
+         <div id="settings-camara-form" style="border-right: 1px solid var(--border); padding-right: 2rem;">
+            <h4 id="camara-form-title" style="margin-bottom: 1.5rem; font-size: 1rem; color: var(--accent-main);">Añadir Nueva Cámara</h4>
+            <input type="hidden" id="camara-old-name">
+            <div class="form-group">
+              <label>Nombre de Cámara</label>
+              <input type="text" id="camara-name" class="form-input" placeholder="Ej: Cámara 1">
+            </div>
+            <div class="form-group">
+              <label>Capacidad Máxima (Medias Reses)</label>
+              <input type="number" id="camara-capacity" class="form-input" placeholder="Ej: 80" min="1">
+            </div>
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+               <button id="clear-camara-btn" class="btn-outline" style="flex: 1;">Limpiar</button>
+               <button id="save-camara-btn" class="btn-primary" style="flex: 2; margin: 0; background: var(--accent-main);">Guardar Cámara</button>
+            </div>
+         </div>
+         <div id="settings-camaras-list-container">
+            <h4 style="margin-bottom: 1.5rem; font-size: 1rem;">Cámaras Configuradas</h4>
+            <div id="settings-camaras-list" class="card-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem;"></div>
+         </div>
+      </div>
     </div>
 
     <!-- Card 6: Gestión de Clientes -->
@@ -136,22 +157,65 @@ export function renderSettings(container, options) {
     });
   };
 
-  const renderCamaraRow = (camara = { name: '', capacity: '' }) => {
-    const camarasContainer = wrapper.querySelector('#camaras-config-container');
-    if (!camarasContainer) return;
+  let localCamaras = [...(options.camarasList || [])];
 
-    const row = el('div', { style: 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;' });
-    const nameVal = typeof camara === 'string' ? camara : (camara.name || '');
-    const capVal = typeof camara === 'string' ? '' : (camara.capacity || '');
+  const renderCamarasList = () => {
+    const listEl = wrapper.querySelector('#settings-camaras-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
     
-    row.innerHTML = `
-      <input type="text" class="camara-name-input form-input" placeholder="Nombre (Ej: Cámara 1)" value="${nameVal}" style="flex: 2; padding: 0.6rem;">
-      <input type="number" class="camara-capacity-input form-input" placeholder="Capacidad" value="${capVal}" style="flex: 1; padding: 0.6rem;" min="1">
-      <button class="btn-outline remove-camara-btn" style="padding: 0.6rem; color: var(--danger); border-color: var(--danger); margin: 0;">X</button>
-    `;
-    
-    row.querySelector('.remove-camara-btn').onclick = () => row.remove();
-    camarasContainer.appendChild(row);
+    if (localCamaras.length === 0) {
+      listEl.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay cámaras configuradas.</div>';
+      return;
+    }
+
+    localCamaras.forEach(c => {
+      const card = el('div', { classes: ['card', 'glass-card'], style: 'padding: 1rem; display: flex; justify-content: space-between; align-items: center;' });
+      card.innerHTML = `
+        <div>
+          <h4 style="margin: 0 0 0.2rem 0;">${c.name}</h4>
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Capacidad: <strong>${c.capacity || 0}</strong> medias reses</span>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn-outline edit-camara-btn" data-name="${c.name}" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Editar</button>
+          <button class="btn-outline delete-camara-btn" data-name="${c.name}" style="padding: 0.3rem 0.6rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger);">Eliminar</button>
+        </div>
+      `;
+      listEl.appendChild(card);
+    });
+
+    listEl.querySelectorAll('.edit-camara-btn').forEach(btn => {
+      btn.onclick = () => {
+        const c = localCamaras.find(x => x.name === btn.dataset.name);
+        if (c) {
+          wrapper.querySelector('#camara-old-name').value = c.name;
+          wrapper.querySelector('#camara-name').value = c.name;
+          wrapper.querySelector('#camara-capacity').value = c.capacity;
+          wrapper.querySelector('#camara-form-title').textContent = 'Editar Cámara: ' + c.name;
+          wrapper.querySelector('#camara-name').focus();
+        }
+      };
+    });
+
+    listEl.querySelectorAll('.delete-camara-btn').forEach(btn => {
+      btn.onclick = async () => {
+        if (confirm(`¿Estás seguro de eliminar la cámara "${btn.dataset.name}"?`)) {
+          localCamaras = localCamaras.filter(x => x.name !== btn.dataset.name);
+          if (options.onSaveCamaras) {
+            await options.onSaveCamaras(localCamaras);
+            renderCamarasList();
+            showMsg('Cámara eliminada correctamente.');
+          }
+        }
+      };
+    });
+  };
+
+  const clearCamaraForm = () => {
+    wrapper.querySelector('#camara-old-name').value = '';
+    wrapper.querySelector('#camara-name').value = '';
+    wrapper.querySelector('#camara-capacity').value = '';
+    wrapper.querySelector('#camara-form-title').textContent = 'Añadir Nueva Cámara';
   };
 
   const renderClientsList = (clientsList = []) => {
@@ -196,11 +260,7 @@ export function renderSettings(container, options) {
     renderPriceInputs({});
   }
 
-  if (options && options.camarasList && options.camarasList.length > 0) {
-    options.camarasList.forEach(c => renderCamaraRow(c));
-  } else {
-    renderCamaraRow();
-  }
+  renderCamarasList();
 
   if (options && options.clients) {
     renderClientsList(options.clients);
@@ -266,44 +326,95 @@ export function renderSettings(container, options) {
   const shareBtn = wrapper.querySelector('#gen-price-share-btn');
   if (shareBtn) shareBtn.onclick = options.onPriceShare;
 
-  wrapper.querySelector('#add-camara-btn').onclick = () => renderCamaraRow();
+  wrapper.querySelector('#clear-camara-btn').onclick = clearCamaraForm;
+
+  wrapper.querySelector('#save-camara-btn').onclick = async () => {
+    const oldName = wrapper.querySelector('#camara-old-name').value;
+    const name = wrapper.querySelector('#camara-name').value.trim();
+    const capacity = parseInt(wrapper.querySelector('#camara-capacity').value, 10) || 0;
+
+    if (!name) return alert('El nombre de la cámara es obligatorio.');
+    if (capacity <= 0) return alert('La capacidad debe ser un número mayor a 0.');
+
+    const newCamara = { name, capacity };
+    
+    if (oldName) {
+      // Edit mode
+      localCamaras = localCamaras.map(c => c.name === oldName ? newCamara : c);
+    } else {
+      // Add mode
+      if (localCamaras.some(c => c.name === name)) {
+        return alert('Ya existe una cámara con ese nombre.');
+      }
+      localCamaras.push(newCamara);
+    }
+
+    const btn = wrapper.querySelector('#save-camara-btn');
+    btn.textContent = 'Guardando...';
+    btn.disabled = true;
+
+    try {
+      if (options.onSaveCamaras) {
+        await options.onSaveCamaras(localCamaras);
+        showMsg('Cámara guardada exitosamente.');
+        clearCamaraForm();
+        renderCamarasList();
+      }
+    } catch (e) {
+      console.error(e);
+      showMsg('Error al guardar cámara: ' + e.message, true);
+    } finally {
+      btn.textContent = 'Guardar Cámara';
+      btn.disabled = false;
+    }
+  };
 
   wrapper.querySelector('#save-settings').onclick = async () => {
-    const newSettings = {
-      margenGanancia: 1 + (parseFloat(wrapper.querySelector('#set-margen').value) / 100),
-      pesoJaulaDoble: parseFloat(wrapper.querySelector('#set-jdd-kg').value),
-      precioKmDouble: parseFloat(wrapper.querySelector('#set-jdd-km').value),
-      pesoJaulaSimple: parseFloat(wrapper.querySelector('#set-js-kg').value),
-      precioKmSimple: parseFloat(wrapper.querySelector('#set-js-km').value),
-    };
-    
-    const prices = {};
-    wrapper.querySelectorAll('.cat-price-input').forEach(input => {
-      prices[input.dataset.cat] = parseFloat(input.value) || 0;
-    });
+    const btn = wrapper.querySelector('#save-settings');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+    try {
+      const newSettings = {
+        margenGanancia: 1 + (parseFloat(wrapper.querySelector('#set-margen').value) / 100),
+        pesoJaulaDoble: parseFloat(wrapper.querySelector('#set-jdd-kg').value),
+        precioKmDouble: parseFloat(wrapper.querySelector('#set-jdd-km').value),
+        pesoJaulaSimple: parseFloat(wrapper.querySelector('#set-js-kg').value),
+        precioKmSimple: parseFloat(wrapper.querySelector('#set-js-km').value),
+      };
+      
+      const prices = {};
+      wrapper.querySelectorAll('.cat-price-input').forEach(input => {
+        prices[input.dataset.cat] = parseFloat(input.value) || 0;
+      });
 
-    if (SettingsService.saveSettings(newSettings)) {
-      if (options && options.onSavePrices) {
-        await options.onSavePrices(prices);
-      }
-      if (options && options.onSaveCamaras) {
-        const camarasArray = [];
-        wrapper.querySelectorAll('#camaras-config-container > div').forEach(row => {
-          const nameInput = row.querySelector('.camara-name-input');
-          const capInput = row.querySelector('.camara-capacity-input');
-          if (nameInput && capInput) {
-            const name = nameInput.value.trim();
-            const capacity = parseInt(capInput.value, 10) || 0;
-            if (name) {
-              camarasArray.push({ name, capacity });
-            }
+      if (SettingsService.saveSettings(newSettings)) {
+        if (options && options.onSavePrices) {
+          try {
+            await options.onSavePrices(prices);
+          } catch (e) {
+            console.error("Error saving prices to Firebase:", e);
+            throw new Error(`Error al guardar precios en la nube: ${e.message}`);
           }
-        });
-        await options.onSaveCamaras(camarasArray);
+        }
+        // Note: Camaras are now handled independently via save-camara-btn,
+        // but we still ensure the latest localCamaras state is saved during global save.
+        if (options && options.onSaveCamaras) {
+          try {
+            await options.onSaveCamaras(localCamaras);
+          } catch (e) {
+            console.error("Error during global cameras sync:", e);
+          }
+        }
+        showMsg('¡Configuración de precios, cámaras y general guardada exitosamente!');
+      } else {
+        showMsg('Hubo un error al guardar localmente.', true);
       }
-      showMsg('¡Configuración de precios, cámaras y general guardada exitosamente!');
-    } else {
-      showMsg('Hubo un error al guardar general.', true);
+    } catch (e) {
+      console.error("Error al guardar: ", e);
+      showMsg(e.message || 'Hubo un error al guardar. Ver consola.', true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar Cambios Globales';
     }
   };
 

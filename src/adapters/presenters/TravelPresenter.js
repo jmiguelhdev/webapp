@@ -62,10 +62,11 @@ export class TravelPresenter {
     this.ui.showLoading();
     try {
       const raw = await this.getTravelsUseCase.execute({ uid, filter: 'TODOS', sort: 'DESC' });
+      
       // Deduplicate by ID
       const seen = new Set();
       this.allTravels = raw.filter(t => {
-        if (!t.id || seen.has(t.id)) return false;
+        if (!t || !t.id || seen.has(t.id)) return false;
         seen.add(t.id);
         return true;
       });
@@ -79,14 +80,19 @@ export class TravelPresenter {
       const categoriesSet = new Set();
       this.completedTravelsCache.forEach(t => {
         if (t.buy && t.buy.categories) {
-          t.buy.categories.forEach(cat => categoriesSet.add(cat));
+          t.buy.categories.forEach(cat => {
+            if (cat) categoriesSet.add(cat);
+          });
         }
       });
       this.allCategoriesCache = ['TODOS', ...Array.from(categoriesSet).sort()];
 
       this.refresh();
     } catch (error) {
+      console.error("Critical error in loadTravels:", error);
       this.ui.showError(error.message);
+    } finally {
+      this.ui.hideLoading();
     }
   }
 

@@ -202,8 +202,10 @@ export async function fetchCamaras(db) {
 }
 
 export async function saveCamaras(db, camarasList) {
+  console.log("api.saveCamaras called with:", camarasList);
   const docRef = doc(db, 'config', 'camaras');
   await setDoc(docRef, { list: camarasList, updatedAt: Date.now() });
+  console.log("api.saveCamaras successfully completed");
 }
 
 /**
@@ -231,6 +233,7 @@ export async function fetchUserRole(db, user) {
   }
   
   const role = user.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2' ? 'ADMIN' : 'VISOR';
+  console.log(`Setting default role ${role} for user ${user.uid}`);
   await setDoc(docRef, { role, email: user.email || '', createdAt: Date.now() });
   return role;
 }

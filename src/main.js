@@ -34,23 +34,40 @@ const uiInterface = {
   showLoading: (active = true) => { 
     if (active) {
       content.innerHTML = `
-        <div class="loading-wrapper">
+        <div class="loading-wrapper" id="global-loader">
           <div class="spinner"></div>
           <div>Cargando sistema...</div>
         </div>
       `;
-    } 
+    } else {
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.remove();
+    }
   },
-  hideLoading: () => {},
-  showError: (msg) => { content.innerHTML = `<div class="alert error">Error: ${msg}</div>`; },
-  renderTravels: (options) => uiLib.renderTravels(content, { ...options, onBack: () => navigateTo('dashboard') }),
-  renderDashboard: (options) => uiLib.renderDashboard(content, options),
-  renderFaenaConsumption: (options) => uiLib.renderFaenaConsumption(content, { ...options, onBack: () => navigateTo('dashboard') }),
-  renderClientAccounts: (options) => uiLib.renderClientAccounts({ ...options, onBackToDashboard: () => navigateTo('dashboard') }),
+  hideLoading: () => uiInterface.showLoading(false),
+  showError: (msg) => { 
+    uiInterface.hideLoading();
+    content.innerHTML = `<div class="alert error" style="margin: 2rem; padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); border-radius: 12px; color: var(--danger);">
+      <strong>⚠️ Error:</strong> ${msg}
+      <button onclick="location.reload()" class="btn-primary" style="margin-top: 1rem; display: block; background: var(--danger);">Reintentar</button>
+    </div>`; 
+  },
+  renderTravels: (options) => {
+    uiInterface.hideLoading();
+    uiLib.renderTravels(content, { ...options, onBack: () => navigateTo('dashboard') });
+  },
+  renderDashboard: (options) => {
+    uiInterface.hideLoading();
+    uiLib.renderDashboard(content, options);
+  },
+  renderFaenaConsumption: (options) => {
+    uiInterface.hideLoading();
+    uiLib.renderFaenaConsumption(content, { ...options, onBack: () => navigateTo('dashboard') });
+  },
   renderScanResultsModal: (options) => uiLib.renderScanResultsModal(options),
   generateTravelReport: (data) => uiLib.generateTravelReport(data),
   generateExcelReport: (data) => uiLib.generateExcelReport(data),
-  renderClientAccounts: (options) => uiLib.renderClientAccounts(options),
+  renderClientAccounts: (options) => uiLib.renderClientAccounts({ ...options, onBackToDashboard: () => navigateTo('dashboard') }),
   renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options)
 };
 
@@ -58,37 +75,52 @@ const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
 const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface, clientRepository);
 const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
 
-// Auth Listener
+// Auth Global Watcher
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     document.body.classList.add('authenticated');
     
-    // Fetch user role
-    uiInterface.showLoading(true);
     try {
+      // Ensure we have the user role before proceeding
       currentUserRole = await api.fetchUserRole(db, user);
     } catch (e) {
-      console.error("Error fetching role:", e);
-      currentUserRole = 'VISOR'; // fallback
+      console.error("Error fetching user role:", e);
+      currentUserRole = 'VISOR'; // Fallback
     }
-    uiInterface.hideLoading();
-    
-    enforcePermissions(currentUserRole);
 
-    // Todos los usuarios autentificados pueden acceder a la app
-    // Usamos el UID compartido para que todos vean la misma base de datos global
-    const uidToLoad = SHARED_DATA_SOURCE_UID;
+    // Pass role to presenters
+    consumptionPresenter.setUserRole(currentUserRole);
 
-    // Check if the current view (or 'travels') is allowed
+    try {
+      uiLib.renderSidebar(
+        document.getElementById('entity-list'),
+        (view) => navigateTo(view, currentUserRole),
+        currentUserRole
+      );
+    } catch (e) {
+      console.error("Error rendering sidebar:", e);
+    }
+
+    // Default view based on role
     const startView = (currentUserRole === 'VISOR') ? 'dashboard' : 'travels';
     navigateTo(startView);
+    
+    // Auto-load main data
     travelPresenter.loadTravels(SHARED_DATA_SOURCE_UID);
   } else {
     currentUser = null;
     document.body.classList.remove('authenticated');
     showLogin();
   }
+});
+
+// Global Logout Listener
+window.addEventListener('app:logout', () => {
+  signOut(auth).then(() => {
+    localStorage.clear();
+    location.reload();
+  });
 });
 
 function showLogin() {
@@ -140,19 +172,30 @@ function enforcePermissions(role) {
   });
 }
 
-function navigateTo(view) {
-  document.body.classList.remove('full-screen-view');
-  if (!currentUser && view !== 'simulator' && view !== 'logout') return showLogin();
+// Navigation Utility
+const navigateTo = (view, role = currentUserRole) => {
+  // Clear any existing active classes in sidebar if it exists
+  const sidebar = document.getElementById('entity-list');
+  if (sidebar) {
+    sidebar.querySelectorAll('li').forEach(li => {
+      li.classList.toggle('active', li.dataset.view === view);
+    });
+  }
   
-  if (currentUser) {
-    const allowed = getAllowedViews(currentUserRole);
-    if (!allowed.includes(view)) {
-      alert(`Acceso denegado: No tienes permiso para acceder a esta sección (${view}).`);
-      return;
-    }
+  if (view === 'logout') {
+    window.dispatchEvent(new Event('app:logout'));
+    return;
   }
 
-  document.querySelectorAll('#entity-list li').forEach(li => li.classList.toggle('active', li.dataset.view === view));
+  if (!currentUser && view !== 'simulator') return showLogin();
+  
+  const allowed = getAllowedViews(role);
+  if (!allowed.includes(view)) {
+    console.warn(`Access denied to ${view} for role ${role}`);
+    alert(`Acceso denegado: No tienes permiso para acceder a esta sección (${view}).`);
+    return;
+  }
+
   document.body.classList.remove('sidebar-open');
   content.innerHTML = '';
   switch (view) {

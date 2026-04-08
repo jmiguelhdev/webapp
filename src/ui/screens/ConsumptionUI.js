@@ -1,5 +1,128 @@
 import { el } from '../../utils/dom.js';
 
+function openScannerModal(stockItems, onFound) {
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' });
+  
+  const modal = el('div', { classes: ['glass-card'], style: 'background: var(--bg-dark); max-width: 450px; width: 100%; padding: 1.5rem; position: relative; display: flex; flex-direction: column; align-items: center;' });
+  
+  modal.innerHTML = `
+    <h3 style="margin-top: 0; margin-bottom: 1rem; text-align: center; color: white;">📷 Escáner de Tarjetas</h3>
+    <video id="scanner-video" style="width: 100%; border-radius: 12px; background: #000; display: block; max-height: 50vh; object-fit: cover;" autoplay playsinline></video>
+    <canvas id="scanner-canvas" style="display: none;"></canvas>
+    <div id="scanner-status" style="margin-top: 1rem; text-align: center; color: var(--text-muted); font-size: 0.95rem; min-height: 2.5em;">Apunte la cámara a la información (Tropa y Garrón) de la tarjeta...</div>
+    <div style="margin-top: 1.5rem; display: flex; gap: 1rem; width: 100%;">
+      <button id="scanner-cancel" class="btn-outline" style="flex: 1;">Cancelar</button>
+      <button id="scanner-capture" class="btn-primary" style="flex: 1;">Capturar Texto</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const video = modal.querySelector('#scanner-video');
+  const canvas = modal.querySelector('#scanner-canvas');
+  const status = modal.querySelector('#scanner-status');
+  const captureBtn = modal.querySelector('#scanner-capture');
+  const cancelBtn = modal.querySelector('#scanner-cancel');
+
+  let stream = null;
+
+  const startCamera = async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+    } catch (e) {
+      status.textContent = '❌ Error al acceder a la cámara. Asegúrese de dar permisos.';
+      status.style.color = '#ef4444';
+      captureBtn.disabled = true;
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+    }
+  };
+
+  const close = () => {
+    stopCamera();
+    overlay.remove();
+  };
+
+  cancelBtn.onclick = close;
+
+  captureBtn.onclick = async () => {
+    captureBtn.disabled = true;
+    cancelBtn.disabled = true;
+    
+    // Catch image on canvas
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    status.textContent = 'Procesando imagen (puede tardar unos segundos)...';
+    
+    try {
+      if (!window.Tesseract) {
+         throw new Error("Tesseract.js no está cargado.");
+      }
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      const result = await window.Tesseract.recognize(dataUrl, 'spa', {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+             status.textContent = `Analizando... ${(m.progress * 100).toFixed(0)}%`;
+          }
+        }
+      });
+      
+      const text = result.data.text;
+      const numbers = (text.match(/\d+/g) || []).map(Number);
+      
+      if (numbers.length === 0) {
+        throw new Error("No se detectaron números. Tome la foto de más cerca y con buena luz.");
+      }
+      
+      const candidates = stockItems.filter(item => {
+        const t = parseInt(item.tropa, 10);
+        const g = parseInt(item.garron, 10);
+        return numbers.includes(t) && numbers.includes(g);
+      });
+      
+      let foundItem = null;
+      if (candidates.length === 1) {
+        foundItem = candidates[0];
+      } else if (candidates.length > 1) {
+        const withKg = candidates.filter(item => {
+           const kgInt = Math.round(item.kg);
+           return numbers.includes(kgInt) || numbers.some(n => Math.abs(n - item.kg) <= 1);
+        });
+        foundItem = withKg.length > 0 ? withKg[0] : candidates[0];
+      }
+      
+      if (foundItem) {
+        status.textContent = `✅ Seleccionado: Tropa ${foundItem.tropa}, Garrón ${foundItem.garron}`;
+        status.style.color = '#10b981';
+        setTimeout(() => {
+          onFound(foundItem.id);
+          close();
+        }, 1500);
+      } else {
+        throw new Error("Datos no encontrados en stock actual. Reintente foto o revise Tropa/Garrón.");
+      }
+      
+    } catch (e) {
+      console.error(e);
+      status.textContent = `❌ ${e.message}`;
+      status.style.color = '#ef4444';
+      captureBtn.disabled = false;
+      cancelBtn.disabled = false;
+    }
+  };
+
+  startCamera();
+}
+
 export function renderFaenaConsumption(container, options) {
   const { 
     state, 
@@ -44,11 +167,14 @@ export function renderFaenaConsumption(container, options) {
   const tabs = el('div', { classes: ['dashboard-filters'] });
   const btnStock = el('button', { classes: [state.activeTab === 'STOCK' ? 'btn-primary' : 'btn-outline'], text: 'Inventario Disponible' });
   const btnHistory = el('button', { classes: [state.activeTab === 'HISTORY' ? 'btn-primary' : 'btn-outline'], text: 'Historial de Despachos' });
-  
+  const btnDrafts = el('button', { classes: [state.activeTab === 'DRAFTS' ? 'btn-primary' : 'btn-outline'], text: 'Borradores Pendientes' });
+
   btnStock.onclick = () => onTabSwitch('STOCK');
   btnHistory.onclick = () => onTabSwitch('HISTORY');
+  btnDrafts.onclick = () => onTabSwitch('DRAFTS');
 
   tabs.appendChild(btnStock);
+  tabs.appendChild(btnDrafts);
   tabs.appendChild(btnHistory);
   header.appendChild(tabs);
   wrapper.appendChild(header);
@@ -360,6 +486,19 @@ export function renderFaenaConsumption(container, options) {
 
     listHeader.innerHTML = `<h3 style="margin: 0; min-width: 200px;">Medias Reses en Cámara</h3>`;
     listHeader.appendChild(stockSearchInput);
+    
+    // Camera Button
+    const scanBtn = el('button', {
+      classes: ['btn-primary'],
+      text: '📷 Leer Tarjeta',
+      style: 'font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px;'
+    });
+    scanBtn.onclick = () => openScannerModal(stockItems, (id) => {
+      // Pass ID up as if checked manually
+      options.onToggleSelection(id);
+    });
+    listHeader.appendChild(scanBtn);
+
     listHeader.appendChild(el('div', { style: 'flex-grow: 1;' }));
     
     const selectAllBtn = el('button', { classes: ['btn-outline'], text: 'Seleccionar Todas', style: 'font-size: 0.8rem;' });
@@ -431,6 +570,88 @@ export function renderFaenaConsumption(container, options) {
     tableWrap.appendChild(table);
     listCard.appendChild(tableWrap);
     wrapper.appendChild(listCard);
+
+  } else if (state.activeTab === 'DRAFTS') {
+    // --- DRAFTS VIEW ---
+    const draftCard = el('div', { classes: ['glass-card'] });
+    draftCard.innerHTML = `<h3 style="margin-bottom: 1rem;">Borradores Pendientes de Confirmación</h3>`;
+    
+    if (!options.draftItems || options.draftItems.length === 0) {
+       draftCard.appendChild(el('p', { text: 'No hay borradores pendientes.', style: 'color: var(--text-muted);' }));
+    } else {
+       // Group drafts
+       let draftsByGroup = {};
+       options.draftItems.forEach(d => {
+         const key = `${d.destination}_${d.draftDate}`;
+         if (!draftsByGroup[key]) {
+            draftsByGroup[key] = {
+               destination: d.destination || 'Sin destino',
+               draftDate: d.draftDate,
+               draftPrices: d.draftPrices,
+               items: []
+            };
+         }
+         draftsByGroup[key].items.push(d);
+       });
+       
+       Object.values(draftsByGroup).forEach(group => {
+          const groupCard = el('div', { style: 'margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; background: rgba(255,255,255,0.02);' });
+          
+          let totalKg = group.items.reduce((sum, i) => sum + (i.kg || 0), 0);
+          
+          groupCard.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <div>
+                <h4 style="margin:0; color: var(--primary);">Destino: ${group.destination}</h4>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                  ${group.items.length} reses | ${totalKg.toFixed(1)} kg | Preparado: ${new Date(group.draftDate).toLocaleString()}
+                </div>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                 ${options.userRole === 'ADMIN' ? `<button class="btn-primary confirm-group-btn">Confirmar Despacho</button>` : `<span style="color:var(--text-muted); font-size:0.85rem; padding-top:0.5rem;">Solo un Administrador puede confirmar</span>`}
+                 ${options.userRole === 'ADMIN' ? `<button class="btn-outline revert-group-btn" style="color: var(--danger); border-color: var(--danger);">Revertir</button>` : ''}
+              </div>
+            </div>
+          `;
+          
+          if (options.userRole === 'ADMIN') {
+            const confirmBtn = groupCard.querySelector('.confirm-group-btn');
+            const revertBtn = groupCard.querySelector('.revert-group-btn');
+            
+            confirmBtn.onclick = () => options.onConfirmDraft(group.items, group.destination, group.draftPrices);
+            
+            revertBtn.onclick = () => {
+               if (confirm("¿Revertir TODO este borrador y devolverlo al stock disponible?")) {
+                 group.items.forEach(i => options.onRevertDraft(i.id));
+               }
+            };
+          }
+          
+          // Show items table
+          const itemsTable = el('table', { style: 'width: 100%; font-size: 0.9rem; border-collapse: collapse;' });
+          itemsTable.innerHTML = `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);">
+               <th style="text-align: left; padding: 0.5rem;">Tropa</th>
+               <th style="text-align: left; padding: 0.5rem;">Garrón</th>
+               <th style="text-align: left; padding: 0.5rem;">Categoría</th>
+               <th style="text-align: right; padding: 0.5rem;">Peso (Kg)</th>
+            </tr>
+          `;
+          group.items.forEach(item => {
+             itemsTable.innerHTML += `
+               <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                  <td style="padding: 0.5rem;">${item.tropa}</td>
+                  <td style="padding: 0.5rem;">#${item.garron}</td>
+                  <td style="padding: 0.5rem;">${item.standardizedCategory || item.category}</td>
+                  <td style="padding: 0.5rem; text-align: right;">${item.kg.toFixed(1)}</td>
+               </tr>
+             `;
+          });
+          groupCard.appendChild(itemsTable);
+          draftCard.appendChild(groupCard);
+       });
+    }
+    wrapper.appendChild(draftCard);
 
   } else {
     // --- HISTORY VIEW ---
