@@ -1,18 +1,68 @@
 import { el } from '../../utils/dom.js';
 
+/** Utility to play success/error beeps using Web Audio API */
+const playSound = (type) => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    // Smooth volume ramp
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
+
+    if (type === 'success') {
+      // High pleasant beep
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.4);
+    } else {
+      // Double low beep for error/no-match
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.1);
+      
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(220, audioCtx.currentTime + 0.15);
+      gain2.gain.setValueAtTime(0.1, audioCtx.currentTime + 0.15);
+      osc2.start(audioCtx.currentTime + 0.15);
+      osc2.stop(audioCtx.currentTime + 0.25);
+    }
+  } catch (e) {
+    console.warn("Audio feedback failed:", e);
+  }
+};
+
 function openScannerModal(stockItems, onFound) {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' });
   
   const modal = el('div', { classes: ['glass-card'], style: 'background: var(--bg-dark); max-width: 450px; width: 100%; padding: 1.5rem; position: relative; display: flex; flex-direction: column; align-items: center;' });
   
   modal.innerHTML = `
-    <h3 style="margin-top: 0; margin-bottom: 1rem; text-align: center; color: white;">📷 Escáner de Tarjetas</h3>
-    <video id="scanner-video" style="width: 100%; border-radius: 12px; background: #000; display: block; max-height: 50vh; object-fit: cover;" autoplay playsinline></video>
+    <h3 style="margin-top: 0; margin-bottom: 1rem; text-align: center; color: white;">📷 Escáner Automático</h3>
+    <div style="position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000;">
+      <video id="scanner-video" style="width: 100%; display: block; max-height: 50vh; object-fit: cover;" autoplay playsinline></video>
+      <div id="scanner-reticle" style="position: absolute; inset: 0; border: 2px dashed rgba(255,255,255,0.3); margin: 20%; pointer-events: none; border-radius: 8px;"></div>
+    </div>
     <canvas id="scanner-canvas" style="display: none;"></canvas>
-    <div id="scanner-status" style="margin-top: 1rem; text-align: center; color: var(--text-muted); font-size: 0.95rem; min-height: 2.5em;">Apunte la cámara a la información (Tropa y Garrón) de la tarjeta...</div>
+    
+    <div id="scanner-status" style="margin-top: 1rem; text-align: center; color: var(--text-muted); font-size: 0.95rem; min-height: 2.5em; background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 8px; width: 100%;">
+      Iniciando cámara...
+    </div>
+    
     <div style="margin-top: 1.5rem; display: flex; gap: 1rem; width: 100%;">
-      <button id="scanner-cancel" class="btn-outline" style="flex: 1;">Cancelar</button>
-      <button id="scanner-capture" class="btn-primary" style="flex: 1;">Capturar Texto</button>
+      <button id="scanner-cancel" class="btn-outline" style="flex: 1; padding: 0.8rem;">Cerrar Escáner</button>
     </div>
   `;
   
@@ -22,23 +72,33 @@ function openScannerModal(stockItems, onFound) {
   const video = modal.querySelector('#scanner-video');
   const canvas = modal.querySelector('#scanner-canvas');
   const status = modal.querySelector('#scanner-status');
-  const captureBtn = modal.querySelector('#scanner-capture');
   const cancelBtn = modal.querySelector('#scanner-cancel');
 
   let stream = null;
+  let loopTimeout = null;
+  let isProcessing = false;
+  let isClosed = false;
 
   const startCamera = async () => {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      status.textContent = 'Buscando cámara trasera...';
+      stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
+      });
       video.srcObject = stream;
+      status.textContent = '🤖 Escaneo Automático Activo';
+      
+      // Initial delay to allow autofocus
+      loopTimeout = setTimeout(internalScan, 2000);
     } catch (e) {
-      status.textContent = '❌ Error al acceder a la cámara. Asegúrese de dar permisos.';
+      status.textContent = '❌ Error de cámara. Asegúrese de dar permisos.';
       status.style.color = '#ef4444';
-      captureBtn.disabled = true;
     }
   };
 
   const stopCamera = () => {
+    isClosed = true;
+    if (loopTimeout) clearTimeout(loopTimeout);
     if (stream) {
       stream.getTracks().forEach(t => t.stop());
     }
@@ -51,72 +111,68 @@ function openScannerModal(stockItems, onFound) {
 
   cancelBtn.onclick = close;
 
-  captureBtn.onclick = async () => {
-    captureBtn.disabled = true;
-    cancelBtn.disabled = true;
+  const internalScan = async () => {
+    if (isProcessing || isClosed) return;
     
-    // Catch image on canvas
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    status.textContent = 'Procesando imagen (puede tardar unos segundos)...';
+    isProcessing = true;
+    status.textContent = '🔍 Escaneando...';
+    status.style.color = 'var(--text-muted)';
     
     try {
-      if (!window.Tesseract) {
-         throw new Error("Tesseract.js no está cargado.");
-      }
-      const dataUrl = canvas.toDataURL('image/jpeg');
-      const result = await window.Tesseract.recognize(dataUrl, 'spa', {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-             status.textContent = `Analizando... ${(m.progress * 100).toFixed(0)}%`;
-          }
-        }
-      });
+      // Catch image on canvas
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      if (!window.Tesseract) throw new Error("Tesseract no cargado");
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const result = await window.Tesseract.recognize(dataUrl, 'spa');
       
       const text = result.data.text;
       const numbers = (text.match(/\d+/g) || []).map(Number);
       
-      if (numbers.length === 0) {
-        throw new Error("No se detectaron números. Tome la foto de más cerca y con buena luz.");
+      console.log("OCR Match Candidates:", numbers);
+
+      if (numbers.length < 2) {
+        throw new Error("No se detectan suficientes datos. Acérquese más.");
       }
       
-      const candidates = stockItems.filter(item => {
+      const foundItem = stockItems.find(item => {
         const t = parseInt(item.tropa, 10);
         const g = parseInt(item.garron, 10);
         return numbers.includes(t) && numbers.includes(g);
       });
       
-      let foundItem = null;
-      if (candidates.length === 1) {
-        foundItem = candidates[0];
-      } else if (candidates.length > 1) {
-        const withKg = candidates.filter(item => {
-           const kgInt = Math.round(item.kg);
-           return numbers.includes(kgInt) || numbers.some(n => Math.abs(n - item.kg) <= 1);
-        });
-        foundItem = withKg.length > 0 ? withKg[0] : candidates[0];
-      }
-      
       if (foundItem) {
-        status.textContent = `✅ Seleccionado: Tropa ${foundItem.tropa}, Garrón ${foundItem.garron}`;
+        // SUCCESS!
+        playSound('success');
+        status.textContent = `✅ ENCONTRADO: Tr. ${foundItem.tropa} - G. ${foundItem.garron}`;
         status.style.color = '#10b981';
+        
         setTimeout(() => {
           onFound(foundItem.id);
           close();
-        }, 1500);
+        }, 1200);
       } else {
-        throw new Error("Datos no encontrados en stock actual. Reintente foto o revise Tropa/Garrón.");
+        throw new Error("Sin coincidencia en stock. Reintentando...");
       }
       
     } catch (e) {
-      console.error(e);
-      status.textContent = `❌ ${e.message}`;
-      status.style.color = '#ef4444';
-      captureBtn.disabled = false;
-      cancelBtn.disabled = false;
+      // Only play error sound if it's a "no match" or "bad OCR" case 
+      // but avoid spamming sounds if camera is just blurry
+      // For simplicity, we play a subtle error sound if data was seen but not matched
+      if (e.message.includes('Sin coincidencia')) {
+         playSound('error');
+      }
+      
+      status.textContent = `⏳ ${e.message}`;
+      if (!isClosed) {
+        loopTimeout = setTimeout(internalScan, 1500); // Retry after 1.5s
+      }
+    } finally {
+      isProcessing = false;
     }
   };
 
