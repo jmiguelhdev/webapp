@@ -215,21 +215,24 @@ export async function fetchUserRole(db, user) {
   const docSnap = await getDoc(docRef);
   
   if (docSnap.exists()) {
-    if (user.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2' && docSnap.data().role !== 'ADMIN') {
-      await setDoc(docRef, { role: 'ADMIN', email: user.email || '', updatedAt: Date.now() }, { merge: true });
-      return 'ADMIN';
+    const data = docSnap.data();
+    let updates = {};
+    if (user.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2' && data.role !== 'ADMIN') {
+      updates.role = 'ADMIN';
     }
-    return docSnap.data().role || 'VISOR';
+    if (!data.email && user.email) {
+      updates.email = user.email;
+    }
+    if (Object.keys(updates).length > 0) {
+      updates.updatedAt = Date.now();
+      await setDoc(docRef, updates, { merge: true });
+    }
+    return updates.role || data.role || 'VISOR';
   }
   
-  if (user.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2') {
-    await setDoc(docRef, { role: 'ADMIN', email: user.email || '', createdAt: Date.now() });
-    return 'ADMIN';
-  }
-  
-  // Default to VISOR for new users if not the first
-  await setDoc(docRef, { role: 'VISOR', email: user.email || '', createdAt: Date.now() });
-  return 'VISOR';
+  const role = user.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2' ? 'ADMIN' : 'VISOR';
+  await setDoc(docRef, { role, email: user.email || '', createdAt: Date.now() });
+  return role;
 }
 
 export async function fetchAllUsersRoles(db) {

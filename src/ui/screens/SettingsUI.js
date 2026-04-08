@@ -214,7 +214,7 @@ export function renderSettings(container, options) {
         <div class="glass-card card" style="margin-bottom: 2rem;">
           <h3 style="margin-bottom: 1rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">🔐 Gestión de Usuarios y Permisos</h3>
           <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Administra el nivel de acceso (rol) de los usuarios que han iniciado sesión.</p>
-          <div id="rbac-list" class="card-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;"></div>
+          <div id="rbac-list" class="card-list" style="display: flex; flex-direction: column; gap: 1rem;"></div>
         </div>
       `;
       
@@ -227,8 +227,8 @@ export function renderSettings(container, options) {
           const card = el('div', { classes: ['card', 'glass-card'], style: 'padding: 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;' });
           card.innerHTML = `
             <div style="flex: 1;">
-              <h4 style="margin: 0 0 0.3rem 0; font-size: 0.95rem;">${u.email}</h4>
-              <span style="font-size: 0.8rem; color: var(--text-muted);">Registrado: ${new Date(u.createdAt).toLocaleDateString()}</span>
+              <h4 style="margin: 0 0 0.3rem 0; font-size: 0.95rem;">${u.email || u.uid}</h4>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Registrado: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}</span>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <select class="form-input rbac-select" data-uid="${u.uid}" style="padding: 0.4rem; font-size: 0.85rem;">

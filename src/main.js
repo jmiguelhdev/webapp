@@ -2,7 +2,7 @@
 import './style.css';
 import { auth, db } from './firebase.js';
 import { CostSimulator } from './domain/entities/CostSimulator.js';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import * as api from './api.js';
 import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
@@ -96,22 +96,13 @@ function showLogin() {
     <div class="login-container glass-card">
       <img src="/logo.jpg" alt="Logo" class="login-logo" />
       <h2>Gestor de Viajes KMP</h2>
-      <p>Inicia sesión para acceder a tus reportes detallados.</p>
+      <p>Inicia sesión mediante Google para continuar.</p>
       
       <button id="google-login-btn" class="btn-google">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
         Continuar con Google
       </button>
 
-      <div class="auth-divider">
-        <span>o usa tu correo</span>
-      </div>
-
-      <form id="login-form">
-        <div class="form-group"><label>Correo Electrónico</label><input type="email" id="login-email" required></div>
-        <div class="form-group"><label>Contraseña</label><input type="password" id="login-pass" required></div>
-        <button type="submit" class="btn-primary">Ingresar</button>
-      </form>
       <p id="login-error" class="text-danger" style="margin-top: 1rem;"></p>
     </div>
   `;
@@ -123,14 +114,6 @@ function showLogin() {
     } catch (e) {
       document.getElementById('login-error').textContent = e.message;
     }
-  });
-
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const pass = document.getElementById('login-pass').value;
-    try { await signInWithEmailAndPassword(auth, email, pass); }
-    catch (e) { document.getElementById('login-error').textContent = e.message; }
   });
 }
 
