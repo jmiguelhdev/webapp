@@ -100,8 +100,10 @@ export function renderDashboard(container, options) {
   if (chartInstances.compare) { chartInstances.compare.destroy(); chartInstances.compare = null; }
 
   const isDark = document.body.classList.contains('dark');
-  const textColor = isDark ? '#a1a1aa' : '#71717a';
-  const borderColor = isDark ? 'rgba(132, 29, 29, 0.2)' : 'rgba(132, 29, 29, 0.1)';
+  const textColor = isDark ? '#ffffff' : '#71717a';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+  const primaryAccent = isDark ? '#e0e0e0' : '#841d1d'; // Keep maroon in light mode if needed, but silver in dark
+  const silverAccent = '#a1a1aa';
 
   chartInstances.trends = new Chart(document.getElementById('trendChart'), {
     type: 'line',
@@ -111,8 +113,8 @@ export function renderDashboard(container, options) {
         {
           label: 'Precio Promedio ($)',
           data: sortedDates.map(d => trendsMap[d].totalPrice / trendsMap[d].count),
-          borderColor: '#841d1d',
-          backgroundColor: 'rgba(132, 29, 29, 0.1)',
+          borderColor: isDark ? '#ffffff' : '#841d1d',
+          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(132, 29, 29, 0.1)',
           yAxisID: 'y',
           tension: 0.3,
           fill: true
@@ -146,7 +148,7 @@ export function renderDashboard(container, options) {
         {
           label: 'Precio Prom. ($)',
           data: entities.map(e => entityMap[e].totalPrice / entityMap[e].count),
-          backgroundColor: entities.map(e => entityMap[e].type === 'AGENT' ? '#841d1d' : '#a1a1aa'),
+          backgroundColor: entities.map(e => entityMap[e].type === 'AGENT' ? (isDark ? '#e0e0e0' : '#841d1d') : silverAccent),
           yAxisID: 'y'
         },
         {
