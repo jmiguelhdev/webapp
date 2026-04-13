@@ -1,5 +1,5 @@
 // webApp/src/api.js
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion, writeBatch, deleteDoc } from 'firebase/firestore';
 
 /** Helper to fetch and parse a root collection */
 async function fetchAndParseRootCollection(db, uid, collName) {
@@ -261,4 +261,82 @@ export async function fetchTransactions(db, clientId) {
 export async function addTransaction(db, transactionRecord) {
   const collRef = collection(db, 'transactions');
   await addDoc(collRef, { ...transactionRecord, createdAt: Date.now() });
+}
+
+/**
+ * CHECK OPERATIONS API
+ */
+export async function fetchCheckOperations(db, uid) {
+  if (!uid) throw new Error("UID is required to fetch checks");
+  const collRef = collection(db, 'check_operations');
+  const q = query(collRef, where("ownerUid", "==", uid));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export async function saveCheckOperation(db, uid, operation) {
+  if (!uid) throw new Error("UID is required to save checks");
+  const collRef = collection(db, 'check_operations');
+  let docRef;
+  
+  // Destructure id out so it is NOT part of the data sent to Firestore
+  const { id, ...operationData } = operation;
+  
+  const dataToSave = {
+    ...operationData,
+    ownerUid: uid,
+    updatedAt: Date.now()
+  };
+
+  if (id) {
+    docRef = doc(db, 'check_operations', id);
+    await updateDoc(docRef, dataToSave);
+  } else {
+    dataToSave.createdAt = Date.now();
+    docRef = await addDoc(collRef, dataToSave);
+  }
+  return docRef.id;
+}
+
+export async function deleteCheckOperation(db, operationId) {
+  const docRef = doc(db, 'check_operations', operationId);
+  await deleteDoc(docRef);
+}
+
+/**
+ * ACCOUNTING API
+ */
+export async function fetchAccountingEntries(db, uid) {
+  if (!uid) throw new Error("UID is required to fetch accounting");
+  const collRef = collection(db, 'accounting_entries');
+  const q = query(collRef, where("ownerUid", "==", uid));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export async function saveAccountingEntry(db, uid, entry) {
+  if (!uid) throw new Error("UID is required to save accounting");
+  const collRef = collection(db, 'accounting_entries');
+  let docRef;
+  
+  const { id, ...entryData } = entry;
+  const dataToSave = {
+    ...entryData,
+    ownerUid: uid,
+    updatedAt: Date.now()
+  };
+
+  if (id) {
+    docRef = doc(db, 'accounting_entries', id);
+    await updateDoc(docRef, dataToSave);
+  } else {
+    dataToSave.createdAt = Date.now();
+    docRef = await addDoc(collRef, dataToSave);
+  }
+  return docRef.id;
+}
+
+export async function deleteAccountingEntry(db, entryId) {
+  const docRef = doc(db, 'accounting_entries', entryId);
+  await deleteDoc(docRef);
 }

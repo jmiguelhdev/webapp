@@ -18,6 +18,8 @@ export function renderSidebar(container, onNavigate, userRole) {
     { id: 'consumption', label: '🥩 Despacho y Stock', roles: ['ADMIN', 'OPERARIO'] },
     { id: 'simulator', label: '🧮 Simulador de Costos', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
     { id: 'price-share', label: '📲 Placa de Precios', roles: ['ADMIN', 'OPERARIO'] },
+    { id: 'checks', label: '💸 Gestión de Cheques', roles: ['ADMIN', 'OPERARIO'] },
+    { id: 'accounting', label: '💰 Contabilidad', roles: ['ADMIN', 'OPERARIO'] },
     { id: 'clients', label: '👥 Clientes y Cuentas', roles: ['ADMIN'] },
     { id: 'settings', label: '⚙️ Configuración', roles: ['ADMIN'] },
   ];

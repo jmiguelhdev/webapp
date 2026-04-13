@@ -10,11 +10,17 @@ import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
 import { ConsumptionPresenter } from './adapters/presenters/ConsumptionPresenter.js';
 import { ClientPresenter } from './adapters/presenters/ClientPresenter.js';
 import { ClientRepository } from './adapters/repositories/ClientRepository.js';
+import { CheckRepository } from './adapters/repositories/CheckRepository.js';
+import { CheckPresenter } from './adapters/presenters/CheckPresenter.js';
+import { AccountingRepository } from './adapters/repositories/AccountingRepository.js';
+import { AccountingPresenter } from './adapters/presenters/AccountingPresenter.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
 
 // Dependencies
 const travelRepository = new FirebaseTravelRepository();
 const clientRepository = new ClientRepository();
+const checkRepository = new CheckRepository();
+const accountingRepository = new AccountingRepository();
 
 // State
 let currentUser = null;
@@ -68,12 +74,16 @@ const uiInterface = {
   generateTravelReport: (data) => uiLib.generateTravelReport(data),
   generateExcelReport: (data) => uiLib.generateExcelReport(data),
   renderClientAccounts: (options) => uiLib.renderClientAccounts({ ...options, onBackToDashboard: () => navigateTo('dashboard') }),
-  renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options)
+  renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options),
+  renderChecks: (options) => uiLib.renderChecks(content, options),
+  renderAccounting: (options) => uiLib.renderAccounting(content, options)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
 const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface, clientRepository);
 const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
+const checkPresenter = new CheckPresenter(checkRepository, uiInterface);
+const accountingPresenter = new AccountingPresenter(accountingRepository, uiInterface);
 
 // Auth Global Watcher
 onAuthStateChanged(auth, async (user) => {
@@ -91,6 +101,8 @@ onAuthStateChanged(auth, async (user) => {
 
     // Pass role to presenters
     consumptionPresenter.setUserRole(currentUserRole);
+    checkPresenter.setUid(user.uid);
+    accountingPresenter.setUid(user.uid);
 
     try {
       uiLib.renderSidebar(
@@ -151,9 +163,9 @@ function showLogin() {
 
 function getAllowedViews(role) {
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'settings', 'price-share', 'contact', 'logout'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'settings', 'price-share', 'contact', 'logout'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'price-share', 'contact', 'logout'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout'];
   } else {
     // VISOR
     return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
@@ -210,6 +222,12 @@ const navigateTo = (view, role = currentUserRole) => {
       break;
     case 'clients':
       clientPresenter.loadClients();
+      break;
+    case 'checks':
+      checkPresenter.loadData();
+      break;
+    case 'accounting':
+      accountingPresenter.loadData();
       break;
     case 'simulator': uiLib.renderSimulator(content, { onBack: () => navigateTo('dashboard') }); break;
     case 'settings': {
@@ -459,3 +477,6 @@ menuToggle.addEventListener('click', () => {
 document.getElementById('export-pdf').addEventListener('click', () => {
   travelPresenter.openExportOptions();
 });
+
+// Event listener for in-screen navigation (like back buttons)
+window.addEventListener('nav:dashboard', () => navigateTo('dashboard'));

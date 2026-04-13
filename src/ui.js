@@ -5,6 +5,8 @@ import { renderFaenaConsumption } from './ui/screens/ConsumptionUI.js';
 import { renderClientAccounts } from './ui/screens/ClientsUI.js';
 import { renderSettings } from './ui/screens/SettingsUI.js';
 import { renderPriceShare } from './ui/screens/PriceShareUI.js';
+import { renderChecks } from './ui/screens/ChecksUI.js';
+import { renderAccounting } from './ui/screens/AccountingUI.js';
 import { renderSidebar } from './ui/components/Sidebar.js';
 import { renderExportModal, renderScanResultsModal } from './ui/components/Modals.js';
 import { generateTravelReport, generateExcelReport } from './ui/reports/ReportService.js';
@@ -22,6 +24,8 @@ export {
   renderClientAccounts,
   renderSettings,
   renderPriceShare,
+  renderChecks,
+  renderAccounting,
   renderSidebar,
   renderExportModal,
   renderScanResultsModal,
