@@ -3,7 +3,7 @@ import { el } from '../../utils/dom.js';
 
 const DENOMINATIONS = [20000, 10000, 2000, 1000, 500, 200, 100];
 
-export function renderAccounting(container, { entries, clients, producers, onSave, onDelete, onRefresh }) {
+export function renderAccounting(container, { entries, filteredEntries, clients, producers, pagination, filters, onFilterChange, onSave, onDelete, onRefresh }) {
   container.innerHTML = '';
 
   const header = el('div', { 
@@ -32,9 +32,63 @@ export function renderAccounting(container, { entries, clients, producers, onSav
 
   container.appendChild(header);
 
-  // Stats
-  const totalIn = entries.filter(e => e.type === 'IN').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-  const totalOut = entries.filter(e => e.type === 'OUT').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+  // Filters Bar
+  const filtersBar = el('div', { 
+    classes: ['glass-card'], 
+    style: 'margin-bottom: 2rem; padding: 1.25rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; align-items: end;' 
+  });
+
+  const searchGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
+  searchGroup.appendChild(el('label', { text: '🔍 Buscar (Monto, Desc, Vínculo)' }));
+  const searchInput = el('input', { 
+    attrs: { type: 'text', placeholder: 'Filtrar movimientos...', value: filters.searchTerm || '' },
+    style: 'width: 100%;'
+  });
+  searchInput.oninput = (e) => onFilterChange({ searchTerm: e.target.value });
+  searchGroup.appendChild(searchInput);
+
+  const dateStartGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
+  dateStartGroup.appendChild(el('label', { text: 'Desde' }));
+  const startInput = el('input', { 
+    attrs: { type: 'date', value: filters.startDate || '' },
+    style: 'width: 100%;'
+  });
+  startInput.onchange = (e) => onFilterChange({ startDate: e.target.value });
+  dateStartGroup.appendChild(startInput);
+
+  const dateEndGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
+  dateEndGroup.appendChild(el('label', { text: 'Hasta' }));
+  const endInput = el('input', { 
+    attrs: { type: 'date', value: filters.endDate || '' },
+    style: 'width: 100%;'
+  });
+  endInput.onchange = (e) => onFilterChange({ endDate: e.target.value });
+  dateEndGroup.appendChild(endInput);
+
+  const clearBtnGroup = el('div', { style: 'display: flex; gap: 0.5rem;' });
+  const clearBtn = el('button', { 
+    classes: ['btn-secondary'], 
+    text: 'Limpiar Filtros',
+    style: 'width: 100%; height: 42px; border-radius: 8px;'
+  });
+  clearBtn.onclick = () => {
+    searchInput.value = '';
+    startInput.value = '';
+    endInput.value = '';
+    onFilterChange({ searchTerm: '', startDate: null, endDate: null });
+  };
+  clearBtnGroup.appendChild(clearBtn);
+
+  filtersBar.appendChild(searchGroup);
+  filtersBar.appendChild(dateStartGroup);
+  filtersBar.appendChild(dateEndGroup);
+  filtersBar.appendChild(clearBtnGroup);
+  container.appendChild(filtersBar);
+
+  // Stats (using filteredEntries if provided)
+  const statsEntries = filteredEntries || entries;
+  const totalIn = statsEntries.filter(e => e.type === 'IN').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+  const totalOut = statsEntries.filter(e => e.type === 'OUT').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
   const balance = totalIn - totalOut;
 
   const statsGrid = el('div', { 
@@ -42,14 +96,14 @@ export function renderAccounting(container, { entries, clients, producers, onSav
     style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;'
   });
 
-  statsGrid.appendChild(createStatCard('Saldo Actual', formatCurrency(balance), balance >= 0 ? 'var(--success)' : 'var(--danger)'));
+  statsGrid.appendChild(createStatCard('Saldo Selección', formatCurrency(balance), balance >= 0 ? 'var(--success)' : 'var(--danger)'));
   statsGrid.appendChild(createStatCard('Total Ingresos', formatCurrency(totalIn), 'var(--success)'));
   statsGrid.appendChild(createStatCard('Total Egresos', formatCurrency(totalOut), 'var(--danger)'));
 
   container.appendChild(statsGrid);
 
   // Table
-  const tableWrapper = el('div', { classes: ['glass-card'], style: 'padding: 0; overflow: hidden;' });
+  const tableWrapper = el('div', { classes: ['glass-card'], style: 'padding: 0; overflow: hidden; margin-bottom: 1.5rem;' });
   const table = el('table', { style: 'width: 100%; border-collapse: collapse;' });
   
   const thead = el('thead', { html: `
@@ -66,9 +120,12 @@ export function renderAccounting(container, { entries, clients, producers, onSav
 
   const tbody = el('tbody');
   if (entries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay movimientos registrados</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted);">
+      <div style="font-size: 1.25rem; margin-bottom: 0.5rem;">No hay movimientos</div>
+      <div style="font-size: 0.9rem;">Pruebe ajustando los filtros o agregue uno nuevo.</div>
+    </td></tr>`;
   } else {
-    entries.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0)).forEach(entry => {
+    entries.forEach(entry => {
       const tr = el('tr', { style: 'border-top: 1px solid var(--border); transition: background 0.2s;' });
       
       const entityName = entry.clientName || entry.producerName || '-';
@@ -77,9 +134,9 @@ export function renderAccounting(container, { entries, clients, producers, onSav
       let diffHtml = '<span style="color: var(--text-muted);">-</span>';
       if (entry.countedAmount !== undefined && entry.countedAmount !== null) {
         const diff = entry.countedAmount - entry.amount;
-        if (diff > 0) diffHtml = `<span style="color: #10b981; font-weight: 600;">Sobra ${formatCurrency(diff)}</span>`;
-        else if (diff < 0) diffHtml = `<span style="color: #ef4444; font-weight: 600;">Falta ${formatCurrency(Math.abs(diff))}</span>`;
-        else diffHtml = `<span style="color: var(--text-main); font-weight: 600;">OK</span>`;
+        if (Math.abs(diff) < 0.01) diffHtml = `<span style="color: var(--text-main); font-weight: 600;">OK</span>`;
+        else if (diff > 0) diffHtml = `<span style="color: #10b981; font-weight: 600;">Sobra ${formatCurrency(diff)}</span>`;
+        else diffHtml = `<span style="color: #ef4444; font-weight: 600;">Falta ${formatCurrency(Math.abs(diff))}</span>`;
       }
       
       tr.innerHTML = `
@@ -117,6 +174,48 @@ export function renderAccounting(container, { entries, clients, producers, onSav
   table.appendChild(tbody);
   tableWrapper.appendChild(table);
   container.appendChild(tableWrapper);
+
+  // Pagination Controls
+  if (pagination && pagination.totalPages > 1) {
+    const pagContainer = el('div', { 
+      style: 'display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid var(--border);'
+    });
+
+    const info = el('div', { 
+      text: `Mostrando ${entries.length} de ${pagination.totalItems} movimientos`,
+      style: 'font-size: 0.85rem; color: var(--text-muted);'
+    });
+    pagContainer.appendChild(info);
+
+    const btnGroup = el('div', { style: 'display: flex; gap: 0.5rem; align-items: center;' });
+    
+    const prevBtn = el('button', { 
+      classes: ['btn-secondary'], 
+      text: 'Anterior',
+      attrs: { disabled: pagination.currentPage === 1 },
+      style: 'padding: 0.5rem 1rem; font-size: 0.85rem;'
+    });
+    prevBtn.onclick = () => pagination.onPageChange(pagination.currentPage - 1);
+    btnGroup.appendChild(prevBtn);
+
+    const pageInfo = el('span', { 
+      text: `Página ${pagination.currentPage} de ${pagination.totalPages}`,
+      style: 'font-size: 0.85rem; font-weight: 600; margin: 0 1rem;'
+    });
+    btnGroup.appendChild(pageInfo);
+
+    const nextBtn = el('button', { 
+      classes: ['btn-secondary'], 
+      text: 'Siguiente',
+      attrs: { disabled: pagination.currentPage === pagination.totalPages },
+      style: 'padding: 0.5rem 1rem; font-size: 0.85rem;'
+    });
+    nextBtn.onclick = () => pagination.onPageChange(pagination.currentPage + 1);
+    btnGroup.appendChild(nextBtn);
+
+    pagContainer.appendChild(btnGroup);
+    container.appendChild(pagContainer);
+  }
 }
 
 function createStatCard(label, value, color) {
