@@ -24,9 +24,8 @@ export function renderAccounting(container, { entries, clients, producers, onSav
   header.appendChild(titleGroup);
 
   const addBtn = el('button', { 
-    classes: ['btn-primary'],
-    text: '+ Nuevo Movimiento',
-    style: 'background: var(--primary); color: white; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 600;'
+    classes: ['btn-nueva-operacion'],
+    html: '<svg viewBox="0 0 24 24" width="18" height="18" style="fill:currentColor;flex-shrink:0;"><path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg> Nuevo Movimiento'
   });
   addBtn.onclick = () => showEntryModal(null, { clients, producers, onSave });
   header.appendChild(addBtn);
@@ -59,6 +58,7 @@ export function renderAccounting(container, { entries, clients, producers, onSav
       <th style="padding: 1rem;">Descripción</th>
       <th style="padding: 1rem;">Vínculo (Cliente/Prod)</th>
       <th style="padding: 1rem; text-align: right;">Monto</th>
+      <th style="padding: 1rem; text-align: right;">Diferencia Caja</th>
       <th style="padding: 1rem; text-align: right;">Acciones</th>
     </tr>
   `});
@@ -73,6 +73,14 @@ export function renderAccounting(container, { entries, clients, producers, onSav
       
       const entityName = entry.clientName || entry.producerName || '-';
       const isIncome = entry.type === 'IN';
+      
+      let diffHtml = '<span style="color: var(--text-muted);">-</span>';
+      if (entry.countedAmount !== undefined && entry.countedAmount !== null) {
+        const diff = entry.countedAmount - entry.amount;
+        if (diff > 0) diffHtml = `<span style="color: #10b981; font-weight: 600;">Sobra ${formatCurrency(diff)}</span>`;
+        else if (diff < 0) diffHtml = `<span style="color: #ef4444; font-weight: 600;">Falta ${formatCurrency(Math.abs(diff))}</span>`;
+        else diffHtml = `<span style="color: var(--text-main); font-weight: 600;">OK</span>`;
+      }
       
       tr.innerHTML = `
         <td style="padding: 1rem;">
@@ -89,11 +97,20 @@ export function renderAccounting(container, { entries, clients, producers, onSav
           ${isIncome ? '+' : '-'} ${formatCurrency(entry.amount)}
         </td>
         <td style="padding: 1rem; text-align: right;">
-          <button class="icon-btn delete-btn" style="color: var(--danger)" title="Eliminar">🗑️</button>
+          ${diffHtml}
+        </td>
+        <td style="padding: 1rem; text-align: right; white-space: nowrap;">
+          <button class="icon-btn edit-btn" title="Editar">✏️</button>
+          <button class="icon-btn delete-btn" style="color: var(--danger);" title="Eliminar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="pointer-events:none;"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>
+          </button>
         </td>
       `;
       
-      tr.querySelector('.delete-btn').onclick = () => onDelete(entry.id);
+      tr.addEventListener('click', (e) => {
+        if (e.target.closest('.edit-btn')) showEntryModal(entry, { clients, producers, onSave });
+        if (e.target.closest('.delete-btn')) onDelete(entry.id);
+      });
       tbody.appendChild(tr);
     });
   }
@@ -124,51 +141,59 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
   });
 
   content.innerHTML = `
-    <h2 style="margin-top: 0; margin-bottom: 2rem;">Nuevo Movimiento de Caja</h2>
+    <h2 style="margin-top: 0; margin-bottom: 2rem;">${existingEntry ? 'Editar Movimiento' : 'Nuevo Movimiento de Caja'}</h2>
     
     <form id="accounting-form">
       <div style="margin-bottom: 1.5rem; display: flex; gap: 2rem;">
         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-          <input type="radio" name="type" value="IN" checked> <span style="color: var(--success); font-weight: 600;">Ingreso (+)</span>
+          <input type="radio" name="type" value="IN" ${!existingEntry || existingEntry.type === 'IN' ? 'checked' : ''}> <span style="color: var(--success); font-weight: 600;">Ingreso (+)</span>
         </label>
         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-          <input type="radio" name="type" value="OUT"> <span style="color: var(--danger); font-weight: 600;">Egreso (-)</span>
+          <input type="radio" name="type" value="OUT" ${existingEntry && existingEntry.type === 'OUT' ? 'checked' : ''}> <span style="color: var(--danger); font-weight: 600;">Egreso (-)</span>
         </label>
       </div>
 
       <div class="form-group" style="margin-bottom: 1.5rem;">
         <label>Descripción / Concepto</label>
-        <input type="text" name="description" required placeholder="Ej: Pago de flete, Cobro venta meat...">
+        <input type="text" name="description" required placeholder="Ej: Pago de flete, Cobro venta meat..." value="${existingEntry?.description || ''}">
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
         <div class="form-group">
           <label>Cliente (Opcional)</label>
-          <select name="clientId">
-            <option value="">-- Ninguno --</option>
-            ${clients.map(c => `<option value="${c.id}" data-name="${c.name}">${c.name}</option>`).join('')}
-          </select>
+          <input type="text" id="client-input" list="clients-datalist" placeholder="🔎 Buscar cliente..." autocomplete="off" value="${existingEntry?.clientName || ''}">
+          <datalist id="clients-datalist">
+            ${clients.map(c => `<option value="${c.name}"></option>`).join('')}
+          </datalist>
         </div>
         <div class="form-group">
           <label>Productor (Opcional)</label>
-          <select name="producerCuit">
-            <option value="">-- Ninguno --</option>
-            ${producers.map(p => `<option value="${p.cuit}" data-name="${p.name}">${p.name}</option>`).join('')}
-          </select>
+          <input type="text" id="producer-input" list="producers-datalist" placeholder="🔎 Buscar productor..." autocomplete="off" value="${existingEntry?.producerName || ''}">
+          <datalist id="producers-datalist">
+            ${producers.map(p => `<option value="${p.name}"></option>`).join('')}
+          </datalist>
         </div>
       </div>
 
-      <div class="form-group" style="margin-bottom: 2rem;">
-        <label>Monto Total ($)</label>
-        <div style="display: flex; gap: 0.5rem;">
-          <input type="number" step="0.01" name="amount" id="total-amount-input" required placeholder="0.00" style="flex: 1; font-size: 1.25rem; font-weight: 700;">
-          <button type="button" id="open-calc-btn" class="btn-secondary" style="white-space: nowrap; padding: 0 1rem; border-radius: 8px;">🧮 Calculadora</button>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
+        <div class="form-group">
+          <label>Monto Esperado ($)</label>
+          <input type="number" step="0.01" name="amount" id="expected-amount-input" required placeholder="0.00" style="font-size: 1.25rem; font-weight: 700;" value="${existingEntry?.amount || ''}">
+        </div>
+        <div class="form-group">
+          <label>Monto Contado (Físico) ($)</label>
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 0.5rem;">
+            <input type="number" step="0.01" name="countedAmount" id="counted-amount-input" placeholder="Opcional" style="width: 100%; font-size: 1.25rem; font-weight: 700;" value="${existingEntry?.countedAmount !== undefined ? existingEntry.countedAmount : ''}">
+            <button type="button" id="open-calc-btn" class="btn-secondary" style="white-space: nowrap; padding: 0 1rem; border-radius: 8px;">🧮 Calc.</button>
+          </div>
         </div>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; gap: 1rem;">
-        <button type="button" class="btn-cancel" style="padding: 0.75rem 1.5rem; border-radius: 12px; background: rgba(255,255,255,0.05);">Cancelar</button>
-        <button type="submit" class="btn-primary" style="padding: 0.75rem 2rem; border-radius: 12px; background: var(--primary); color: white; font-weight: 600;">Guardar</button>
+      <div id="diff-container" style="display: none; margin-bottom: 1.5rem; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; text-align: center; font-size: 1.1rem; border: 1px solid transparent;"></div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; align-items: center;">
+        <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cancelar</button>
+        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(99,102,241,0.4); letter-spacing: 0.03em;">Guardar</button>
       </div>
     </form>
   `;
@@ -177,27 +202,71 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
   document.body.appendChild(modal);
 
   const form = content.querySelector('#accounting-form');
-  const amountInput = content.querySelector('#total-amount-input');
+  const expectedAmountInput = content.querySelector('#expected-amount-input');
+  const countedAmountInput = content.querySelector('#counted-amount-input');
+  const diffContainer = content.querySelector('#diff-container');
 
-  content.querySelector('#open-calc-btn').onclick = () => showBillCalculator((total) => {
-    amountInput.value = total;
-  });
+  const updateDiff = () => {
+    const exp = parseFloat(expectedAmountInput.value);
+    const count = parseFloat(countedAmountInput.value);
+    if (!isNaN(exp) && !isNaN(count)) {
+      const diff = count - exp;
+      diffContainer.style.display = 'block';
+      if (diff === 0) {
+         diffContainer.style.background = 'rgba(255,255,255,0.05)';
+         diffContainer.style.borderColor = 'var(--border)';
+         diffContainer.style.color = 'var(--text-main)';
+         diffContainer.textContent = 'Diferencias cuadradas (Monto y Caja son iguales)';
+      } else if (diff > 0) {
+         diffContainer.style.background = 'rgba(16,185,129,0.1)';
+         diffContainer.style.borderColor = 'rgba(16,185,129,0.3)';
+         diffContainer.style.color = '#10b981';
+         diffContainer.textContent = `Sobra en Caja: ${formatCurrency(diff)}`;
+      } else {
+         diffContainer.style.background = 'rgba(239,68,68,0.1)';
+         diffContainer.style.borderColor = 'rgba(239,68,68,0.3)';
+         diffContainer.style.color = '#ef4444';
+         diffContainer.textContent = `Falta en Caja: ${formatCurrency(Math.abs(diff))}`;
+      }
+    } else {
+      diffContainer.style.display = 'none';
+    }
+  };
+
+  expectedAmountInput.addEventListener('input', updateDiff);
+  countedAmountInput.addEventListener('input', updateDiff);
+  if (existingEntry) updateDiff();
+
+  content.querySelector('#open-calc-btn').onclick = () => showBillCalculator(
+    parseFloat(expectedAmountInput.value) || 0,
+    (total) => {
+      countedAmountInput.value = total;
+      updateDiff();
+    }
+  );
 
   form.onsubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(form);
     
-    const clientSelect = form.querySelector('select[name="clientId"]');
-    const producerSelect = form.querySelector('select[name="producerCuit"]');
+    const clientNameInput = form.querySelector('#client-input').value.trim();
+    const producerNameInput = form.querySelector('#producer-input').value.trim();
+    
+    const matchedClient = clients.find(c => c.name === clientNameInput);
+    const matchedProducer = producers.find(p => p.name === producerNameInput);
+    
+    const countedVal = formData.get('countedAmount');
     
     const data = {
+      id: existingEntry ? existingEntry.id : undefined,
       type: formData.get('type'),
       description: formData.get('description'),
       amount: parseFloat(formData.get('amount')),
-      clientId: formData.get('clientId') || null,
-      clientName: clientSelect.options[clientSelect.selectedIndex]?.dataset.name || null,
-      producerCuit: formData.get('producerCuit') || null,
-      producerName: producerSelect.options[producerSelect.selectedIndex]?.dataset.name || null
+      countedAmount: countedVal ? parseFloat(countedVal) : null,
+      clientId: matchedClient ? matchedClient.id : null,
+      clientName: matchedClient ? matchedClient.name : (clientNameInput || null),
+      producerCuit: matchedProducer ? matchedProducer.cuit : null,
+      producerName: matchedProducer ? matchedProducer.name : (producerNameInput || null)
     };
     onSave(data);
     modal.remove();
@@ -206,7 +275,7 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
   content.querySelector('.btn-cancel').onclick = () => modal.remove();
 }
 
-function showBillCalculator(onApply) {
+function showBillCalculator(expectedAmount, onApply) {
   const modal = el('div', { 
     classes: ['modal-overlay'],
     style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;'
@@ -214,52 +283,96 @@ function showBillCalculator(onApply) {
 
   const content = el('div', { 
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 450px; padding: 2rem;'
+    style: 'width: 100%; max-width: 600px; padding: 2rem;'
   });
 
   content.innerHTML = `
     <h3 style="margin-top:0; margin-bottom: 1.5rem;">🔢 Recuento de Billetes</h3>
     <div id="calc-rows" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem;">
+      <div style="display: grid; grid-template-columns: 80px 20px 90px 20px 90px 30px 1fr; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+        <div>Valor</div>
+        <div></div>
+        <div style="text-align: center;">Fajos (100u)</div>
+        <div></div>
+        <div style="text-align: center;">Sueltos</div>
+        <div></div>
+        <div style="text-align: right;">Subtotal</div>
+      </div>
       ${DENOMINATIONS.map(d => `
-        <div style="display: grid; grid-template-columns: 80px 20px 100px 30px 1fr; align-items: center; gap: 0.5rem;">
-          <div style="font-weight: 700; color: var(--text-muted);">$ ${d.toLocaleString()}</div>
+        <div class="denom-row" style="display: grid; grid-template-columns: 80px 20px 90px 20px 90px 30px 1fr; align-items: center; gap: 0.5rem;">
+          <div style="font-weight: 700; color: var(--text-main);">$ ${d.toLocaleString()}</div>
           <div style="text-align: center;">×</div>
-          <input type="number" class="bill-qty" data-denom="${d}" placeholder="Cant." style="padding: 0.4rem; border-radius: 8px;">
+          <input type="number" class="bill-batch" data-denom="${d}" placeholder="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <div style="text-align: center;">+</div>
+          <input type="number" class="bill-qty" data-denom="${d}" placeholder="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
           <div style="text-align: center;">=</div>
-          <div class="row-total" style="text-align: right; font-weight: 600; font-family: monospace;">$ 0</div>
+          <div class="row-total" style="text-align: right; font-weight: 600; font-family: monospace; font-size: 1.1rem;">$ 0</div>
         </div>
       `).join('')}
     </div>
-    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-      <span style="font-weight: 500;">Total General:</span>
-      <span id="calc-grand-total" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">$ 0</span>
+    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
+        <span style="font-weight: 500; font-size: 0.9rem; color: var(--text-muted);">Monto Esperado:</span>
+        <span style="font-weight: 600;">${expectedAmount > 0 ? formatCurrency(expectedAmount) : 'No especificado'}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: 500;">Total Contado:</span>
+        <span id="calc-grand-total" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">$ 0</span>
+      </div>
+      <div id="calc-diff-container" style="display: none; justify-content: space-between; align-items: center; padding-top: 0.75rem; margin-top: 0.75rem; border-top: 1px dashed rgba(255,255,255,0.1);">
+         <span style="font-weight: 500; font-size: 0.9rem;">Diferencia:</span>
+         <span id="calc-diff-val" style="font-weight: 700; font-size: 1.1rem;"></span>
+      </div>
     </div>
     <div style="display: flex; gap: 1rem;">
-      <button id="calc-cancel" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 12px;">Cerrar</button>
-      <button id="calc-apply" class="btn-primary" style="flex: 2; padding: 0.75rem; border-radius: 12px; background: var(--primary); color: white; font-weight: 600;">Usar Total</button>
+      <button id="calc-cancel" class="btn-cancel" style="flex: 1; padding: 0.85rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cerrar</button>
+      <button id="calc-apply" style="flex: 2; padding: 0.85rem; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.4); letter-spacing: 0.03em;">Usar Total ✓</button>
     </div>
   `;
 
   modal.appendChild(content);
   document.body.appendChild(modal);
 
-  const rows = content.querySelectorAll('.bill-qty');
+  const rowElements = content.querySelectorAll('.denom-row');
   const grandTotalEl = content.querySelector('#calc-grand-total');
+  const allInputs = content.querySelectorAll('.bill-batch, .bill-qty');
 
   const updateGrandTotal = () => {
     let grand = 0;
-    rows.forEach(input => {
-      const q = parseInt(input.value) || 0;
-      const d = parseInt(input.dataset.denom);
-      const rowTotal = q * d;
+    rowElements.forEach(row => {
+      const batchInput = row.querySelector('.bill-batch');
+      const qtyInput = row.querySelector('.bill-qty');
+      const d = parseInt(batchInput.dataset.denom);
+      
+      const batches = parseInt(batchInput.value) || 0;
+      const qtys = parseInt(qtyInput.value) || 0;
+      
+      const rowTotal = (batches * 100 + qtys) * d;
       grand += rowTotal;
-      input.parentElement.querySelector('.row-total').textContent = `$ ${rowTotal.toLocaleString()}`;
+      row.querySelector('.row-total').textContent = `$ ${rowTotal.toLocaleString()}`;
     });
     grandTotalEl.textContent = `$ ${grand.toLocaleString()}`;
+    
+    if (expectedAmount > 0) {
+      const diffContainer = content.querySelector('#calc-diff-container');
+      const diffVal = content.querySelector('#calc-diff-val');
+      diffContainer.style.display = 'flex';
+      const diff = grand - expectedAmount;
+      if (diff === 0) {
+        diffVal.textContent = 'OK';
+        diffVal.style.color = 'var(--text-main)';
+      } else if (diff > 0) {
+        diffVal.textContent = `Sobra ${formatCurrency(diff)}`;
+        diffVal.style.color = '#10b981';
+      } else {
+        diffVal.textContent = `Falta ${formatCurrency(Math.abs(diff))}`;
+        diffVal.style.color = '#ef4444';
+      }
+    }
     return grand;
   };
 
-  rows.forEach(input => input.oninput = updateGrandTotal);
+  allInputs.forEach(input => input.addEventListener('input', updateGrandTotal));
 
   content.querySelector('#calc-cancel').onclick = () => modal.remove();
   content.querySelector('#calc-apply').onclick = () => {

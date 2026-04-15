@@ -54,10 +54,17 @@ export class CheckPresenter {
   }
 
   calculateOperation(op) {
-    const nominalValue = parseFloat(op.nominalValue) || 0;
+    op.nominalValue = parseFloat(op.nominalValue) || 0;
+    const nominalValue = op.nominalValue;
     const reception = new Date(op.receptionDate);
     const due = new Date(op.dueDate);
-    const clearing = parseInt(op.clearing) || 0;
+    op.clearing = parseInt(op.clearing) || 0;
+    const clearing = op.clearing;
+    
+    // Calcular TTL (210 días después de recepción)
+    const ttlDate = new Date(reception);
+    ttlDate.setDate(ttlDate.getDate() + 210);
+    op.ttlTimestamp = ttlDate.toISOString();
     
     // Calculate days: (Due - Reception) + Clearing
     const diffTime = due.getTime() - reception.getTime();
@@ -68,25 +75,30 @@ export class CheckPresenter {
 
     // Buy side calculation
     if (op.buySide) {
-      const pesificationRate = parseFloat(op.buySide.pesificacionRate) || 0;
-      const monthlyInterest = parseFloat(op.buySide.monthlyInterest) || 0;
+      op.buySide.pesificacionRate = parseFloat(op.buySide.pesificacionRate) || 0;
+      op.buySide.monthlyInterest = parseFloat(op.buySide.monthlyInterest) || 0;
       
-      const pesificationAmount = nominalValue * (pesificationRate / 100);
-      const interestAmount = nominalValue * (monthlyInterest / 100 / 30) * totalDays;
+      const pesificationAmount = nominalValue * (op.buySide.pesificacionRate / 100);
+      const interestAmount = nominalValue * (op.buySide.monthlyInterest / 100 / 30) * totalDays;
       
       op.buySide.netAmount = nominalValue - pesificationAmount - interestAmount;
     }
 
     // Sell side calculation
     if (op.sellSide && op.sellSide.status === 'SOLD') {
-      const pesificationRate = parseFloat(op.sellSide.pesificacionRate) || 0;
-      const monthlyInterest = parseFloat(op.sellSide.monthlyInterest) || 0;
+      op.sellSide.pesificacionRate = parseFloat(op.sellSide.pesificacionRate) || 0;
+      op.sellSide.monthlyInterest = parseFloat(op.sellSide.monthlyInterest) || 0;
       
-      const pesificationAmount = nominalValue * (pesificationRate / 100);
-      const interestAmount = nominalValue * (monthlyInterest / 100 / 30) * totalDays;
+      const pesificationAmount = nominalValue * (op.sellSide.pesificacionRate / 100);
+      const interestAmount = nominalValue * (op.sellSide.monthlyInterest / 100 / 30) * totalDays;
       
       op.sellSide.netAmount = nominalValue - pesificationAmount - interestAmount;
       op.profit = (op.sellSide.netAmount || 0) - (op.buySide ? op.buySide.netAmount : 0);
+    } else if (op.sellSide && (op.sellSide.status === 'RETURNED' || op.sellSide.status === 'REJECTED')) {
+      // Dejan registro pero sin ganancia.
+      op.profit = 0;
+      // You could still calculate netAmount if you wanted to store it for historical reasons,
+      // but profit must be canceled out.
     } else {
       op.profit = 0;
     }
