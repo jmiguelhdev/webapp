@@ -34,4 +34,8 @@ export class ClientRepository {
   async addTransaction(transaction) {
     return api.addTransaction(db, transaction);
   }
+
+  async syncAccountingToTransaction(accountingId, data) {
+    return api.syncAccountingToTransaction(db, accountingId, data);
+  }
 }

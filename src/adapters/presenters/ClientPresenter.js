@@ -42,7 +42,7 @@ export class ClientPresenter {
     }
   }
 
-  async addPayment(amount, description) {
+  async addPayment(amount, description, receivedBy) {
     if (!this.selectedClient) return;
     this.ui.showLoading();
     try {
@@ -51,6 +51,7 @@ export class ClientPresenter {
         type: 'PAYMENT',
         amount: parseFloat(amount),
         description: description,
+        receivedBy: receivedBy,
         date: Date.now()
       };
       await this.clientRepository.addTransaction(transaction);

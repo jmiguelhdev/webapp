@@ -339,4 +339,36 @@ export async function saveAccountingEntry(db, uid, entry) {
 export async function deleteAccountingEntry(db, entryId) {
   const docRef = doc(db, 'accounting_entries', entryId);
   await deleteDoc(docRef);
+  await removeLinkedTransaction(db, entryId);
+}
+
+export async function removeLinkedTransaction(db, accountingEntryId) {
+  const transColl = collection(db, 'transactions');
+  const q = query(transColl, where("accountingEntryId", "==", accountingEntryId));
+  const snapshot = await getDocs(q);
+  for (const docSnap of snapshot.docs) {
+    await deleteDoc(doc(db, 'transactions', docSnap.id));
+  }
+}
+
+export async function syncAccountingToTransaction(db, accountingEntryId, transactionData) {
+  const transColl = collection(db, 'transactions');
+  const q = query(transColl, where("accountingEntryId", "==", accountingEntryId));
+  const snapshot = await getDocs(q);
+  
+  if (!snapshot.empty) {
+    // Update existing
+    const transDocId = snapshot.docs[0].id;
+    await updateDoc(doc(db, 'transactions', transDocId), { 
+      ...transactionData, 
+      updatedAt: Date.now() 
+    });
+  } else {
+    // Create new
+    await addDoc(transColl, { 
+      ...transactionData, 
+      accountingEntryId, 
+      createdAt: Date.now() 
+    });
+  }
 }

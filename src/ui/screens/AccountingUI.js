@@ -156,7 +156,9 @@ export function renderAccounting(container, { entries, filteredEntries, clients,
         <td style="padding: 1rem; text-align: right;">
           ${diffHtml}
         </td>
-        <td style="padding: 1rem; text-align: right; white-space: nowrap;">
+        <td style="padding: 1rem; text-align: right; white-space: nowrap; display: flex; gap: 0.5rem; justify-content: flex-end;">
+          <button class="icon-btn print-btn" title="Imprimir A4">📄</button>
+          <button class="icon-btn thermal-btn" title="Imprimir Térmico">🧾</button>
           <button class="icon-btn edit-btn" title="Editar">✏️</button>
           <button class="icon-btn delete-btn" style="color: var(--danger);" title="Eliminar">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="pointer-events:none;"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>
@@ -165,9 +167,13 @@ export function renderAccounting(container, { entries, filteredEntries, clients,
       `;
       
       tr.addEventListener('click', (e) => {
+        if (e.target.closest('.print-btn')) printReceipt(entry, 'standard');
+        if (e.target.closest('.thermal-btn')) printReceipt(entry, 'thermal');
         if (e.target.closest('.edit-btn')) showEntryModal(entry, { clients, producers, onSave });
         if (e.target.closest('.delete-btn')) onDelete(entry.id);
       });
+
+
       tbody.appendChild(tr);
     });
   }
@@ -229,6 +235,8 @@ function createStatCard(label, value, color) {
 }
 
 function showEntryModal(existingEntry, { clients, producers, onSave }) {
+  let currentBillCounts = existingEntry?.billCounts || null;
+
   const modal = el('div', { 
     classes: ['modal-overlay'],
     style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
@@ -288,6 +296,13 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
         </div>
       </div>
 
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.9rem;">
+          <input type="checkbox" id="save-breakdown-chk" ${existingEntry?.billCounts ? 'checked' : ''}> 
+          <span>Guardar detalle de billetes ( breakdown )</span>
+        </label>
+      </div>
+
       <div id="diff-container" style="display: none; margin-bottom: 1.5rem; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; text-align: center; font-size: 1.1rem; border: 1px solid transparent;"></div>
 
       <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; align-items: center;">
@@ -304,6 +319,7 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
   const expectedAmountInput = content.querySelector('#expected-amount-input');
   const countedAmountInput = content.querySelector('#counted-amount-input');
   const diffContainer = content.querySelector('#diff-container');
+  const saveBreakdownChk = content.querySelector('#save-breakdown-chk');
 
   const updateDiff = () => {
     const exp = parseFloat(expectedAmountInput.value);
@@ -338,8 +354,10 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
 
   content.querySelector('#open-calc-btn').onclick = () => showBillCalculator(
     parseFloat(expectedAmountInput.value) || 0,
-    (total) => {
-      countedAmountInput.value = total;
+    (result) => {
+      countedAmountInput.value = result.grand;
+      currentBillCounts = result.breakdown;
+      saveBreakdownChk.checked = true; // Auto-check if calculator was used
       updateDiff();
     }
   );
@@ -348,11 +366,11 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
     e.preventDefault();
     const formData = new FormData(form);
     
-    const clientNameInput = form.querySelector('#client-input').value.trim();
-    const producerNameInput = form.querySelector('#producer-input').value.trim();
+    const clientNameInput = form.querySelector('#client-input').value.trim().toLowerCase();
+    const producerNameInput = form.querySelector('#producer-input').value.trim().toLowerCase();
     
-    const matchedClient = clients.find(c => c.name === clientNameInput);
-    const matchedProducer = producers.find(p => p.name === producerNameInput);
+    const matchedClient = clients.find(c => c.name.toLowerCase().trim() === clientNameInput);
+    const matchedProducer = producers.find(p => p.name.toLowerCase().trim() === producerNameInput);
     
     const countedVal = formData.get('countedAmount');
     
@@ -362,8 +380,10 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
       description: formData.get('description'),
       amount: parseFloat(formData.get('amount')),
       countedAmount: countedVal ? parseFloat(countedVal) : null,
+      billCounts: saveBreakdownChk.checked ? currentBillCounts : null,
       clientId: matchedClient ? matchedClient.id : null,
       clientName: matchedClient ? matchedClient.name : (clientNameInput || null),
+      clientCuit: matchedClient ? (matchedClient.cuit || null) : null,
       producerCuit: matchedProducer ? matchedProducer.cuit : null,
       producerName: matchedProducer ? matchedProducer.name : (producerNameInput || null)
     };
@@ -373,6 +393,7 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
 
   content.querySelector('.btn-cancel').onclick = () => modal.remove();
 }
+
 
 function showBillCalculator(expectedAmount, onApply) {
   const modal = el('div', { 
@@ -398,7 +419,7 @@ function showBillCalculator(expectedAmount, onApply) {
         <div style="text-align: right;">Subtotal</div>
       </div>
       ${DENOMINATIONS.map(d => `
-        <div class="denom-row" style="display: grid; grid-template-columns: 80px 20px 90px 20px 90px 30px 1fr; align-items: center; gap: 0.5rem;">
+        <div class="denom-row" data-denom="${d}" style="display: grid; grid-template-columns: 80px 20px 90px 20px 90px 30px 1fr; align-items: center; gap: 0.5rem;">
           <div style="font-weight: 700; color: var(--text-main);">$ ${d.toLocaleString()}</div>
           <div style="text-align: center;">×</div>
           <input type="number" class="bill-batch" data-denom="${d}" placeholder="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
@@ -438,6 +459,7 @@ function showBillCalculator(expectedAmount, onApply) {
 
   const updateGrandTotal = () => {
     let grand = 0;
+    const breakdown = {};
     rowElements.forEach(row => {
       const batchInput = row.querySelector('.bill-batch');
       const qtyInput = row.querySelector('.bill-qty');
@@ -449,6 +471,10 @@ function showBillCalculator(expectedAmount, onApply) {
       const rowTotal = (batches * 100 + qtys) * d;
       grand += rowTotal;
       row.querySelector('.row-total').textContent = `$ ${rowTotal.toLocaleString()}`;
+      
+      if (batches > 0 || qtys > 0) {
+        breakdown[d] = { batches, qtys, subtotal: rowTotal };
+      }
     });
     grandTotalEl.textContent = `$ ${grand.toLocaleString()}`;
     
@@ -468,17 +494,19 @@ function showBillCalculator(expectedAmount, onApply) {
         diffVal.style.color = '#ef4444';
       }
     }
-    return grand;
+    return { grand, breakdown };
   };
 
   allInputs.forEach(input => input.addEventListener('input', updateGrandTotal));
 
   content.querySelector('#calc-cancel').onclick = () => modal.remove();
   content.querySelector('#calc-apply').onclick = () => {
-    onApply(updateGrandTotal());
+    const result = updateGrandTotal();
+    onApply(result);
     modal.remove();
   };
 }
+
 
 function formatCurrency(val) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(val || 0);
@@ -493,3 +521,162 @@ function formatTime(ts) {
   if (!ts) return '-';
   return new Date(ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 }
+
+function printReceipt(entry, type = 'standard') {
+  const printWindow = window.open('', '_blank', 'width=800,height=900');
+  const dateStr = new Date().toLocaleDateString('es-AR');
+  const timeStr = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  
+  const cuit = entry.clientCuit || entry.producerCuit;
+  const entityName = (entry.clientName || entry.producerName || 'Consumidor Final') + (cuit ? ` (CUIT: ${cuit})` : '');
+  const isIncome = entry.type === 'IN';
+  const isThermal = type === 'thermal';
+  
+  let billDetailsHtml = '';
+  if (entry.billCounts) {
+    billDetailsHtml = `
+      <div style="margin-top: ${isThermal ? '10px' : '20px'}; border-top: 1px solid #eee; padding-top: ${isThermal ? '10px' : '15px'};">
+        <h4 style="margin-bottom: 8px; color: #444; font-size: ${isThermal ? '13px' : '16px'};">Detalle de Recuento:</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: ${isThermal ? '12px' : '14px'};">
+          <tr style="background: #f9f9f9; text-align: left;">
+            <th style="padding: 4px;">Denom.</th>
+            <th style="padding: 4px; text-align: center;">Cant.</th>
+            <th style="padding: 4px; text-align: right;">Total</th>
+          </tr>
+          ${Object.entries(entry.billCounts).sort((a, b) => b[0] - a[0]).map(([denom, data]) => {
+            const totalQty = (data.batches || 0) * 100 + (data.qtys || 0);
+            return `
+              <tr>
+                <td style="padding: 4px;">$ ${parseInt(denom).toLocaleString()}</td>
+                <td style="padding: 4px; text-align: center;">${totalQty}</td>
+                <td style="padding: 4px; text-align: right;">$ ${data.subtotal.toLocaleString()}</td>
+              </tr>
+            `;
+          }).join('')}
+        </table>
+      </div>
+    `;
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Comprobante - Frigorifico Pampa</title>
+      <style>
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+          padding: ${isThermal ? '10px' : '40px'}; 
+          color: #111; 
+          line-height: 1.4; 
+          margin: 0;
+          background: #fff;
+          position: relative;
+        }
+        .receipt-card { 
+          border: ${isThermal ? 'none' : '1px solid #ddd'}; 
+          padding: ${isThermal ? '0' : '30px'}; 
+          border-radius: ${isThermal ? '0' : '8px'}; 
+          max-width: ${isThermal ? '300px' : '600px'}; 
+          margin: ${isThermal ? '0' : '0 auto'}; 
+          box-shadow: ${isThermal ? 'none' : '0 4px 10px rgba(0,0,0,0.05)'}; 
+          position: relative;
+        }
+        .indicator {
+          position: absolute;
+          top: 0;
+          right: 0;
+          font-size: 24px;
+          font-weight: 900;
+          color: #ddd;
+          opacity: 0.5;
+        }
+        .header { 
+          display: flex; 
+          flex-direction: ${isThermal ? 'column' : 'row'};
+          justify-content: ${isThermal ? 'center' : 'space-between'}; 
+          align-items: ${isThermal ? 'center' : 'flex-start'}; 
+          margin-bottom: 20px; 
+          border-bottom: 2px solid ${isThermal ? '#000' : '#5d5fef'}; 
+          padding-bottom: 15px;
+          text-align: ${isThermal ? 'center' : 'left'};
+        }
+        .logo-area { display: flex; flex-direction: ${isThermal ? 'column' : 'row'}; align-items: center; gap: 10px; }
+        .logo { width: ${isThermal ? '100px' : '150px'}; height: auto; max-height: 80px; object-fit: contain; border-radius: 4px; }
+        .company-name { font-size: ${isThermal ? '16px' : '24px'}; font-weight: 800; color: ${isThermal ? '#000' : '#5d5fef'}; margin: 0; }
+        .receipt-info { text-align: ${isThermal ? 'center' : 'right'}; margin-top: ${isThermal ? '10px' : '0'}; }
+        .receipt-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+        .receipt-date { font-weight: 600; font-size: ${isThermal ? '13px' : '16px'}; }
+        .section { margin-bottom: 15px; }
+        .section-title { font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 4px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
+        .val { font-size: ${isThermal ? '14px' : '18px'}; font-weight: 600; }
+        .amount-box { 
+          background: ${isThermal ? '#fff' : '#f4f7ff'}; 
+          padding: 15px; 
+          border-radius: 8px; 
+          text-align: center; 
+          border: ${isThermal ? '2px solid #000' : '1px dashed #5d5fef'}; 
+          margin-top: 20px; 
+        }
+        .amount-val { font-size: ${isThermal ? '24px' : '32px'}; font-weight: 800; color: ${isThermal ? '#000' : '#5d5fef'}; }
+        .disclaimer { 
+          margin-top: 30px; 
+          text-align: center; 
+          font-size: 10px; 
+          color: #666; 
+          border-top: 1px solid #ddd; 
+          padding-top: 10px; 
+          font-style: italic; 
+        }
+        @media print {
+          body { padding: 0; margin: 0; width: ${isThermal ? '80mm' : 'auto'}; }
+          .receipt-card { border: none; box-shadow: none; max-width: 100%; margin: 0; }
+        }
+      </style>
+    </head>
+    <body onload="window.print(); window.close();">
+      <div class="receipt-card">
+        <div class="indicator">${isIncome ? '+' : '-'}</div>
+        <div class="header">
+          <div class="logo-area">
+            <img src="/logo.jpg" class="logo" alt="Logo">
+            <h1 class="company-name">FRIGORÍFICO PAMPA</h1>
+          </div>
+          <div class="receipt-info">
+            <div class="receipt-label">Comprobante de Caja</div>
+            <div class="receipt-date">${dateStr} ${timeStr}</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Concepto / Descripción</div>
+          <div class="val">${entry.description || 'Sin descripción'}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">CLIENTE / PRODUCTOR</div>
+          <div class="val">${entityName}</div>
+        </div>
+
+        ${billDetailsHtml}
+
+        <div class="amount-box">
+          <div class="receipt-label">Monto Total</div>
+          <div class="amount-val">${formatCurrency(entry.amount)}</div>
+        </div>
+
+        <div class="disclaimer" style="text-transform: uppercase;">
+          ⚠️ NO ES COMPROBANTE FISCAL<br>
+          <span style="font-size: 8px; text-transform: none;">Documento informativo de control interno.</span>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+
+

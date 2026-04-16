@@ -83,7 +83,7 @@ const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
 const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface, clientRepository);
 const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
 const checkPresenter = new CheckPresenter(checkRepository, uiInterface);
-const accountingPresenter = new AccountingPresenter(accountingRepository, uiInterface);
+const accountingPresenter = new AccountingPresenter(accountingRepository, clientRepository, uiInterface);
 
 // Auth Global Watcher
 onAuthStateChanged(auth, async (user) => {

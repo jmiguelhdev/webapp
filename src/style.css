@@ -917,3 +917,25 @@ body.full-screen-view .content {
   color: #3b82f6;
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
+
+@media print {
+  .sidebar, 
+  .dashboard-header, 
+  .back-btn-m3, 
+  .btn-nueva-operacion, 
+  .glass-card:has(input), 
+  .pagination-controls, 
+  #theme-toggle, 
+  #menu-toggle,
+  .print-btn,
+  .edit-btn,
+  .delete-btn {
+    display: none !important;
+  }
+  .content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+}
+

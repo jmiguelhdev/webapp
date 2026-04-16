@@ -1,8 +1,10 @@
-// src/adapters/presenters/AccountingPresenter.js
+import { db } from '../../firebase.js';
+import * as api from '../../api.js';
 
 export class AccountingPresenter {
-  constructor(accountingRepository, ui) {
+  constructor(accountingRepository, clientRepository, ui) {
     this.accountingRepository = accountingRepository;
+    this.clientRepository = clientRepository;
     this.ui = ui;
     this.entries = [];
     this.clients = [];
@@ -104,7 +106,23 @@ export class AccountingPresenter {
   async saveEntry(entryData) {
     this.ui.showLoading();
     try {
-      await this.accountingRepository.saveEntry(this.currentUserUid, entryData);
+      const entryId = await this.accountingRepository.saveEntry(this.currentUserUid, entryData);
+      
+      // SYNC: If payment for client, update client transactions
+      if (entryData.type === 'IN' && entryData.clientId) {
+        const transactionData = {
+          clientId: entryData.clientId,
+          type: 'PAYMENT',
+          amount: entryData.amount,
+          description: `[Pago Contabilidad] ${entryData.description || ''}`,
+          date: entryData.date || Date.now()
+        };
+        await this.clientRepository.syncAccountingToTransaction(entryId, transactionData);
+      } else {
+        // If it was an IN but changed to OUT, or client was removed, cleanup
+        await api.removeLinkedTransaction(db, entryId);
+      }
+
       await this.loadData();
     } catch (e) {
       this.ui.showError("Error al guardar movimiento: " + e.message);
