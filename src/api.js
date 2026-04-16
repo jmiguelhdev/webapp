@@ -96,6 +96,14 @@ export async function checkIfFaenaExists(db, uid, fileName) {
   return !snapshot.empty;
 }
 
+export async function checkIfTropaExists(db, uid, tropa) {
+  if (!uid || !tropa) return false;
+  const collRef = collection(db, 'faenas_detalle');
+  const q = query(collRef, where("ownerUid", "==", uid), where("tropa", "==", tropa), limit(1));
+  const snapshot = await getDocs(q);
+  return !snapshot.empty;
+}
+
 /**
  * Fetch all faena details for a specific user to build the Stock and History views.
  */

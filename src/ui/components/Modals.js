@@ -72,7 +72,7 @@ export function renderExportModal({ onExport, onExcelExport }) {
 }
 
 /** Render Scan Results Modal */
-export function renderScanResultsModal({ newCount, existCount, errorCount, errorMessages }) {
+export function renderScanResultsModal({ newCount, matchedCount, unmatchedCount, existCount, errorCount, errorMessages }) {
   const overlay = el('div', { classes: ['modal-overlay'] });
   const modal = el('div', { classes: ['modal'], style: 'max-width: 600px; max-height: 80vh; overflow-y: auto;' });
   
@@ -84,6 +84,8 @@ export function renderScanResultsModal({ newCount, existCount, errorCount, error
     </h2>
     <div style="background: var(--bg-hover); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
       <div style="color: #10b981; margin-bottom: 0.5rem; font-weight: 500;">✅ ${newCount} PDFs nuevos procesados exitosamente</div>
+      <div style="color: #3b82f6; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem; padding-left: 1.5rem;">↳ ${matchedCount || 0} emparejados a Viajes</div>
+      <div style="color: #f59e0b; margin-bottom: 0.75rem; font-weight: 500; font-size: 0.9rem; padding-left: 1.5rem;">↳ ${unmatchedCount || 0} guardados SIN Viaje (Huérfanas)</div>
       <div style="color: #60a5fa; margin-bottom: 0.5rem; font-weight: 500;">⏭️ ${existCount} PDFs ya existían (omitidos)</div>
       <div style="color: #ef4444; font-weight: 500;">❌ ${errorCount} errores encontrados</div>
     </div>

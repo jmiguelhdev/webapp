@@ -342,6 +342,8 @@ export class TravelPresenter {
     this.ui.showLoading();
     try {
       let newCount = 0;
+      let matchedCount = 0;
+      let unmatchedCount = 0;
       let existCount = 0;
       let errorCount = 0;
       let errorMessages = [];
@@ -354,6 +356,8 @@ export class TravelPresenter {
               existCount++;
             } else {
               newCount++;
+              if (result.matched) matchedCount++;
+              else unmatchedCount++;
             }
           } catch (e) {
             console.error(`Error procesando ${file.name}:`, e);
@@ -367,6 +371,8 @@ export class TravelPresenter {
       
       this.ui.renderScanResultsModal({
         newCount,
+        matchedCount,
+        unmatchedCount,
         existCount,
         errorCount,
         errorMessages
@@ -447,6 +453,18 @@ export class TravelPresenter {
       const [d, m, y] = pdfData.date.split('/');
       const pdfDate = new Date(`${y}-${m}-${d}`);
 
+      // 2. Extra Validation: Deep check using Tropa number to prevent duplicates reliably
+      if (pdfData.tropa) {
+        const tropaExists = await this.travelRepository.checkIfTropaExists(uid, pdfData.tropa);
+        if (tropaExists) {
+          if (!isBulk) {
+            alert(`⚠️ La tropa "${pdfData.tropa}" ya fue procesada anteriormente.`);
+            this.updateView();
+          }
+          return { skipped: true, fileName: file.name };
+        }
+      }
+
       // Find matching travel
       const match = this.allTravels.find(t => {
         // 1. Check Producer CUIT
@@ -467,44 +485,45 @@ export class TravelPresenter {
       });
 
       if (!match) {
-        throw new Error(`[${file.name}] No se encontró un viaje para el productor con CUIT ${pdfData.producer.cuit} cerca de la fecha ${pdfData.date}.`);
-      }
+        console.warn(`[${file.name}] No se encontró un viaje para el productor con CUIT ${pdfData.producer.cuit} cerca de la fecha ${pdfData.date}. Guardando como faena huérfana.`);
+      } else {
+        console.log("Matching Travel Found:", match);
+        // Create a deep copy to modify using the RAW backend data to prevent dropping fields
+        const updatedTravel = JSON.parse(JSON.stringify(match._raw || match));
+        const firebaseId = String(updatedTravel.id || updatedTravel.firebaseId || match.id);
+        delete updatedTravel.firebaseId; // Metadata cleanup
 
-      console.log("Matching Travel Found:", match);
-
-      // Create a deep copy to modify using the RAW backend data to prevent dropping fields
-      const updatedTravel = JSON.parse(JSON.stringify(match._raw || match));
-      const firebaseId = String(updatedTravel.id || updatedTravel.firebaseId || match.id);
-      delete updatedTravel.firebaseId; // Metadata cleanup
-
-      // Update kgFaena in the matching producer
-      const producer = updatedTravel.buy.listOfProducers.find(p => {
-        const pCuit = (p.producer?.cuit || '').replace(/\D/g, '');
-        const targetCuit = pdfData.producer.cuit.replace(/\D/g, '');
-        return pCuit === targetCuit;
-      });
-
-      if (producer) {
-        // Update individual products if categories match
-        producer.listOfProducts.forEach(pr => {
-          const categoryMatchedItems = pdfData.items.filter(item => item.standardizedCategory === pr.standardizedCategory);
-          if (categoryMatchedItems.length > 0) {
-            const totalCatKg = categoryMatchedItems.reduce((sum, item) => sum + item.kg, 0);
-            pr.kgFaena = totalCatKg;
-          }
+        // Update kgFaena in the matching producer
+        const producer = updatedTravel.buy.listOfProducers.find(p => {
+          const pCuit = (p.producer?.cuit || '').replace(/\D/g, '');
+          const targetCuit = pdfData.producer.cuit.replace(/\D/g, '');
+          return pCuit === targetCuit;
         });
 
-        // Update summaries
-        updatedTravel.buy.kgFaenaGlobal = pdfData.totalKgFaena;
-        updatedTravel.kgFaenaTotal = pdfData.totalKgFaena;
+        if (producer) {
+          // Update individual products if categories match
+          producer.listOfProducts.forEach(pr => {
+            const categoryMatchedItems = pdfData.items.filter(item => item.standardizedCategory === pr.standardizedCategory);
+            if (categoryMatchedItems.length > 0) {
+              const totalCatKg = categoryMatchedItems.reduce((sum, item) => sum + item.kg, 0);
+              pr.kgFaena = totalCatKg;
+            }
+          });
+
+          // Update summaries
+          updatedTravel.buy.kgFaenaGlobal = pdfData.totalKgFaena;
+          updatedTravel.kgFaenaTotal = pdfData.totalKgFaena;
+        }
+
+        // 1. Save updated travel
+        await this.travelRepository.updateTravel(uid, firebaseId, updatedTravel);
       }
 
-      // 1. Save updated travel
-      await this.travelRepository.updateTravel(uid, firebaseId, updatedTravel);
-
       // 2. Save detailed records (Garrones) to new collection
+      const travelIdToSave = match ? String(match.id || match.firebaseId || match._raw?.id || '') : 'UNMATCHED';
       const detailRecords = pdfData.items.map(item => ({
-        travelId: firebaseId,
+        travelId: travelIdToSave,
+        isOrphan: !match,
         fileName: file.name, // Save for deduplication
         tropa: pdfData.tropa,
         garron: item.garron,
@@ -522,9 +541,13 @@ export class TravelPresenter {
       if (!isBulk) {
         // 3. Refresh display only if not bulk (bulk refreshes once at the end)
         await this.loadTravels(uid);
-        alert(`✅ Faena procesada con éxito: ${pdfData.totalKgFaena} kg, ${pdfData.totalHeadCount} cabezas.`);
+        if (!match) {
+          alert(`⚠️ Faena procesada: ${pdfData.totalKgFaena} kg. SIN VIAJE ASIGNADO (Huérfana).`);
+        } else {
+          alert(`✅ Faena procesada con éxito: ${pdfData.totalKgFaena} kg, ${pdfData.totalHeadCount} cabezas.`);
+        }
       }
-      return { success: true, fileName: file.name };
+      return { success: true, matched: !!match, fileName: file.name };
 
     } catch (error) {
       console.error(error);

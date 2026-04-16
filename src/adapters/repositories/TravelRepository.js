@@ -56,4 +56,8 @@ export class FirebaseTravelRepository {
   async checkIfFaenaExists(uid, fileName) {
     return api.checkIfFaenaExists(db, uid, fileName);
   }
+
+  async checkIfTropaExists(uid, tropa) {
+    return api.checkIfTropaExists(db, uid, tropa);
+  }
 }

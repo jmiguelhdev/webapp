@@ -1,5 +1,5 @@
 import { el } from '../../utils/dom.js';
-
+import { printDispatchPreparation } from '../reports/ReportService.js';
 /** Utility to play success/error beeps using Web Audio API */
 const playSound = (type) => {
   try {
@@ -207,36 +207,66 @@ export function renderFaenaConsumption(container, options) {
   container.innerHTML = '';
   const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
 
-  // 1. Header & Tabs
-  const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem;' });
-  header.innerHTML = `
-    <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
-      <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+  // 1. Header & Segmented Tabs
+  const header = el('div', { 
+    classes: ['dashboard-header'], 
+    style: 'display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;' 
+  });
+  
+  const titleContainer = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem;' });
+  titleContainer.innerHTML = `
+    <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard" style="margin: 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;">
+      <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: var(--text-main);"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
     </button>
     <div>
-      <h2 style="margin: 0;">🥩 Control de Faena e Inventario</h2>
-      <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Gestión de stock, cámaras de frío y despachos.</p>
+      <h2 style="margin: 0; font-size: 1.5rem;">🥩 Control de Faena e Inventario</h2>
+      <p style="margin: 0.1rem 0 0 0; color: var(--text-muted); font-size: 0.85rem;">Gestión de stock, cámaras de frío y despachos.</p>
     </div>
   `;
-  header.querySelector('#back-to-dash').onclick = options.onBack;
+  titleContainer.querySelector('#back-to-dash').onclick = options.onBack;
+  header.appendChild(titleContainer);
   
-  const tabs = el('div', { classes: ['dashboard-filters'] });
-  const btnStock = el('button', { classes: [state.activeTab === 'STOCK' ? 'btn-primary' : 'btn-outline'], text: 'Inventario Disponible' });
-  const btnHistory = el('button', { classes: [state.activeTab === 'HISTORY' ? 'btn-primary' : 'btn-outline'], text: 'Historial de Despachos' });
-  const btnDrafts = el('button', { classes: [state.activeTab === 'DRAFTS' ? 'btn-primary' : 'btn-outline'], text: 'Borradores Pendientes' });
+  // Segmented Control for Tabs
+  const tabs = el('div', { 
+    style: 'display: flex; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 0.35rem; gap: 0.25rem;' 
+  });
+
+  const getTabStyle = (isActive) => `
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: ${isActive ? '700' : '500'};
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    background: ${isActive ? 'var(--primary)' : 'transparent'};
+    color: ${isActive ? '#ffffff' : 'var(--text-muted)'};
+    box-shadow: ${isActive ? '0 4px 12px rgba(132, 29, 29, 0.3)' : 'none'};
+  `;
+  
+  const btnStock = el('button', { style: getTabStyle(state.activeTab === 'STOCK'), text: '📦 Dispónible' });
+  const btnDrafts = el('button', { style: getTabStyle(state.activeTab === 'DRAFTS'), text: '📝 Preparaciones' });
+  const btnHistory = el('button', { style: getTabStyle(state.activeTab === 'HISTORY'), text: '📜 Historial' });
 
   btnStock.onclick = () => onTabSwitch('STOCK');
-  btnHistory.onclick = () => onTabSwitch('HISTORY');
   btnDrafts.onclick = () => onTabSwitch('DRAFTS');
+  btnHistory.onclick = () => onTabSwitch('HISTORY');
 
   tabs.appendChild(btnStock);
   tabs.appendChild(btnDrafts);
   tabs.appendChild(btnHistory);
+  
   header.appendChild(tabs);
   wrapper.appendChild(header);
 
+  // Unified Toolbar for Filters
+  const toolbarContainer = el('div', { 
+    style: 'display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; background: rgba(255,255,255,0.02); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border);'
+  });
+
   // Global Category Chips
-  const categoryFilters = el('div', { classes: ['dashboard-filters'], style: 'margin-bottom: 2rem; justify-content: flex-start; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem;' });
+  const categoryFilters = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;' });
+  categoryFilters.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; min-width: 60px;">Filtro:</span>`;
   const categories = ['ALL', 'NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO'];
   const catNames = { 'ALL': 'Todas', 'NOVILLO': 'Novillo', 'VACA': 'Vaca', 'VAQUILLONA': 'Vaquillona', 'TORO': 'Toro', 'OTRO': 'Otro' };
   
@@ -261,11 +291,11 @@ export function renderFaenaConsumption(container, options) {
     categoryFilters.appendChild(catBtn);
   });
   
-  wrapper.appendChild(categoryFilters);
+  toolbarContainer.appendChild(categoryFilters);
 
   // --- Camara Filter ---
-  const camaraFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;' });
-  camaraFilterRow.appendChild(el('span', { text: 'Cámara:', style: 'font-size: 0.8rem; color: var(--text-muted); font-weight: 600; white-space: nowrap;' }));
+  const camaraFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;' });
+  camaraFilterRow.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; min-width: 60px;">Cámara:</span>`;
   
   const camaraChipsWrap = el('div', { style: 'display: flex; gap: 0.5rem; flex-wrap: wrap; overflow-x: auto;' });
   
@@ -300,11 +330,11 @@ export function renderFaenaConsumption(container, options) {
   });
 
   camaraFilterRow.appendChild(camaraChipsWrap);
-  wrapper.appendChild(camaraFilterRow);
+  toolbarContainer.appendChild(camaraFilterRow);
 
   // --- Tropa Filter ---
-  const tropaFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;' });
-  tropaFilterRow.appendChild(el('span', { text: 'Tropa:', style: 'font-size: 0.8rem; color: var(--text-muted); font-weight: 600; white-space: nowrap;' }));
+  const tropaFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;' });
+  tropaFilterRow.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; min-width: 60px;">Tropa:</span>`;
   
   const tropaChipsWrap = el('div', { style: 'display: flex; gap: 0.5rem; flex-wrap: wrap; overflow-x: auto;' });
   
@@ -327,7 +357,8 @@ export function renderFaenaConsumption(container, options) {
   });
 
   tropaFilterRow.appendChild(tropaChipsWrap);
-  wrapper.appendChild(tropaFilterRow);
+  toolbarContainer.appendChild(tropaFilterRow);
+  wrapper.appendChild(toolbarContainer);
 
   if (state.activeTab === 'STOCK') {
 
@@ -475,7 +506,7 @@ export function renderFaenaConsumption(container, options) {
              return `<option value="${cName}">${cName}</option>`;
           }).join('')}
         </select>
-        <button id="move-camara-btn" class="btn-outline" style="padding: 0.5rem 1rem; margin: 0; font-size: 0.85rem;">⮂ Mover</button>
+        <button id="move-camara-btn" class="btn-outline" style="padding: 0.5rem 1rem; margin: 0; font-size: 0.85rem;">⮂ Mover Stock</button>
       `;
       footer.appendChild(moveControls);
 
@@ -484,9 +515,10 @@ export function renderFaenaConsumption(container, options) {
         <div style="font-size: 1.1rem; font-weight: 600;">
           Total Estimado: <span style="color: #10b981;" id="grand-total-disp">$${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 0 })}</span>
         </div>
-        <div style="display: flex; gap: 0.75rem; align-items: center;">
-          <button id="cancel-dispatch-btn" style="background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 1.2rem; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;">✕ Cancelar</button>
-          <button id="dispatch-btn" style="background: #ef4444; color: white; border: none; border-radius: 12px; padding: 0.7rem 1.5rem; font-weight: 700; cursor: pointer; font-size: 0.9rem;">🚚 Confirmar Salida</button>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button id="cancel-dispatch-btn" class="btn-outline" style="border-radius: 12px; padding: 0.6rem 1.2rem; font-weight: 600; font-size: 0.9rem;">✕ Cancelar</button>
+          <button id="print-dispatch-btn" class="btn-secondary" style="background: #3b82f6; color: white; border: none; border-radius: 12px; padding: 0.6rem 1.2rem; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: background 0.2s;">🖨️ Imprimir</button>
+          <button id="dispatch-btn" class="btn-primary" style="background: #ef4444; border: none; border-radius: 12px; padding: 0.6rem 1.2rem; font-weight: 700; cursor: pointer; font-size: 0.9rem;">🚚 Salida Definitiva</button>
         </div>
       `;
       footer.appendChild(dispatchControls);
@@ -505,6 +537,30 @@ export function renderFaenaConsumption(container, options) {
       panel.querySelector('#dispatch-dest').addEventListener('input', e => onDestinationInput(e.target.value));
       panel.querySelector('#cancel-dispatch-btn').onclick = () => onClearSelection();
       panel.querySelector('#dispatch-btn').onclick = () => onDispatch();
+      
+      panel.querySelector('#print-dispatch-btn').onclick = () => {
+        // Collect current snapshot of data for printing
+        let printGrandTotal = 0;
+        const currentByCategory = {};
+        catEntries.forEach(([cat, data]) => {
+          const p = parseFloat(state.categoryPriceInputs?.[cat]) || 0;
+          currentByCategory[cat] = {
+             kg: data.kg,
+             price: p,
+             subtotal: data.kg * p
+          };
+          printGrandTotal += data.kg * p;
+        });
+
+        const cData = (options.clients || []).find(c => c.name.trim().toLowerCase() === state.destinationInput.trim().toLowerCase()) || { name: state.destinationInput };
+        printDispatchPreparation({
+          selectedItems,
+          client: cData,
+          grandTotal: printGrandTotal,
+          totalKg: selKg,
+          byCategory: currentByCategory
+        });
+      };
 
       panel.querySelectorAll('.cat-price-input').forEach(input => {
         input.addEventListener('input', e => {

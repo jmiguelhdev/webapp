@@ -447,3 +447,134 @@ export function printAuxiliaryCalcReport(breakdown, grandTotal, moduleTitle = 'C
   printWindow.document.write(html);
   printWindow.document.close();
 }
+
+/**
+ * Print Dispatch Preparation Ticket
+ */
+export function printDispatchPreparation(data) {
+  const { selectedItems, client, grandTotal, totalKg, byCategory } = data;
+  const printWindow = window.open('', '_blank', 'width=800,height=900');
+  
+  const nowStr = new Date().toLocaleString('es-AR');
+
+  const rowsHtml = selectedItems.map(item => {
+    return `
+      <tr>
+        <td>#${item.garron}</td>
+        <td>${item.tropa}</td>
+        <td>${item.standardizedCategory || item.category}</td>
+        <td class="amount">${(item.kg || 0).toFixed(1)} kg</td>
+      </tr>
+    `;
+  }).join('');
+
+  const catSummaryHtml = Object.entries(byCategory).map(([cat, d]) => `
+    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+      <span>${cat} (${d.kg.toFixed(1)} kg x $${d.price})</span>
+      <span style="font-weight: bold;">$ ${d.subtotal.toLocaleString('es-AR')}</span>
+    </div>
+  `).join('');
+
+  const destName = client?.name || 'No especificado';
+  const destCuit = client?.document ? `<p style="margin: 3px 0 0 0; color: #555; font-size: 13px;">CUIT: ${client.document}</p>` : '';
+  const destAddr = client?.address ? `<p style="margin: 3px 0 0 0; color: #555; font-size: 13px;">Dirección: ${client.address}</p>` : '';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Despacho | Frigorífico Pampa</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #111; line-height: 1.4; margin: 0; background: #fff; }
+        .receipt-card { max-width: 800px; margin: 0 auto; border: 1px solid #eee; padding: 30px; border-radius: 8px; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #ef4444; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        .logo { width: 150px; height: auto; max-height: 80px; object-fit: contain; border-radius: 4px; }
+        .company-name { font-size: 24px; font-weight: 800; color: #ef4444; margin: 0; }
+        .receipt-info { text-align: right; }
+        .receipt-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+        .receipt-date { font-weight: 600; font-size: 16px; }
+        .table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 20px; }
+        .table th { background: #f4f4f4; padding: 10px 5px; text-align: left; border-bottom: 2px solid #ddd; }
+        .table td { padding: 8px 5px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .amount { text-align: right; white-space: nowrap; }
+        .totals { margin-top: 30px; border-top: 2px solid #ef4444; padding-top: 15px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+        .totals h4 { margin: 0 0 5px 0; color: #555; }
+        .totals .value { font-size: 20px; font-weight: bold; color: #10b981; }
+        .disclaimer { margin-top: 40px; font-size: 11px; color: #888; text-align: center; border-top: 1px dashed #ccc; padding-top: 15px; }
+        @media print {
+          body { padding: 0; margin: 0; }
+          .receipt-card { border: none; padding: 0; width: 100%; max-width: none; box-shadow: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="receipt-card">
+        <div class="header">
+          <div class="logo-area">
+            <img src="/logo.jpg" class="logo" alt="Logo">
+            <h1 class="company-name">FRIGORÍFICO PAMPA</h1>
+          </div>
+          <div class="receipt-info">
+            <div class="receipt-label">REMITO INFORMATIVO (Borrador)</div>
+            <div class="receipt-date">${nowStr}</div>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;">
+          <div>
+            <h3 style="margin: 0 0 10px 0; color: #ef4444;">Destino / Cliente:</h3>
+            <p style="margin: 0; font-size: 18px; font-weight: bold;">${destName}</p>
+            ${destCuit}
+            ${destAddr}
+          </div>
+          <div style="text-align: right;">
+            <p style="margin: 0;"><strong>${selectedItems.length}</strong> medias reses</p>
+            <p style="margin: 5px 0 0 0;">Total Kg: <strong>${totalKg.toFixed(1)} kg</strong></p>
+          </div>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Garrón Nº</th>
+              <th>Tropa Nº</th>
+              <th>Categoría</th>
+              <th class="amount">Peso (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="totals" style="width: 100%; max-width: 350px; margin-left: auto;">
+          <div style="width: 100%; text-align: left; margin-bottom: 10px;">
+            <h4 style="border-bottom: 1px solid #eee; padding-bottom: 5px;">Detalle de Liquidación</h4>
+            ${catSummaryHtml}
+          </div>
+          <div style="width: 100%; display: flex; justify-content: space-between; border-top: 2px solid #ef4444; padding-top: 10px;">
+            <h4 style="margin: 0;">TOTAL ESTIMADO:</h4>
+            <div class="value">$ ${grandTotal.toLocaleString('es-AR')}</div>
+          </div>
+        </div>
+        
+        <div class="disclaimer">
+          Documento no válido como factura. Remito informativo de despacho de carnes. Generado por Gestor KMP.
+        </div>
+      </div>
+      <script>
+        window.onload = () => {
+          setTimeout(() => {
+            window.print();
+            window.onfocus = function() { window.close(); }
+          }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
