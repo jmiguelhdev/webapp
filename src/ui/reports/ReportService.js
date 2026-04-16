@@ -161,3 +161,289 @@ export async function generateAccountingExcel(entries, title) {
 
   XLSX.writeFile(workbook, `Movimientos_${title.replace(/\s+/g, '_')}_${Date.now()}.xlsx`);
 }
+
+/**
+ * Generate Excel (XLSX) Checks Report
+ */
+export async function generateChecksExcel(checks, contacts) {
+  if (!checks || checks.length === 0) return;
+
+  const rows = checks.map(op => {
+    const isSold = op.sellSide && op.sellSide.status === 'SOLD';
+    const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || 'Desconocido';
+    const buyer = contacts.find(c => c.id === op.sellSide?.contactId)?.name || '-';
+    
+    let statusText = 'En Cartera';
+    const st = op.sellSide?.status;
+    if (st === 'SOLD') statusText = 'Vendido';
+    else if (st === 'RETURNED') statusText = 'Devuelto';
+    else if (st === 'REJECTED') statusText = 'Rechazado';
+    else if (st === 'BACK') statusText = 'Volvió';
+
+    return {
+      'Banco': op.bank || '-',
+      '# Cheque': op.checkNumber || '-',
+      'F. Recepción': op.receptionDate ? new Date(op.receptionDate).toLocaleDateString('es-AR') : '-',
+      'F. Pago': op.dueDate ? new Date(op.dueDate).toLocaleDateString('es-AR') : '-',
+      'Plazo (días)': op.days || 0,
+      'Valor Nominal ($)': op.nominalValue || 0,
+      'Vendedor (Origen)': seller,
+      'Comprador (Destino)': isSold ? buyer : '-',
+      'Estado': statusText,
+      'Ganancia ($)': isSold ? (op.profit || 0) : 0
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Cheques");
+
+  const wscols = [
+    { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 15 }, { wch: 15 }
+  ];
+  worksheet['!cols'] = wscols;
+
+  XLSX.writeFile(workbook, `Reporte_Cheques_${Date.now()}.xlsx`);
+}
+
+/**
+ * Print Formatted Checks Report directly via Browser
+ */
+export function printChecksReport(checks, contacts, options) {
+  const { fromDate, toDate } = options;
+  const printWindow = window.open('', '_blank', 'width=1000,height=900');
+  
+  const fromStr = fromDate ? fromDate.toLocaleDateString('es-AR') : 'Inicio';
+  const toStr = toDate ? toDate.toLocaleDateString('es-AR') : 'Hoy';
+  const nowStr = new Date().toLocaleString('es-AR');
+
+  const totalNominal = checks.reduce((sum, c) => sum + (parseFloat(c.nominalValue) || 0), 0);
+  const totalProfit = checks.reduce((sum, c) => {
+    return c.sellSide?.status === 'SOLD' ? sum + (c.profit || 0) : sum;
+  }, 0);
+
+  const rowsHtml = checks.map(op => {
+    const isSold = op.sellSide && op.sellSide.status === 'SOLD';
+    const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || 'Desconocido';
+    const buyer = contacts.find(c => c.id === op.sellSide?.contactId)?.name || '-';
+    
+    let statusText = 'En Cartera';
+    const st = op.sellSide?.status;
+    if (st === 'SOLD') statusText = 'Vendido';
+    else if (st === 'RETURNED') statusText = 'Devuelto';
+    else if (st === 'REJECTED') statusText = 'Rechazado';
+    else if (st === 'BACK') statusText = 'Volvió';
+
+    return `
+      <tr>
+        <td>${op.bank || '-'}</td>
+        <td>${op.checkNumber || '-'}</td>
+        <td>${op.dueDate ? new Date(op.dueDate).toLocaleDateString('es-AR') : '-'}</td>
+        <td>${seller}</td>
+        <td>${isSold ? buyer : '-'}</td>
+        <td>${statusText}</td>
+        <td class="amount">${(parseFloat(op.nominalValue) || 0).toLocaleString('es-AR')}</td>
+        <td class="amount">${isSold ? (op.profit || 0).toLocaleString('es-AR') : '-'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Reporte de Cheques</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #111; line-height: 1.4; margin: 0; background: #fff; }
+        .receipt-card { max-width: 900px; margin: 0 auto; border: 1px solid #eee; padding: 30px; border-radius: 8px; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #5d5fef; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        .logo { width: 150px; height: auto; max-height: 80px; object-fit: contain; border-radius: 4px; }
+        .company-name { font-size: 24px; font-weight: 800; color: #5d5fef; margin: 0; }
+        .receipt-info { text-align: right; }
+        .receipt-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+        .receipt-date { font-weight: 600; font-size: 16px; }
+        .table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 20px; }
+        .table th { background: #f4f4f4; padding: 10px 5px; text-align: left; border-bottom: 2px solid #ddd; }
+        .table td { padding: 8px 5px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .amount { text-align: right; white-space: nowrap; }
+        .totals { margin-top: 30px; border-top: 2px solid #5d5fef; padding-top: 15px; display: flex; justify-content: flex-end; gap: 40px; }
+        .totals div { text-align: right; }
+        .totals h4 { margin: 0 0 5px 0; color: #555; }
+        .totals .value { font-size: 20px; font-weight: bold; }
+        @media print {
+          body { padding: 0; margin: 0; }
+          .receipt-card { border: none; padding: 0; width: 100%; max-width: none; box-shadow: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="receipt-card">
+        <div class="header">
+          <div class="logo-area">
+            <img src="/logo.jpg" class="logo" alt="Logo">
+            <h1 class="company-name">FRIGORÍFICO PAMPA</h1>
+          </div>
+          <div class="receipt-info">
+            <div class="receipt-label">Reporte de Cheques</div>
+            <div class="receipt-date">${nowStr}</div>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+          <h3 style="margin: 0 0 10px 0;">Filtro de Reporte</h3>
+          <p style="margin: 0;">Periodo: <strong>${fromStr}</strong> al <strong>${toStr}</strong></p>
+          <p style="margin: 5px 0 0 0;">Total de Registros: <strong>${checks.length}</strong></p>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Banco</th>
+              <th>Número</th>
+              <th>F. Pago</th>
+              <th>Origen (Vendedor)</th>
+              <th>Destino (Comprador)</th>
+              <th>Estado</th>
+              <th class="amount">V. Nominal ($)</th>
+              <th class="amount">Ganancia ($)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div>
+            <h4>Total Nominal</h4>
+            <div class="value">$${totalNominal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          <div>
+            <h4>Total Ganancia Realizada</h4>
+            <div class="value" style="color: #2e7d32;">$${totalProfit.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+        
+      </div>
+      <script>
+        window.onload = () => {
+          setTimeout(() => {
+            window.print();
+            window.onfocus = function() { window.close(); }
+          }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+/**
+ * Print Auxiliary Calculator details
+ */
+export function printAuxiliaryCalcReport(breakdown, grandTotal, moduleTitle = 'Caja General') {
+  const printWindow = window.open('', '_blank', 'width=800,height=900');
+  
+  const nowStr = new Date().toLocaleString('es-AR');
+
+  const rowsHtml = Object.keys(breakdown).sort((a,b) => b - a).map(denom => {
+    const row = breakdown[denom];
+    if (row.blocks === 0 && row.batches === 0 && row.qtys === 0) return '';
+    return `
+      <tr>
+        <td style="font-weight: 600;">$ ${parseInt(denom).toLocaleString('es-AR')}</td>
+        <td style="text-align: center;">${row.blocks > 0 ? row.blocks : '-'}</td>
+        <td style="text-align: center;">${row.batches > 0 ? row.batches : '-'}</td>
+        <td style="text-align: center;">${row.qtys > 0 ? row.qtys : '-'}</td>
+        <td class="amount">$ ${row.subtotal.toLocaleString('es-AR')}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Recuento Auxiliar de Billetes</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #111; line-height: 1.4; margin: 0; background: #fff; }
+        .receipt-card { max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #5d5fef; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        .logo { width: 150px; height: auto; max-height: 80px; object-fit: contain; border-radius: 4px; }
+        .company-name { font-size: 24px; font-weight: 800; color: #5d5fef; margin: 0; }
+        .receipt-info { text-align: right; }
+        .receipt-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+        .receipt-date { font-weight: 600; font-size: 14px; }
+        .table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 20px; }
+        .table th { background: #f4f4f4; padding: 10px 5px; text-align: left; border-bottom: 2px solid #ddd; }
+        .table td { padding: 10px 5px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        .table th.center { text-align: center; }
+        .amount { text-align: right; white-space: nowrap; font-weight: 600; }
+        .totals { margin-top: 30px; border-top: 2px dashed #5d5fef; padding-top: 15px; text-align: right; }
+        .totals h4 { margin: 0 0 5px 0; color: #555; text-transform: uppercase; font-size: 12px; }
+        .totals .value { font-size: 28px; font-weight: 800; color: #5d5fef; }
+        .disclaimer { margin-top: 30px; text-align: center; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 10px; font-style: italic; }
+        @media print {
+          body { padding: 0; margin: 0; }
+          .receipt-card { border: none; padding: 0; width: 100%; max-width: none; box-shadow: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="receipt-card">
+        <div class="header">
+          <div class="logo-area">
+            <img src="/logo.jpg" class="logo" alt="Logo">
+            <h1 class="company-name">FRIGORÍFICO PAMPA</h1>
+          </div>
+          <div class="receipt-info">
+            <div class="receipt-label">Recuento Auxiliar</div>
+            <div class="receipt-date">${nowStr}</div>
+            <div style="font-size: 11px; color: #333; margin-top: 4px;">Módulo: ${moduleTitle}</div>
+          </div>
+        </div>
+        
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Denominación</th>
+              <th class="center">Bloques<br><small>(1000u)</small></th>
+              <th class="center">Fajos<br><small>(100u)</small></th>
+              <th class="center">Sueltos<br><small>(1u)</small></th>
+              <th class="amount">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <h4>Total Contado</h4>
+          <div class="value">$ ${grandTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        </div>
+        
+        <div class="disclaimer">
+          Detalle impreso de recuento auxiliar de billetes físico. Documento sin validez fiscal originado de recuento de caja.
+        </div>
+      </div>
+      <script>
+        window.onload = () => {
+          setTimeout(() => {
+            window.print();
+            window.onfocus = function() { window.close(); }
+          }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+}

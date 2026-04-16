@@ -8,8 +8,8 @@ import { renderPriceShare } from './ui/screens/PriceShareUI.js';
 import { renderChecks } from './ui/screens/ChecksUI.js';
 import { renderAccounting } from './ui/screens/AccountingUI.js';
 import { renderSidebar } from './ui/components/Sidebar.js';
-import { renderExportModal, renderScanResultsModal } from './ui/components/Modals.js';
-import { generateTravelReport, generateExcelReport, generateAccountingExcel } from './ui/reports/ReportService.js';
+import { renderExportModal, renderScanResultsModal, renderDateModal, showAuxiliaryCalculator } from './ui/components/Modals.js';
+import { generateTravelReport, generateExcelReport, generateAccountingExcel, generateChecksExcel, printChecksReport } from './ui/reports/ReportService.js';
 
 /**
  * Aggregator module for the UI layer.
@@ -28,8 +28,12 @@ export {
   renderAccounting,
   renderSidebar,
   renderExportModal,
+  renderDateModal,
   renderScanResultsModal,
+  showAuxiliaryCalculator,
   generateTravelReport,
   generateExcelReport,
-  generateAccountingExcel
+  generateAccountingExcel,
+  generateChecksExcel,
+  printChecksReport
 };

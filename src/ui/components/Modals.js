@@ -1,4 +1,7 @@
 import { el } from '../../utils/dom.js';
+import { printAuxiliaryCalcReport } from '../reports/ReportService.js';
+
+const DENOMINATIONS = [20000, 10000, 2000, 1000, 500, 200, 100];
 
 /** Render Export Modal */
 export function renderExportModal({ onExport, onExcelExport }) {
@@ -121,4 +124,150 @@ export function renderScanResultsModal({ newCount, existCount, errorCount, error
   document.body.appendChild(overlay);
 
   modal.querySelector('#modal-close').onclick = () => overlay.remove();
+}
+
+/** Render Date Range Modal (Reusable) */
+export function renderDateModal(options) {
+  const { title = 'Seleccionar Fechas', description = '', submitText = 'Aceptar', onSubmit } = options;
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; padding: 2rem;' });
+  
+  const today = new Date().toISOString().split('T')[0];
+  const firstDayOfMonth = new Date();
+  firstDayOfMonth.setDate(1);
+  const fromDateVal = firstDayOfMonth.toISOString().split('T')[0];
+
+  modal.innerHTML = `
+    <h3 style="margin-bottom: 1.5rem;">${title}</h3>
+    <form id="date-modal-form">
+      ${description ? `<p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">${description}</p>` : ''}
+      <div class="form-group">
+        <label>Desde</label>
+        <input type="date" id="modal-from" class="form-input" value="${fromDateVal}" required>
+      </div>
+      <div class="form-group">
+        <label>Hasta</label>
+        <input type="date" id="modal-to" class="form-input" value="${today}" required>
+      </div>
+      <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+        <button type="button" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-main); cursor: pointer;">Cancelar</button>
+        <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: var(--primary); color: #fff; font-weight: 600; cursor: pointer;">${submitText}</button>
+      </div>
+    </form>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const form = modal.querySelector('#date-modal-form');
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const from = modal.querySelector('#modal-from').value;
+    const to = modal.querySelector('#modal-to').value;
+    if (onSubmit) onSubmit(from, to);
+    overlay.remove();
+  };
+
+  modal.querySelector('.btn-cancel').onclick = () => overlay.remove();
+}
+
+/** Render Auxiliary Calculator Modal */
+export function showAuxiliaryCalculator(moduleTitle = 'Caja General') {
+  const overlay = el('div', { 
+    classes: ['modal-overlay'],
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;'
+  });
+
+  const content = el('div', { 
+    classes: ['glass-card'],
+    style: 'width: 100%; max-width: 650px; padding: 2rem;'
+  });
+
+  content.innerHTML = `
+    <h3 style="margin-top:0; margin-bottom: 1.5rem;">🧮 Calculadora Auxiliar</h3>
+    <div id="aux-calc-rows" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem;">
+      <div style="display: grid; grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+        <div>Valor</div>
+        <div></div>
+        <div style="text-align: center;">Bloques <small>(1000u)</small></div>
+        <div></div>
+        <div style="text-align: center;">Fajos <small>(100u)</small></div>
+        <div></div>
+        <div style="text-align: center;">Sueltos <small>(1u)</small></div>
+        <div></div>
+        <div style="text-align: right;">Subtotal</div>
+      </div>
+      ${DENOMINATIONS.map(d => `
+        <div class="denom-row" data-denom="${d}" style="display: grid; grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr; align-items: center; gap: 0.5rem;">
+          <div style="font-weight: 700; color: var(--text-main);">$ ${d.toLocaleString()}</div>
+          <div style="text-align: center;">×</div>
+          <input type="number" class="bill-block" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <div style="text-align: center;">+</div>
+          <input type="number" class="bill-batch" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <div style="text-align: center;">+</div>
+          <input type="number" class="bill-qty" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <div style="text-align: center;">=</div>
+          <div class="row-total" style="text-align: right; font-weight: 600; font-family: monospace; font-size: 1.1rem;">$ 0</div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-weight: 500; font-size: 1.1rem;">Total Contado:</span>
+      <span id="aux-grand-total" style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">$ 0</span>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+      <button id="aux-calc-close" class="btn-cancel" style="flex: 1; padding: 0.85rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cerrar</button>
+      <button id="aux-calc-clear" class="btn-secondary" style="flex: 1; padding: 0.85rem; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer;">🗑️ Limpiar</button>
+      <button id="aux-calc-print" class="btn-primary" style="flex: 2; padding: 0.85rem; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer;">🖨️ Imprimir Recuento</button>
+    </div>
+  `;
+
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
+
+  const rowElements = content.querySelectorAll('.denom-row');
+  const grandTotalEl = content.querySelector('#aux-grand-total');
+  const allInputs = content.querySelectorAll('.bill-block, .bill-batch, .bill-qty');
+
+  const updateGrandTotal = () => {
+    let grand = 0;
+    const breakdown = {};
+    rowElements.forEach(row => {
+      const blockInput = row.querySelector('.bill-block');
+      const batchInput = row.querySelector('.bill-batch');
+      const qtyInput = row.querySelector('.bill-qty');
+      const d = parseInt(blockInput.dataset.denom);
+      
+      const blocks = parseInt(blockInput.value) || 0;
+      const batches = parseInt(batchInput.value) || 0;
+      const qtys = parseInt(qtyInput.value) || 0;
+      
+      const rowTotal = ((blocks * 1000) + (batches * 100) + qtys) * d;
+      grand += rowTotal;
+      row.querySelector('.row-total').textContent = '$ ' + rowTotal.toLocaleString('es-AR');
+      
+      breakdown[d] = { blocks, batches, qtys, subtotal: rowTotal };
+    });
+    
+    grandTotalEl.textContent = '$ ' + grand.toLocaleString('es-AR');
+    return { grand, breakdown };
+  };
+
+  allInputs.forEach(input => input.addEventListener('input', updateGrandTotal));
+
+  content.querySelector('#aux-calc-close').onclick = () => overlay.remove();
+  
+  content.querySelector('#aux-calc-clear').onclick = () => {
+    allInputs.forEach(input => input.value = '');
+    updateGrandTotal();
+  };
+
+  content.querySelector('#aux-calc-print').onclick = () => {
+    const { grand, breakdown } = updateGrandTotal();
+    if (grand === 0) {
+      alert('La calculadora está en cero. Añade billetes primero.');
+      return;
+    }
+    printAuxiliaryCalcReport(breakdown, grand, moduleTitle);
+  };
 }

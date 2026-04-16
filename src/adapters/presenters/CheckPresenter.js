@@ -7,6 +7,11 @@ export class CheckPresenter {
     this.checks = [];
     this.contacts = [];
     this.currentUserUid = null;
+    this.filters = {
+      startDate: null,
+      endDate: null,
+      searchTerm: ''
+    };
   }
 
   setUid(uid) {
@@ -24,6 +29,77 @@ export class CheckPresenter {
     } finally {
       this.ui.hideLoading();
     }
+  }
+
+  applyFilters(newFilters) {
+    this.filters = { ...this.filters, ...newFilters };
+    this.render();
+  }
+
+  getFilteredChecks() {
+    return this.checks.filter(c => {
+      let match = true;
+      
+      // Date Filter
+      if (this.filters.startDate && this.filters.endDate) {
+        const from = new Date(this.filters.startDate + 'T00:00:00').getTime();
+        const to = new Date(this.filters.endDate + 'T23:59:59').getTime();
+        const dRec = new Date(c.receptionDate).getTime();
+        const dDue = new Date(c.dueDate).getTime();
+        
+        // Match if either reception or due date falls in range
+        if ((dRec < from || dRec > to) && (dDue < from || dDue > to)) {
+          match = false;
+        }
+      }
+      
+      // Text Search Filter
+      if (match && this.filters.searchTerm) {
+        const term = this.filters.searchTerm.toLowerCase();
+        const bank = (c.bank || '').toLowerCase();
+        const num = (c.checkNumber || '').toLowerCase();
+        const val = String(c.nominalValue || '');
+        const seller = (this.contacts.find(con => con.id === c.buySide?.contactId)?.name || '').toLowerCase();
+        const buyer = (this.contacts.find(con => con.id === c.sellSide?.contactId)?.name || '').toLowerCase();
+        
+        if (!bank.includes(term) && !num.includes(term) && !val.includes(term) && !seller.includes(term) && !buyer.includes(term)) {
+          match = false;
+        }
+      }
+      return match;
+    });
+  }
+
+  async exportData(startDate, endDate) {
+    const fromTime = new Date(startDate + 'T00:00:00').getTime();
+    const toTime = new Date(endDate + 'T23:59:59').getTime();
+    
+    const filtered = this.checks.filter(c => {
+      const dRec = new Date(c.receptionDate).getTime();
+      const dDue = new Date(c.dueDate).getTime();
+      return (dRec >= fromTime && dRec <= toTime) || (dDue >= fromTime && dDue <= toTime);
+    });
+
+    if (filtered.length === 0) {
+      this.ui.showError("No hay cheques en el rango seleccionado para exportar.");
+      return;
+    }
+
+    this.ui.generateChecksExcel(filtered, this.contacts);
+  }
+
+  printList(checksToPrint) {
+    if (!checksToPrint || checksToPrint.length === 0) {
+      this.ui.showError("No hay cheques en esta lista para imprimir.");
+      return;
+    }
+
+    let fromDate = null;
+    let toDate = null;
+    if (this.filters.startDate) fromDate = new Date(this.filters.startDate + 'T00:00:00');
+    if (this.filters.endDate) toDate = new Date(this.filters.endDate + 'T23:59:59');
+
+    this.ui.printChecksReport(checksToPrint, this.contacts, { fromDate, toDate });
   }
 
   async saveOperation(operationData) {
@@ -109,10 +185,16 @@ export class CheckPresenter {
   render() {
     this.ui.renderChecks({
       checks: this.checks,
+      filteredChecks: this.getFilteredChecks(),
+      filters: this.filters,
       contacts: this.contacts,
+      onFilterChange: this.applyFilters.bind(this),
       onSave: this.saveOperation.bind(this),
       onDelete: this.deleteOperation.bind(this),
-      onRefresh: this.loadData.bind(this)
+      onRefresh: this.loadData.bind(this),
+      onExport: this.exportData.bind(this),
+      onPrint: this.printList.bind(this)
     });
   }
 }
+

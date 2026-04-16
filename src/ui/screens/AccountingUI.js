@@ -1,5 +1,5 @@
-// src/ui/screens/AccountingUI.js
 import { el } from '../../utils/dom.js';
+import { renderDateModal, showAuxiliaryCalculator } from '../components/Modals.js';
 
 const DENOMINATIONS = [20000, 10000, 2000, 1000, 500, 200, 100];
 
@@ -32,9 +32,13 @@ export function renderAccounting(container, options) {
     html: '<span>📥 Exportar</span>'
   });
   exportBtn.onclick = () => {
-    console.log("Export button clicked", { hasOnExport: typeof onExport === 'function' });
     if (typeof onExport === 'function') {
-      showExportModal(onExport);
+      renderDateModal({
+        title: '📥 Exportar Movimientos',
+        description: 'Selecciona el rango de fechas para exportar a Excel.',
+        submitText: 'Exportar Excel',
+        onSubmit: onExport
+      });
     } else {
       alert("Error: La función de exportación no está disponible.");
     }
@@ -47,6 +51,14 @@ export function renderAccounting(container, options) {
   });
   addBtn.onclick = () => showEntryModal(null, { clients, producers, onSave, title });
 
+  const auxCalcBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem;',
+    html: '<span>🧮 Calculadora Auxiliar</span>'
+  });
+  auxCalcBtn.onclick = () => showAuxiliaryCalculator(title);
+
+  actionGroup.appendChild(auxCalcBtn);
   actionGroup.appendChild(exportBtn);
   actionGroup.appendChild(addBtn);
   header.appendChild(actionGroup);
@@ -526,50 +538,6 @@ function showBillCalculator(expectedAmount, onApply) {
     onApply(result);
     modal.remove();
   };
-}
-
-
-function showExportModal(onExport) {
-  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
-  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; padding: 2rem;' });
-  
-  const today = new Date().toISOString().split('T')[0];
-  const firstDayOfMonth = new Date();
-  firstDayOfMonth.setDate(1);
-  const fromDateVal = firstDayOfMonth.toISOString().split('T')[0];
-
-  modal.innerHTML = `
-    <h3 style="margin-bottom: 1.5rem;">📥 Exportar Movimientos</h3>
-    <form id="export-form">
-      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">Selecciona el rango de fechas para exportar a Excel.</p>
-      <div class="form-group">
-        <label>Desde</label>
-        <input type="date" id="export-from" class="form-input" value="${fromDateVal}">
-      </div>
-      <div class="form-group">
-        <label>Hasta</label>
-        <input type="date" id="export-to" class="form-input" value="${today}">
-      </div>
-      <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-        <button type="button" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-main); cursor: pointer;">Cancelar</button>
-        <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: #10b981; color: #fff; font-weight: 600; cursor: pointer;">Exportar Excel</button>
-      </div>
-    </form>
-  `;
-
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-
-  const form = modal.querySelector('#export-form');
-  form.onsubmit = (e) => {
-    e.preventDefault();
-    const from = modal.querySelector('#export-from').value;
-    const to = modal.querySelector('#export-to').value;
-    onExport(from, to);
-    overlay.remove();
-  };
-
-  modal.querySelector('.btn-cancel').onclick = () => overlay.remove();
 }
 
 

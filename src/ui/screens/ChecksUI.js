@@ -1,12 +1,13 @@
-// src/ui/screens/ChecksUI.js
 import { el } from '../../utils/dom.js';
+import { renderDateModal } from '../components/Modals.js';
 
-export function renderChecks(container, { checks, contacts, onSave, onDelete, onRefresh }) {
+export function renderChecks(container, options) {
+  const { checks, filteredChecks, filters, contacts, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint } = options;
   container.innerHTML = '';
 
   const header = el('div', { 
     classes: ['dashboard-header'],
-    style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;'
+    style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;'
   });
 
   const titleGroup = el('div', { style: 'display: flex; align-items: center; gap: 1rem;' });
@@ -21,16 +22,38 @@ export function renderChecks(container, { checks, contacts, onSave, onDelete, on
   titleGroup.appendChild(el('h1', { text: 'Gestión de Cheques', style: 'margin:0;' }));
   header.appendChild(titleGroup);
 
+  const actionGroup = el('div', { style: 'display: flex; gap: 0.75rem; flex-wrap: wrap;' });
+
+  const exportBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem;',
+    html: '<span>📥 Exportar</span>'
+  });
+  exportBtn.onclick = () => {
+    if (typeof onExport === 'function') {
+      renderDateModal({
+        title: 'Exportar Reporte de Cheques',
+        description: 'Selecciona el rango de fechas de recepción o pago a incluir en el Excel.',
+        submitText: 'Descargar Excel',
+        onSubmit: onExport
+      });
+    }
+  };
+
   const addBtn = el('button', { 
     classes: ['btn-nueva-operacion'],
+    style: 'margin: 0;',
     html: '<svg viewBox="0 0 24 24" width="18" height="18" style="fill:currentColor;flex-shrink:0;"><path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg> Nueva Operación'
   });
   addBtn.onclick = () => showOperationModal(null, contacts, onSave);
-  header.appendChild(addBtn);
+  
+  actionGroup.appendChild(exportBtn);
+  actionGroup.appendChild(addBtn);
+  header.appendChild(actionGroup);
 
   container.appendChild(header);
 
-  // Summary Cards
+  // Summary Cards (Based on unfiltered checks for totality, or filtered? Usually total portfolio)
   const totalProfit = checks.reduce((sum, c) => sum + (c.profit || 0), 0);
   
   const isPortfolio = (c) => {
@@ -56,14 +79,80 @@ export function renderChecks(container, { checks, contacts, onSave, onDelete, on
 
   container.appendChild(statsGrid);
 
+  // Filters Bar
+  const filtersBar = el('div', { 
+    classes: ['glass-card'], 
+    style: 'margin-bottom: 2rem; padding: 1.25rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; align-items: end;' 
+  });
+
+  const searchGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
+  searchGroup.appendChild(el('label', { text: '🔍 Buscar (Banco, #, Vendedor/Comprador)' }));
+  const searchInput = el('input', { 
+    attrs: { type: 'text', placeholder: 'Buscar cheques...', value: filters?.searchTerm || '' },
+    style: 'width: 100%;'
+  });
+  searchInput.oninput = (e) => onFilterChange({ searchTerm: e.target.value });
+  searchGroup.appendChild(searchInput);
+
+  const dateStartGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
+  dateStartGroup.appendChild(el('label', { text: 'Desde' }));
+  const startInput = el('input', { 
+    attrs: { type: 'date', value: filters?.startDate || '' },
+    style: 'width: 100%;'
+  });
+  startInput.onchange = (e) => onFilterChange({ startDate: e.target.value });
+  dateStartGroup.appendChild(startInput);
+
+  const dateEndGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
+  dateEndGroup.appendChild(el('label', { text: 'Hasta' }));
+  const endInput = el('input', { 
+    attrs: { type: 'date', value: filters?.endDate || '' },
+    style: 'width: 100%;'
+  });
+  endInput.onchange = (e) => onFilterChange({ endDate: e.target.value });
+  dateEndGroup.appendChild(endInput);
+
+  filtersBar.appendChild(searchGroup);
+  filtersBar.appendChild(dateStartGroup);
+  filtersBar.appendChild(dateEndGroup);
+  container.appendChild(filtersBar);
+
+  // Apply filters before splitting sections
+  const currentList = filteredChecks || checks;
+
   // Section 1: CHEQUES EN CARTERA
-  container.appendChild(el('h2', { text: '📂 Cheques en Cartera', style: 'margin-bottom: 1rem; font-size: 1.25rem;' }));
-  container.appendChild(renderCheckTable(portfolioChecks, contacts, onSave, onDelete));
+  const currentPortfolio = currentList.filter(isPortfolio);
+  
+  const portfolioHeader = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;' });
+  portfolioHeader.appendChild(el('h2', { text: '📂 Cheques en Cartera', style: 'margin:0; font-size: 1.25rem;' }));
+  const printPortfolioBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.9rem;',
+    html: '<span>🖨️ Imprimir</span>'
+  });
+  printPortfolioBtn.onclick = () => {
+    if (typeof onPrint === 'function') onPrint(currentPortfolio);
+  };
+  portfolioHeader.appendChild(printPortfolioBtn);
+  container.appendChild(portfolioHeader);
+  container.appendChild(renderCheckTable(currentPortfolio, contacts, onSave, onDelete));
 
   // Section 2: OPERACIONES REALIZADAS
-  const historyChecks = checks.filter(isHistory);
-  container.appendChild(el('h2', { text: '📜 Operaciones Realizadas', style: 'margin-top: 3rem; margin-bottom: 1rem; font-size: 1.25rem;' }));
-  container.appendChild(renderCheckTable(historyChecks, contacts, onSave, onDelete));
+  const currentHistory = currentList.filter(isHistory);
+  
+  const historyHeader = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-top: 3rem; margin-bottom: 1rem;' });
+  historyHeader.appendChild(el('h2', { text: '📜 Operaciones Realizadas', style: 'margin:0; font-size: 1.25rem;' }));
+  const printHistoryBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.9rem;',
+    html: '<span>🖨️ Imprimir</span>'
+  });
+  printHistoryBtn.onclick = () => {
+    if (typeof onPrint === 'function') onPrint(currentHistory);
+  };
+  historyHeader.appendChild(printHistoryBtn);
+  container.appendChild(historyHeader);
+  container.appendChild(renderCheckTable(currentHistory, contacts, onSave, onDelete));
 }
 
 function getCheckStatusBadge(op) {

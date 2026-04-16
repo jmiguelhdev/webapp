@@ -67,18 +67,20 @@ export function renderDashboard(container, options) {
     
     const agentName = buy.agent?.name;
     if (agentName) {
-      if (!entityMap[agentName]) entityMap[agentName] = { totalPrice: 0, totalYield: 0, count: 0, type: 'AGENT' };
+      if (!entityMap[agentName]) entityMap[agentName] = { totalPrice: 0, totalYield: 0, yields: [], count: 0, type: 'AGENT' };
       entityMap[agentName].totalPrice += price;
       entityMap[agentName].totalYield += yieldVal;
+      entityMap[agentName].yields.push(yieldVal);
       entityMap[agentName].count++;
     }
     
     (buy.listOfProducers || []).forEach(p => {
       const pName = p.producer?.name;
       if (pName) {
-        if (!entityMap[pName]) entityMap[pName] = { totalPrice: 0, totalYield: 0, count: 0, type: 'PRODUCER' };
+        if (!entityMap[pName]) entityMap[pName] = { totalPrice: 0, totalYield: 0, yields: [], count: 0, type: 'PRODUCER' };
         entityMap[pName].totalPrice += price;
         entityMap[pName].totalYield += yieldVal;
+        entityMap[pName].yields.push(yieldVal);
         entityMap[pName].count++;
       }
     });
@@ -93,6 +95,61 @@ export function renderDashboard(container, options) {
   chartGrid.appendChild(trendBox);
   chartGrid.appendChild(compareBox);
   wrapper.appendChild(chartGrid);
+
+  // 2.5 Rankings De Rendimientos
+  const renderRankingTable = (typeFilter, title) => {
+    const list = Object.keys(entityMap)
+      .filter(e => entityMap[e].type === typeFilter)
+      .map(e => {
+        const item = entityMap[e];
+        const avg = item.totalYield / item.count;
+        const max = Math.max(...item.yields);
+        const min = Math.min(...item.yields);
+        return { name: e, avg, max, min, count: item.count };
+      })
+      .sort((a,b) => b.avg - a.avg);
+
+    if (list.length === 0) return '';
+
+    return `
+      <div class="ranking-card glass-card" style="padding: 1.5rem;">
+        <h3 style="margin-top: 0; margin-bottom: 1rem;">🏆 ${title}</h3>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border); text-align: left; color: var(--text-muted);">
+                <th style="padding: 0.75rem 0.5rem;">Nombre</th>
+                <th style="padding: 0.75rem 0.5rem; text-align: center;">Viajes</th>
+                <th style="padding: 0.75rem 0.5rem; text-align: right; color: var(--success);">Max (%)</th>
+                <th style="padding: 0.75rem 0.5rem; text-align: right; color: var(--danger);">Min (%)</th>
+                <th style="padding: 0.75rem 0.5rem; text-align: right; font-weight: 700; color: var(--text-main);">Promedio (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map((r, i) => `
+                <tr style="border-bottom: 1px solid var(--border); background: ${i === 0 ? 'rgba(16, 185, 129, 0.05)' : 'transparent'};">
+                  <td style="padding: 0.75rem 0.5rem; font-weight: ${i === 0 ? '700' : '500'}; color: var(--text-main);">
+                    ${i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : ''}${r.name}
+                  </td>
+                  <td style="padding: 0.75rem 0.5rem; text-align: center; color: var(--text-muted);">${r.count}</td>
+                  <td style="padding: 0.75rem 0.5rem; text-align: right; color: var(--success);">${r.max.toFixed(2)}%</td>
+                  <td style="padding: 0.75rem 0.5rem; text-align: right; color: var(--danger);">${r.min.toFixed(2)}%</td>
+                  <td style="padding: 0.75rem 0.5rem; text-align: right; font-weight: 700; color: var(--text-main);">${r.avg.toFixed(2)}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  };
+
+  const rankingsHolder = el('div', { 
+    style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;',
+    html: renderRankingTable('AGENT', 'Ranking de Comisionistas') + renderRankingTable('PRODUCER', 'Ranking de Productores')
+  });
+
+  wrapper.appendChild(rankingsHolder);
   container.appendChild(wrapper);
 
   // 3. Render Charts with Chart.js

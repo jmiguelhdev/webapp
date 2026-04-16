@@ -78,7 +78,10 @@ const uiInterface = {
   renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options),
   renderChecks: (options) => uiLib.renderChecks(content, options),
   renderAccounting: (options) => uiLib.renderAccounting(content, options),
-  generateAccountingExcel: (entries, title) => uiLib.generateAccountingExcel(entries, title)
+  generateAccountingExcel: (entries, title) => uiLib.generateAccountingExcel(entries, title),
+  renderDateModal: (options) => uiLib.renderDateModal(options),
+  generateChecksExcel: (checks, contacts) => uiLib.generateChecksExcel(checks, contacts),
+  printChecksReport: (checks, contacts, options) => uiLib.printChecksReport(checks, contacts, options)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
