@@ -20,7 +20,8 @@ import { SHARED_DATA_SOURCE_UID } from './config.js';
 const travelRepository = new FirebaseTravelRepository();
 const clientRepository = new ClientRepository();
 const checkRepository = new CheckRepository();
-const accountingRepository = new AccountingRepository();
+const accountingRepository = new AccountingRepository('accounting_entries');
+const frigorificoRepository = new AccountingRepository('frigorifico_entries');
 
 // State
 let currentUser = null;
@@ -76,14 +77,22 @@ const uiInterface = {
   renderClientAccounts: (options) => uiLib.renderClientAccounts({ ...options, onBackToDashboard: () => navigateTo('dashboard') }),
   renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options),
   renderChecks: (options) => uiLib.renderChecks(content, options),
-  renderAccounting: (options) => uiLib.renderAccounting(content, options)
+  renderAccounting: (options) => uiLib.renderAccounting(content, options),
+  generateAccountingExcel: (entries, title) => uiLib.generateAccountingExcel(entries, title)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
 const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface, clientRepository);
 const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
 const checkPresenter = new CheckPresenter(checkRepository, uiInterface);
-const accountingPresenter = new AccountingPresenter(accountingRepository, clientRepository, uiInterface);
+const accountingPresenter = new AccountingPresenter(accountingRepository, clientRepository, uiInterface, { 
+  title: 'Caja General', 
+  syncLabel: 'Pago Caja General' 
+});
+const frigorificoPresenter = new AccountingPresenter(frigorificoRepository, clientRepository, uiInterface, { 
+  title: 'Caja Frigorífico', 
+  syncLabel: 'Pago Frigorífico' 
+});
 
 // Auth Global Watcher
 onAuthStateChanged(auth, async (user) => {
@@ -103,6 +112,7 @@ onAuthStateChanged(auth, async (user) => {
     consumptionPresenter.setUserRole(currentUserRole);
     checkPresenter.setUid(user.uid);
     accountingPresenter.setUid(user.uid);
+    frigorificoPresenter.setUid(user.uid);
 
     try {
       uiLib.renderSidebar(
@@ -163,7 +173,7 @@ function showLogin() {
 
 function getAllowedViews(role) {
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'settings', 'price-share', 'contact', 'logout'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout'];
   } else if (role === 'OPERARIO') {
     return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout'];
   } else {
@@ -228,6 +238,9 @@ const navigateTo = (view, role = currentUserRole) => {
       break;
     case 'accounting':
       accountingPresenter.loadData();
+      break;
+    case 'frigorifico':
+      frigorificoPresenter.loadData();
       break;
     case 'simulator': uiLib.renderSimulator(content, { onBack: () => navigateTo('dashboard') }); break;
     case 'settings': {

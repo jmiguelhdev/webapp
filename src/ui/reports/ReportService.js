@@ -123,3 +123,41 @@ export async function generateExcelReport(travels) {
 
   XLSX.writeFile(workbook, `Reporte_Contable_KMP_${Date.now()}.xlsx`);
 }
+
+/**
+ * Generate Excel (XLSX) Accounting Movements Report
+ */
+export async function generateAccountingExcel(entries, title) {
+  if (!entries || entries.length === 0) return;
+
+  const rows = entries.map(e => {
+    const isIncome = e.type === 'IN';
+    let diffStr = '-';
+    if (e.countedAmount !== undefined && e.countedAmount !== null) {
+      const diff = e.countedAmount - e.amount;
+      diffStr = Math.abs(diff) < 0.01 ? 'OK' : (diff > 0 ? `Sobra ${diff.toFixed(2)}` : `Falta ${Math.abs(diff).toFixed(2)}`);
+    }
+
+    return {
+      'Fecha': new Date(e.createdAt).toLocaleDateString('es-AR'),
+      'Hora': new Date(e.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+      'Tipo': isIncome ? 'INGRESO (+)' : 'EGRESO (-)',
+      'Descripción / Concepto': e.description || '',
+      'Entidad (Cliente/Prod)': e.clientName || e.producerName || '-',
+      'Monto ($)': e.amount || 0,
+      'Resultado Arqueo': diffStr
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Movimientos");
+
+  // Auto-width columns
+  const wscols = [
+    { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 30 }, { wch: 15 }, { wch: 20 }
+  ];
+  worksheet['!cols'] = wscols;
+
+  XLSX.writeFile(workbook, `Movimientos_${title.replace(/\s+/g, '_')}_${Date.now()}.xlsx`);
+}

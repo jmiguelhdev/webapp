@@ -220,21 +220,21 @@ function showPrintOptionsModal(client, transactions) {
   const form = modal.querySelector('#print-form');
   form.onsubmit = (e) => {
     e.preventDefault();
-    const fromDate = new Date(modal.querySelector('#print-from').value + 'T00:00:00');
-    const toDate = new Date(modal.querySelector('#print-to').value + 'T23:59:59');
+    const fromTime = new Date(modal.querySelector('#print-from').value + 'T00:00:00').getTime();
+    const toTime = new Date(modal.querySelector('#print-to').value + 'T23:59:59').getTime();
     const format = modal.querySelector('#print-format').value;
 
     const filtered = transactions.filter(t => {
-      const d = new Date(t.date || t.createdAt);
-      return d >= fromDate && d <= toDate;
-    }).sort((a,b) => (a.date || a.createdAt) - (b.date || b.createdAt));
+      const dTime = new Date(t.date || t.createdAt).getTime();
+      return dTime >= fromTime && dTime <= toTime;
+    }).sort((a,b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime());
 
-    const before = transactions.filter(t => new Date(t.date || t.createdAt) < fromDate);
+    const before = transactions.filter(t => new Date(t.date || t.createdAt).getTime() < fromTime);
     const saldoAnterior = before.reduce((sum, t) => {
       return sum + (t.type === 'DEBT' ? (t.amount || 0) : -(t.amount || 0));
     }, 0);
 
-    printAccountStatement(client, filtered, saldoAnterior, { format, fromDate, toDate });
+    printAccountStatement(client, filtered, saldoAnterior, { format, fromDate: new Date(fromTime), toDate: new Date(toTime) });
     overlay.remove();
   };
 

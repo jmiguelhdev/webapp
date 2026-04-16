@@ -306,17 +306,17 @@ export async function deleteCheckOperation(db, operationId) {
 /**
  * ACCOUNTING API
  */
-export async function fetchAccountingEntries(db, uid) {
+export async function fetchAccountingEntries(db, uid, collectionName = 'accounting_entries') {
   if (!uid) throw new Error("UID is required to fetch accounting");
-  const collRef = collection(db, 'accounting_entries');
+  const collRef = collection(db, collectionName);
   const q = query(collRef, where("ownerUid", "==", uid));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
-export async function saveAccountingEntry(db, uid, entry) {
+export async function saveAccountingEntry(db, uid, entry, collectionName = 'accounting_entries') {
   if (!uid) throw new Error("UID is required to save accounting");
-  const collRef = collection(db, 'accounting_entries');
+  const collRef = collection(db, collectionName);
   let docRef;
   
   const { id, ...entryData } = entry;
@@ -327,7 +327,7 @@ export async function saveAccountingEntry(db, uid, entry) {
   };
 
   if (id) {
-    docRef = doc(db, 'accounting_entries', id);
+    docRef = doc(db, collectionName, id);
     await updateDoc(docRef, dataToSave);
   } else {
     dataToSave.createdAt = Date.now();
@@ -336,8 +336,8 @@ export async function saveAccountingEntry(db, uid, entry) {
   return docRef.id;
 }
 
-export async function deleteAccountingEntry(db, entryId) {
-  const docRef = doc(db, 'accounting_entries', entryId);
+export async function deleteAccountingEntry(db, entryId, collectionName = 'accounting_entries') {
+  const docRef = doc(db, collectionName, entryId);
   await deleteDoc(docRef);
   await removeLinkedTransaction(db, entryId);
 }

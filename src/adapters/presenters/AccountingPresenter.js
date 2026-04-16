@@ -2,10 +2,13 @@ import { db } from '../../firebase.js';
 import * as api from '../../api.js';
 
 export class AccountingPresenter {
-  constructor(accountingRepository, clientRepository, ui) {
+  constructor(accountingRepository, clientRepository, ui, options = {}) {
     this.accountingRepository = accountingRepository;
     this.clientRepository = clientRepository;
     this.ui = ui;
+    this.title = options.title || 'Caja General';
+    this.syncLabel = options.syncLabel || 'Pago Caja General';
+    
     this.entries = [];
     this.clients = [];
     this.producers = [];
@@ -114,7 +117,7 @@ export class AccountingPresenter {
           clientId: entryData.clientId,
           type: 'PAYMENT',
           amount: entryData.amount,
-          description: `[Pago Contabilidad] ${entryData.description || ''}`,
+          description: `[${this.syncLabel}] ${entryData.description || ''}`,
           date: entryData.date || Date.now()
         };
         await this.clientRepository.syncAccountingToTransaction(entryId, transactionData);
@@ -129,6 +132,23 @@ export class AccountingPresenter {
     } finally {
       this.ui.hideLoading();
     }
+  }
+
+  async exportData(startDate, endDate) {
+    const fromTime = new Date(startDate + 'T00:00:00').getTime();
+    const toTime = new Date(endDate + 'T23:59:59').getTime();
+    
+    const filtered = this.entries.filter(e => {
+      const dTime = new Date(e.createdAt).getTime();
+      return dTime >= fromTime && dTime <= toTime;
+    }).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    if (filtered.length === 0) {
+      this.ui.showError("No hay movimientos en el rango seleccionado para exportar.");
+      return;
+    }
+
+    this.ui.generateAccountingExcel(filtered, this.title);
   }
 
   async deleteEntry(id) {
@@ -158,6 +178,7 @@ export class AccountingPresenter {
     const paginatedEntries = filteredEntries.slice(startIndex, startIndex + this.itemsPerPage);
 
     this.ui.renderAccounting({
+      title: this.title,
       entries: paginatedEntries,
       allEntries: this.entries, // Still need all for stats or I could use filtered
       filteredEntries: filteredEntries, // For stats based on selection
@@ -171,9 +192,10 @@ export class AccountingPresenter {
       },
       filters: this.filters,
       onFilterChange: this.applyFilters.bind(this),
-      onSave: this.saveEntry.bind(this),
-      onDelete: this.deleteEntry.bind(this),
-      onRefresh: this.loadData.bind(this)
+      onSave: (data) => this.saveEntry(data),
+      onDelete: (id) => this.deleteEntry(id),
+      onRefresh: () => this.loadData(),
+      onExport: (start, end) => this.exportData(start, end)
     });
   }
 }

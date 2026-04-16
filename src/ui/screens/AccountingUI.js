@@ -3,12 +3,13 @@ import { el } from '../../utils/dom.js';
 
 const DENOMINATIONS = [20000, 10000, 2000, 1000, 500, 200, 100];
 
-export function renderAccounting(container, { entries, filteredEntries, clients, producers, pagination, filters, onFilterChange, onSave, onDelete, onRefresh }) {
+export function renderAccounting(container, options) {
+  const { entries, filteredEntries, clients, producers, pagination, filters, onFilterChange, onSave, onDelete, onRefresh, onExport, title = 'Caja General' } = options;
   container.innerHTML = '';
 
   const header = el('div', { 
     classes: ['dashboard-header'],
-    style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;'
+    style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;'
   });
 
   const titleGroup = el('div', { style: 'display: flex; align-items: center; gap: 1rem;' });
@@ -20,15 +21,35 @@ export function renderAccounting(container, { entries, filteredEntries, clients,
   backBtn.onclick = () => window.dispatchEvent(new CustomEvent('nav:dashboard'));
   
   titleGroup.appendChild(backBtn);
-  titleGroup.appendChild(el('h1', { text: 'Control de Caja y Contabilidad', style: 'margin:0;' }));
+  titleGroup.appendChild(el('h1', { text: title, style: 'margin:0;' }));
   header.appendChild(titleGroup);
+
+  const actionGroup = el('div', { style: 'display: flex; gap: 0.75rem;' });
+  
+  const exportBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem;',
+    html: '<span>📥 Exportar</span>'
+  });
+  exportBtn.onclick = () => {
+    console.log("Export button clicked", { hasOnExport: typeof onExport === 'function' });
+    if (typeof onExport === 'function') {
+      showExportModal(onExport);
+    } else {
+      alert("Error: La función de exportación no está disponible.");
+    }
+  };
 
   const addBtn = el('button', { 
     classes: ['btn-nueva-operacion'],
+    style: 'margin: 0;',
     html: '<svg viewBox="0 0 24 24" width="18" height="18" style="fill:currentColor;flex-shrink:0;"><path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg> Nuevo Movimiento'
   });
-  addBtn.onclick = () => showEntryModal(null, { clients, producers, onSave });
-  header.appendChild(addBtn);
+  addBtn.onclick = () => showEntryModal(null, { clients, producers, onSave, title });
+
+  actionGroup.appendChild(exportBtn);
+  actionGroup.appendChild(addBtn);
+  header.appendChild(actionGroup);
 
   container.appendChild(header);
 
@@ -169,7 +190,7 @@ export function renderAccounting(container, { entries, filteredEntries, clients,
       tr.addEventListener('click', (e) => {
         if (e.target.closest('.print-btn')) printReceipt(entry, 'standard');
         if (e.target.closest('.thermal-btn')) printReceipt(entry, 'thermal');
-        if (e.target.closest('.edit-btn')) showEntryModal(entry, { clients, producers, onSave });
+        if (e.target.closest('.edit-btn')) showEntryModal(entry, { clients, producers, onSave, title });
         if (e.target.closest('.delete-btn')) onDelete(entry.id);
       });
 
@@ -234,7 +255,7 @@ function createStatCard(label, value, color) {
   return card;
 }
 
-function showEntryModal(existingEntry, { clients, producers, onSave }) {
+function showEntryModal(existingEntry, { clients, producers, onSave, title = 'Contabilidad' }) {
   let currentBillCounts = existingEntry?.billCounts || null;
 
   const modal = el('div', { 
@@ -248,7 +269,7 @@ function showEntryModal(existingEntry, { clients, producers, onSave }) {
   });
 
   content.innerHTML = `
-    <h2 style="margin-top: 0; margin-bottom: 2rem;">${existingEntry ? 'Editar Movimiento' : 'Nuevo Movimiento de Caja'}</h2>
+    <h2 style="margin-top: 0; margin-bottom: 2rem;">${existingEntry ? 'Editar' : 'Nuevo'} Movimiento de ${title}</h2>
     
     <form id="accounting-form">
       <div style="margin-bottom: 1.5rem; display: flex; gap: 2rem;">
@@ -505,6 +526,50 @@ function showBillCalculator(expectedAmount, onApply) {
     onApply(result);
     modal.remove();
   };
+}
+
+
+function showExportModal(onExport) {
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; padding: 2rem;' });
+  
+  const today = new Date().toISOString().split('T')[0];
+  const firstDayOfMonth = new Date();
+  firstDayOfMonth.setDate(1);
+  const fromDateVal = firstDayOfMonth.toISOString().split('T')[0];
+
+  modal.innerHTML = `
+    <h3 style="margin-bottom: 1.5rem;">📥 Exportar Movimientos</h3>
+    <form id="export-form">
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">Selecciona el rango de fechas para exportar a Excel.</p>
+      <div class="form-group">
+        <label>Desde</label>
+        <input type="date" id="export-from" class="form-input" value="${fromDateVal}">
+      </div>
+      <div class="form-group">
+        <label>Hasta</label>
+        <input type="date" id="export-to" class="form-input" value="${today}">
+      </div>
+      <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+        <button type="button" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-main); cursor: pointer;">Cancelar</button>
+        <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: #10b981; color: #fff; font-weight: 600; cursor: pointer;">Exportar Excel</button>
+      </div>
+    </form>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const form = modal.querySelector('#export-form');
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const from = modal.querySelector('#export-from').value;
+    const to = modal.querySelector('#export-to').value;
+    onExport(from, to);
+    overlay.remove();
+  };
+
+  modal.querySelector('.btn-cancel').onclick = () => overlay.remove();
 }
 
 
