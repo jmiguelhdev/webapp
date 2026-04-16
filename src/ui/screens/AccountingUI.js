@@ -44,6 +44,33 @@ export function renderAccounting(container, options) {
     }
   };
 
+  const zeroBtn = el('button', {
+    classes: ['btn-outline'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; color: var(--text-main); border-color: var(--border);',
+    html: '<span>⚖️ Cerrar a Cero</span>'
+  });
+  zeroBtn.onclick = () => {
+    // Determine current balance dynamically
+    const statsEntries = filteredEntries || entries;
+    const currentIn = statsEntries.filter(e => e.type === 'IN').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    const currentOut = statsEntries.filter(e => e.type === 'OUT').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    const currentWith = statsEntries.filter(e => e.type === 'WITHDRAWAL').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    const currentBal = currentIn - currentOut - currentWith;
+    
+    if (currentBal === 0) {
+       alert("La caja ya se encuentra en saldo cero.");
+       return;
+    }
+    if (confirm(`¿Estás seguro de cerrar la caja a cero?\nSe insertará un Retiro automático por $ ${currentBal.toLocaleString()} para saldar la caja.`)) {
+       onSave({
+         type: 'WITHDRAWAL',
+         amount: currentBal,
+         description: 'Cierre de Caja a Cero / Retiro Automático',
+         date: Date.now()
+       });
+    }
+  };
+
   const addBtn = el('button', { 
     classes: ['btn-nueva-operacion'],
     style: 'margin: 0;',
@@ -58,6 +85,7 @@ export function renderAccounting(container, options) {
   });
   auxCalcBtn.onclick = () => showAuxiliaryCalculator(title);
 
+  actionGroup.appendChild(zeroBtn);
   actionGroup.appendChild(auxCalcBtn);
   actionGroup.appendChild(exportBtn);
   actionGroup.appendChild(addBtn);
@@ -122,7 +150,8 @@ export function renderAccounting(container, options) {
   const statsEntries = filteredEntries || entries;
   const totalIn = statsEntries.filter(e => e.type === 'IN').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
   const totalOut = statsEntries.filter(e => e.type === 'OUT').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-  const balance = totalIn - totalOut;
+  const totalWith = statsEntries.filter(e => e.type === 'WITHDRAWAL').reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+  const balance = totalIn - totalOut - totalWith;
 
   const statsGrid = el('div', { 
     classes: ['stats-grid'],
@@ -132,6 +161,7 @@ export function renderAccounting(container, options) {
   statsGrid.appendChild(createStatCard('Saldo Selección', formatCurrency(balance), balance >= 0 ? 'var(--success)' : 'var(--danger)'));
   statsGrid.appendChild(createStatCard('Total Ingresos', formatCurrency(totalIn), 'var(--success)'));
   statsGrid.appendChild(createStatCard('Total Egresos', formatCurrency(totalOut), 'var(--danger)'));
+  statsGrid.appendChild(createStatCard('Retiros / Ajustes', formatCurrency(totalWith), '#8b5cf6'));
 
   container.appendChild(statsGrid);
 
@@ -163,6 +193,7 @@ export function renderAccounting(container, options) {
       
       const entityName = entry.clientName || entry.producerName || '-';
       const isIncome = entry.type === 'IN';
+      const isWith = entry.type === 'WITHDRAWAL';
       
       let diffHtml = '<span style="color: var(--text-muted);">-</span>';
       if (entry.countedAmount !== undefined && entry.countedAmount !== null) {
@@ -172,6 +203,9 @@ export function renderAccounting(container, options) {
         else diffHtml = `<span style="color: #ef4444; font-weight: 600;">Falta ${formatCurrency(Math.abs(diff))}</span>`;
       }
       
+      const amountColor = isIncome ? 'var(--success)' : isWith ? '#8b5cf6' : 'var(--danger)';
+      const amountSign = isIncome ? '+' : '-';
+
       tr.innerHTML = `
         <td style="padding: 1rem;">
           <div style="font-weight: 500;">${formatDate(entry.createdAt)}</div>
@@ -183,8 +217,8 @@ export function renderAccounting(container, options) {
         <td style="padding: 1rem;">
           <span style="font-size: 0.85rem; color: var(--text-muted);">${entityName}</span>
         </td>
-        <td style="padding: 1rem; text-align: right; font-weight: 700; color: ${isIncome ? 'var(--success)' : 'var(--danger)'};">
-          ${isIncome ? '+' : '-'} ${formatCurrency(entry.amount)}
+        <td style="padding: 1rem; text-align: right; font-weight: 700; color: ${amountColor};">
+          ${amountSign} ${formatCurrency(entry.amount)}
         </td>
         <td style="padding: 1rem; text-align: right;">
           ${diffHtml}
@@ -284,12 +318,15 @@ function showEntryModal(existingEntry, { clients, producers, onSave, title = 'Co
     <h2 style="margin-top: 0; margin-bottom: 2rem;">${existingEntry ? 'Editar' : 'Nuevo'} Movimiento de ${title}</h2>
     
     <form id="accounting-form">
-      <div style="margin-bottom: 1.5rem; display: flex; gap: 2rem;">
+      <div style="margin-bottom: 1.5rem; display: flex; gap: 1.5rem; flex-wrap: wrap;">
         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
           <input type="radio" name="type" value="IN" ${!existingEntry || existingEntry.type === 'IN' ? 'checked' : ''}> <span style="color: var(--success); font-weight: 600;">Ingreso (+)</span>
         </label>
         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
           <input type="radio" name="type" value="OUT" ${existingEntry && existingEntry.type === 'OUT' ? 'checked' : ''}> <span style="color: var(--danger); font-weight: 600;">Egreso (-)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <input type="radio" name="type" value="WITHDRAWAL" ${existingEntry && existingEntry.type === 'WITHDRAWAL' ? 'checked' : ''}> <span style="color: #8b5cf6; font-weight: 600;">Retiro / Ajuste (-)</span>
         </label>
       </div>
 
