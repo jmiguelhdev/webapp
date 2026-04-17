@@ -479,22 +479,26 @@ function showBillCalculator(expectedAmount, onApply) {
   content.innerHTML = `
     <h3 style="margin-top:0; margin-bottom: 1.5rem;">🔢 Recuento de Billetes</h3>
     <div id="calc-rows" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem;">
-      <div style="display: grid; grid-template-columns: 80px 20px 90px 20px 90px 30px 1fr; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+      <div style="display: grid; grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
         <div>Valor</div>
         <div></div>
-        <div style="text-align: center;">Fajos (100u)</div>
+        <div style="text-align: center;">Bloques <small>(1000u)</small></div>
         <div></div>
-        <div style="text-align: center;">Sueltos</div>
+        <div style="text-align: center;">Fajos <small>(100u)</small></div>
+        <div></div>
+        <div style="text-align: center;">Sueltos <small>(1u)</small></div>
         <div></div>
         <div style="text-align: right;">Subtotal</div>
       </div>
       ${DENOMINATIONS.map(d => `
-        <div class="denom-row" data-denom="${d}" style="display: grid; grid-template-columns: 80px 20px 90px 20px 90px 30px 1fr; align-items: center; gap: 0.5rem;">
+        <div class="denom-row" data-denom="${d}" style="display: grid; grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr; align-items: center; gap: 0.5rem;">
           <div style="font-weight: 700; color: var(--text-main);">$ ${d.toLocaleString()}</div>
           <div style="text-align: center;">×</div>
-          <input type="number" class="bill-batch" data-denom="${d}" placeholder="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <input type="number" class="bill-block" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
           <div style="text-align: center;">+</div>
-          <input type="number" class="bill-qty" data-denom="${d}" placeholder="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <input type="number" class="bill-batch" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <div style="text-align: center;">+</div>
+          <input type="number" class="bill-qty" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
           <div style="text-align: center;">=</div>
           <div class="row-total" style="text-align: right; font-weight: 600; font-family: monospace; font-size: 1.1rem;">$ 0</div>
         </div>
@@ -525,25 +529,27 @@ function showBillCalculator(expectedAmount, onApply) {
 
   const rowElements = content.querySelectorAll('.denom-row');
   const grandTotalEl = content.querySelector('#calc-grand-total');
-  const allInputs = content.querySelectorAll('.bill-batch, .bill-qty');
+  const allInputs = content.querySelectorAll('.bill-block, .bill-batch, .bill-qty');
 
   const updateGrandTotal = () => {
     let grand = 0;
     const breakdown = {};
     rowElements.forEach(row => {
+      const blockInput = row.querySelector('.bill-block');
       const batchInput = row.querySelector('.bill-batch');
       const qtyInput = row.querySelector('.bill-qty');
       const d = parseInt(batchInput.dataset.denom);
       
+      const blocks = parseInt(blockInput.value) || 0;
       const batches = parseInt(batchInput.value) || 0;
       const qtys = parseInt(qtyInput.value) || 0;
       
-      const rowTotal = (batches * 100 + qtys) * d;
+      const rowTotal = (blocks * 1000 + batches * 100 + qtys) * d;
       grand += rowTotal;
       row.querySelector('.row-total').textContent = `$ ${rowTotal.toLocaleString()}`;
       
-      if (batches > 0 || qtys > 0) {
-        breakdown[d] = { batches, qtys, subtotal: rowTotal };
+      if (blocks > 0 || batches > 0 || qtys > 0) {
+        breakdown[d] = { blocks, batches, qtys, subtotal: rowTotal };
       }
     });
     grandTotalEl.textContent = `$ ${grand.toLocaleString()}`;
@@ -614,7 +620,7 @@ function printReceipt(entry, type = 'standard') {
             <th style="padding: 4px; text-align: right;">Total</th>
           </tr>
           ${Object.entries(entry.billCounts).sort((a, b) => b[0] - a[0]).map(([denom, data]) => {
-            const totalQty = (data.batches || 0) * 100 + (data.qtys || 0);
+            const totalQty = (data.blocks || 0) * 1000 + (data.batches || 0) * 100 + (data.qtys || 0);
             return `
               <tr>
                 <td style="padding: 4px;">$ ${parseInt(denom).toLocaleString()}</td>

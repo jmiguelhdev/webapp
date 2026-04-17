@@ -424,10 +424,54 @@ const navigateTo = (view, role = currentUserRole) => {
             <div class="accordion-item">
               <div class="accordion-header"><span>👥 Gestión de Clientes y Cuentas Corrientes</span><i>▼</i></div>
               <div class="accordion-content">
-                <p>Módulo centralizado para la administración de clientes y control de saldos pendientes:</p>
+                <p>Módulo centralizado para la administración de clientes, control de saldos pendientes y análisis de precio promedio:</p>
                 <div class="formula-card"><span class="tech-tag">Débito Automático</span> Al despachar mercadería, se genera una <strong>DEUDA</strong>: Monto = Kg × Precio Categoría.</div>
                 <div class="formula-card"><span class="tech-tag">Saldo</span> Saldo Pendiente = ∑ Deuda (Despachos) - ∑ Haber (Pagos)</div>
-                <p>Los pagos se registran manualmente desde la ficha individual de cada cliente.</p>
+                <div class="formula-card"><span class="tech-tag">Análisis</span> <strong>Precio Promedio</strong> = Compara el Precio Real por Kg (venta externa) vs lo despachado automáticamente.</div>
+                <p>Los pagos e imputaciones se registran manualmente desde la ficha individual de cada cliente, con un historial completo de operaciones.</p>
+              </div>
+            </div>
+
+            <!-- NUEVA SECCIÓN: Placa de Precios -->
+            <div class="accordion-item">
+              <div class="accordion-header"><span>📲 Placa de Precios y Cotizaciones</span><i>▼</i></div>
+              <div class="accordion-content">
+                <p>Herramienta diseñada para generar listas de precios visualmente atractivas listas para compartir.</p>
+                <div class="formula-card"><span class="tech-tag">Diseño</span> Renderizado en vivo con animaciones y modo presentación a pantalla completa (Full Screen).</div>
+                <div class="formula-card"><span class="tech-tag">Compartir</span> Generación de captura rápida mediante el botón de exportación integrado en la vista.</div>
+                <p>Los precios exhibidos se alimentan de la "Configuración General" administrada por los perfiles jerárquicos.</p>
+              </div>
+            </div>
+
+            <!-- NUEVA SECCIÓN: Gestión de Cheques -->
+            <div class="accordion-item">
+              <div class="accordion-header"><span>💸 Gestión Integral de Cheques</span><i>▼</i></div>
+              <div class="accordion-content">
+                <p>Módulo específico para la administración de cheques físicos y eCheqs, con registro completo del ciclo de vida.</p>
+                <div class="formula-card"><span class="tech-tag">Estados</span> Pendiente → Cobrado, Depositado, Entregado a Tercero, Rechazado, o Destruido.</div>
+                <div class="formula-card"><span class="tech-tag">Validación Vto</span> Alerta visual inteligente basada en los días faltantes para la acreditación real en banco.</div>
+                <p>Los cheques operan como valores que, al liquidarse, pueden impactar dinámicamente de forma trazable en las cajas de contabilidad.</p>
+              </div>
+            </div>
+
+            <!-- NUEVA SECCIÓN: Caja General y Contabilidad -->
+            <div class="accordion-item">
+              <div class="accordion-header"><span>💰 Caja General y Arqueo Físico</span><i>▼</i></div>
+              <div class="accordion-content">
+                <p>Sistema contable principal para asentar ingresos, egresos, anticipos impositivos y reportes de liquidez bruta.</p>
+                <div class="formula-card"><span class="tech-tag">Balance</span> Sistema de registro por partida simple con Saldos arrastrados dinámicamente.</div>
+                <div class="formula-card"><span class="tech-tag">Arqueo Visual</span> "Validación Física" con sumatoria de denominación de billetes para control de caja frente a desfasajes operacionales.</div>
+                <p>Permite exportación avanzada directa a Microsoft Excel (.XLSX) con tablas debidamente ordenadas.</p>
+              </div>
+            </div>
+
+            <!-- NUEVA SECCIÓN: Caja Frigorífico -->
+            <div class="accordion-item">
+              <div class="accordion-header"><span>🏢 Caja Frigorífico</span><i>▼</i></div>
+              <div class="accordion-content">
+                <p>Contabilidad paralela específica y cerrada, dedicada al establecimiento o planta matadero.</p>
+                <div class="formula-card"><span class="tech-tag">Objetivo</span> Aislar impositivamente los gastos operativos estructurales (mantenimiento, servicios directos) de la rentabilidad cárnica.</div>
+                <p>Comparte la misma topología de arqueo, filtros avanzados para cierres contables y la arquitectura base de la Contabilidad General.</p>
               </div>
             </div>
             
