@@ -131,6 +131,29 @@ export async function updateFaenasStatus(db, uid, recordIds, updateData) {
 }
 
 /**
+ * Fetch dispatched faenas for a client in a date range.
+ */
+export async function fetchDispatchedFaenasInRange(db, clientName, startDate, endDate) {
+  const collRef = collection(db, 'faenas_detalle');
+  const q = query(
+    collRef, 
+    where("status", "==", "DISPATCHED"), 
+    where("destination", "==", clientName)
+  );
+  
+  const snapshot = await getDocs(q);
+  let faenas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  if (startDate || endDate) {
+    const start = startDate ? new Date(startDate + 'T00:00:00').getTime() : 0;
+    const end = endDate ? new Date(endDate + 'T23:59:59').getTime() : Infinity;
+    faenas = faenas.filter(f => f.dispatchDate >= start && f.dispatchDate <= end);
+  }
+  
+  return faenas;
+}
+
+/**
  * Move faenas to another camera, recording the event in the history.
  */
 export async function moveFaenasToCamara(db, uid, recordsInfo, camaraId) {
@@ -271,6 +294,24 @@ export async function addTransaction(db, transactionRecord) {
   await addDoc(collRef, { ...transactionRecord, createdAt: Date.now() });
 }
 
+export async function fetchTransactionsInRange(db, clientId, startDate, endDate) {
+  const collRef = collection(db, 'transactions');
+  let q = query(collRef, where("clientId", "==", clientId));
+  
+  const snapshot = await getDocs(q);
+  let txs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+
+  if (startDate || endDate) {
+    const start = startDate ? new Date(startDate + 'T00:00:00').getTime() : 0;
+    const end = endDate ? new Date(endDate + 'T23:59:59').getTime() : Infinity;
+    txs = txs.filter(t => {
+      const d = t.date || t.createdAt;
+      return d >= start && d <= end;
+    });
+  }
+  return txs;
+}
+
 /**
  * CHECK OPERATIONS API
  */
@@ -379,4 +420,31 @@ export async function syncAccountingToTransaction(db, accountingEntryId, transac
       createdAt: Date.now() 
     });
   }
+}
+
+/**
+ * PRICE ANALYSIS API
+ */
+export async function savePriceAnalysis(db, analysis) {
+  const collRef = collection(db, 'price_analyses');
+  let docRef;
+  const { id, ...data } = analysis;
+  const dataToSave = { ...data, updatedAt: Date.now() };
+
+  if (id) {
+    docRef = doc(db, 'price_analyses', id);
+    await updateDoc(docRef, dataToSave);
+  } else {
+    dataToSave.createdAt = Date.now();
+    docRef = await addDoc(collRef, dataToSave);
+  }
+  return docRef.id;
+}
+
+export async function fetchPriceAnalyses(db, clientId) {
+  const collRef = collection(db, 'price_analyses');
+  const q = query(collRef, where("clientId", "==", clientId));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }

@@ -7,6 +7,7 @@ import { renderSettings } from './ui/screens/SettingsUI.js';
 import { renderPriceShare } from './ui/screens/PriceShareUI.js';
 import { renderChecks } from './ui/screens/ChecksUI.js';
 import { renderAccounting } from './ui/screens/AccountingUI.js';
+import { renderPriceAnalysis } from './ui/screens/PriceAnalysisUI.js';
 import { renderSidebar } from './ui/components/Sidebar.js';
 import { renderExportModal, renderScanResultsModal, renderDateModal, showAuxiliaryCalculator } from './ui/components/Modals.js';
 import { generateTravelReport, generateExcelReport, generateAccountingExcel, generateChecksExcel, printChecksReport } from './ui/reports/ReportService.js';
@@ -26,6 +27,7 @@ export {
   renderPriceShare,
   renderChecks,
   renderAccounting,
+  renderPriceAnalysis,
   renderSidebar,
   renderExportModal,
   renderDateModal,

@@ -1,7 +1,7 @@
 import { el } from '../../utils/dom.js';
 
 export function renderClientAccounts(options) {
-  const { clients, selectedClient, transactions, onSelectClient, onAddPayment, onBack } = options;
+  const { clients, selectedClient, transactions, onSelectClient, onAddPayment, onBack, onAnalyzePrice } = options;
   const container = document.getElementById('content');
   container.innerHTML = '';
   const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
@@ -26,11 +26,19 @@ export function renderClientAccounts(options) {
           </div>
         </div>
       </div>
-      <button id="print-account-btn" class="icon-btn" title="Imprimir Detalle de Cuenta" style="background: var(--glass); padding: 0.75rem; border: 1px solid var(--border); width: auto; height: auto;">
-        <span style="font-size: 1.2rem;">🖨️</span>
-      </button>
+      <div style="display: flex; gap: 0.5rem;">
+        <button id="analyze-price-btn" class="icon-btn" title="Análisis de Precio Promedio" style="background: var(--glass); padding: 0.75rem; border: 1px solid var(--border); width: auto; height: auto; display: flex; align-items: center; gap: 0.5rem; color: var(--primary);">
+          <span style="font-size: 1.25rem;">📊</span>
+          <span style="font-size: 0.9rem; font-weight: 600;">Análisis</span>
+        </button>
+        <button id="print-account-btn" class="icon-btn" title="Imprimir Detalle de Cuenta" style="background: var(--glass); padding: 0.75rem; border: 1px solid var(--border); width: auto; height: auto;">
+          <span style="font-size: 1.2rem;">🖨️</span>
+        </button>
+      </div>
     `;
     wrapper.appendChild(header);
+
+    header.querySelector('#analyze-price-btn').onclick = onAnalyzePrice;
 
     header.querySelector('#print-account-btn').onclick = () => showPrintOptionsModal(selectedClient, transactions);
 

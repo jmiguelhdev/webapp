@@ -78,6 +78,7 @@ const uiInterface = {
   renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options),
   renderChecks: (options) => uiLib.renderChecks(content, options),
   renderAccounting: (options) => uiLib.renderAccounting(content, options),
+  renderPriceAnalysis: (options) => uiLib.renderPriceAnalysis(content, options),
   generateAccountingExcel: (entries, title) => uiLib.generateAccountingExcel(entries, title),
   renderDateModal: (options) => uiLib.renderDateModal(options),
   generateChecksExcel: (checks, contacts) => uiLib.generateChecksExcel(checks, contacts),

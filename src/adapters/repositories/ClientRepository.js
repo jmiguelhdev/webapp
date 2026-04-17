@@ -38,4 +38,20 @@ export class ClientRepository {
   async syncAccountingToTransaction(accountingId, data) {
     return api.syncAccountingToTransaction(db, accountingId, data);
   }
+
+  async getDispatchedFaenas(clientName, startDate, endDate) {
+    return api.fetchDispatchedFaenasInRange(db, clientName, startDate, endDate);
+  }
+
+  async getTransactionsInRange(clientId, startDate, endDate) {
+    return api.fetchTransactionsInRange(db, clientId, startDate, endDate);
+  }
+
+  async savePriceAnalysis(analysisData) {
+    return api.savePriceAnalysis(db, analysisData);
+  }
+
+  async getPriceAnalyses(clientId) {
+    return api.fetchPriceAnalyses(db, clientId);
+  }
 }
