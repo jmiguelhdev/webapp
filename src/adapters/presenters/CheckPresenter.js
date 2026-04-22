@@ -59,10 +59,14 @@ export class CheckPresenter {
         const bank = (c.bank || '').toLowerCase();
         const num = (c.checkNumber || '').toLowerCase();
         const val = String(c.nominalValue || '');
+        const issuer = (c.issuerName || '').toLowerCase();
+        const cuit = (c.issuerCuit || '').toLowerCase();
         const seller = (this.contacts.find(con => con.id === c.buySide?.contactId)?.name || '').toLowerCase();
         const buyer = (this.contacts.find(con => con.id === c.sellSide?.contactId)?.name || '').toLowerCase();
         
-        if (!bank.includes(term) && !num.includes(term) && !val.includes(term) && !seller.includes(term) && !buyer.includes(term)) {
+        if (!bank.includes(term) && !num.includes(term) && !val.includes(term) && 
+            !issuer.includes(term) && !cuit.includes(term) && 
+            !seller.includes(term) && !buyer.includes(term)) {
           match = false;
         }
       }
@@ -149,6 +153,11 @@ export class CheckPresenter {
     
     op.days = totalDays;
 
+    // Issue Date handling (no calculation needed, just ensures consistency)
+    if (op.issueDate && !isNaN(new Date(op.issueDate).getTime())) {
+      // Keep as string ISO for consistency with other dates in this app
+    }
+
     // Buy side calculation
     if (op.buySide) {
       op.buySide.pesificacionRate = parseFloat(op.buySide.pesificacionRate) || 0;
@@ -173,8 +182,6 @@ export class CheckPresenter {
     } else if (op.sellSide && (op.sellSide.status === 'RETURNED' || op.sellSide.status === 'REJECTED')) {
       // Dejan registro pero sin ganancia.
       op.profit = 0;
-      // You could still calculate netAmount if you wanted to store it for historical reasons,
-      // but profit must be canceled out.
     } else {
       op.profit = 0;
     }

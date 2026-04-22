@@ -222,6 +222,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete) {
         <td style="padding: 1rem;">
           <div style="font-weight: 600;">${op.bank || 'S/B'}</div>
           <div style="font-size: 0.8rem; color: var(--text-muted);">#${op.checkNumber || 'S/N'}</div>
+          ${op.issuerName ? `<div style="font-size: 0.75rem; color: var(--primary); margin-top: 0.25rem;">👤 ${op.issuerName}</div>` : ''}
         </td>
         <td style="padding: 1rem;">
           <div style="font-weight: 500;">${formatDate(op.dueDate)}</div>
@@ -305,6 +306,10 @@ function showOperationModal(existingOp, contacts, onSave) {
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
         <div class="form-group">
+          <label>Fecha Emisión</label>
+          <input type="date" name="issueDate" value="${existingOp?.issueDate || ''}">
+        </div>
+        <div class="form-group">
           <label>Fecha Recepción</label>
           <input type="date" name="receptionDate" value="${existingOp?.receptionDate || new Date().toISOString().split('T')[0]}" required>
         </div>
@@ -314,7 +319,27 @@ function showOperationModal(existingOp, contacts, onSave) {
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+      <!-- ISSUER INFO -->
+      <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem; border-left: 4px solid var(--primary);">
+        <h3 style="margin-top:0; font-size: 1rem; color: var(--primary);">👤 Datos del Librador</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Nombre / Razón Social</label>
+            <input type="text" name="issuerName" value="${existingOp?.issuerName || ''}" placeholder="Nombre del librador">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>CUIT Librador</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="text" name="issuerCuit" id="issuer-cuit" value="${existingOp?.issuerCuit || ''}" placeholder="20-XXXXXXXX-X" style="flex: 1;">
+              <button type="button" id="btn-bcra" title="Consultar Situación Crediticia en BCRA" style="padding: 0 1rem; border-radius: 8px; background: #2563eb; color: white; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+                🔍 BCRA
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
         <!-- BUY SIDE -->
         <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.02);">
           <h3 style="margin-top:0; color: var(--primary);">📥 Compra (Origen)</h3>
@@ -371,6 +396,11 @@ function showOperationModal(existingOp, contacts, onSave) {
         </div>
       </div>
 
+      <div class="form-group">
+        <label>Notas / Observaciones</label>
+        <textarea name="notes" rows="3" placeholder="Observaciones adicionales..." style="resize: vertical;">${existingOp?.notes || ''}</textarea>
+      </div>
+
       <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; align-items: center;">
         <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cancelar</button>
         <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(99,102,241,0.4); letter-spacing: 0.03em;">Guardar Operación</button>
@@ -380,6 +410,25 @@ function showOperationModal(existingOp, contacts, onSave) {
 
   modal.appendChild(content);
   document.body.appendChild(modal);
+
+  // BCRA Helper
+  content.querySelector('#btn-bcra').onclick = () => {
+    const cuitInput = content.querySelector('#issuer-cuit');
+    const cuit = cuitInput.value.replace(/\D/g, '');
+    if (!cuit || cuit.length < 11) {
+      alert('Por favor ingrese un CUIT válido (11 dígitos).');
+      return;
+    }
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(cuit).then(() => {
+      alert(`CUIT ${cuit} copiado al portapapeles.\n\nSe abrirá la web del BCRA. Pega el CUIT allí para consultar.`);
+      window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
+    }).catch(err => {
+      console.error('Error copying to clipboard:', err);
+      window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
+    });
+  };
 
   const form = content.querySelector('#check-form');
   form.onsubmit = (e) => {
@@ -391,8 +440,12 @@ function showOperationModal(existingOp, contacts, onSave) {
       checkNumber: formData.get('checkNumber'),
       nominalValue: formData.get('nominalValue'),
       clearing: formData.get('clearing'),
+      issueDate: formData.get('issueDate'),
       receptionDate: formData.get('receptionDate'),
       dueDate: formData.get('dueDate'),
+      issuerName: formData.get('issuerName'),
+      issuerCuit: formData.get('issuerCuit'),
+      notes: formData.get('notes'),
       buySide: {
         contactId: formData.get('buySide_contactId'),
         pesificacionRate: formData.get('buySide_pesificacionRate'),

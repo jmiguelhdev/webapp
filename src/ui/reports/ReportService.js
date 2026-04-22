@@ -183,6 +183,9 @@ export async function generateChecksExcel(checks, contacts) {
     return {
       'Banco': op.bank || '-',
       '# Cheque': op.checkNumber || '-',
+      'Librador': op.issuerName || '-',
+      'CUIT Librador': op.issuerCuit || '-',
+      'F. Emisión': op.issueDate ? new Date(op.issueDate).toLocaleDateString('es-AR') : '-',
       'F. Recepción': op.receptionDate ? new Date(op.receptionDate).toLocaleDateString('es-AR') : '-',
       'F. Pago': op.dueDate ? new Date(op.dueDate).toLocaleDateString('es-AR') : '-',
       'Plazo (días)': op.days || 0,
@@ -190,7 +193,8 @@ export async function generateChecksExcel(checks, contacts) {
       'Vendedor (Origen)': seller,
       'Comprador (Destino)': isSold ? buyer : '-',
       'Estado': statusText,
-      'Ganancia ($)': isSold ? (op.profit || 0) : 0
+      'Ganancia ($)': isSold ? (op.profit || 0) : 0,
+      'Notas': op.notes || ''
     };
   });
 
@@ -236,15 +240,27 @@ export function printChecksReport(checks, contacts, options) {
 
     return `
       <tr>
-        <td>${op.bank || '-'}</td>
-        <td>${op.checkNumber || '-'}</td>
-        <td>${op.dueDate ? new Date(op.dueDate).toLocaleDateString('es-AR') : '-'}</td>
-        <td>${seller}</td>
-        <td>${isSold ? buyer : '-'}</td>
+        <td>
+          <div style="font-weight:600;">${op.bank || '-'}</div>
+          <div style="font-size:11px; color:#666;">#${op.checkNumber || '-'}</div>
+        </td>
+        <td>
+          <div>${op.dueDate ? new Date(op.dueDate).toLocaleDateString('es-AR') : '-'}</div>
+          ${op.issueDate ? `<div style="font-size:10px; color:#888;">Emi: ${new Date(op.issueDate).toLocaleDateString('es-AR')}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-weight:600;">${op.issuerName || '-'}</div>
+          <div style="font-size:10px; color:#666;">${op.issuerCuit || ''}</div>
+        </td>
+        <td>
+          <div style="font-size:11px;"><span style="color:#666;">De:</span> ${seller}</div>
+          <div style="font-size:11px;"><span style="color:#666;">A:</span> ${isSold ? buyer : '-'}</div>
+        </td>
         <td>${statusText}</td>
         <td class="amount">${(parseFloat(op.nominalValue) || 0).toLocaleString('es-AR')}</td>
         <td class="amount">${isSold ? (op.profit || 0).toLocaleString('es-AR') : '-'}</td>
       </tr>
+      ${op.notes ? `<tr><td colspan="8" style="font-size:10px; color:#777; border-top:none; padding-top:0;">📝 Nota: ${op.notes}</td></tr>` : ''}
     `;
   }).join('');
 
@@ -299,11 +315,10 @@ export function printChecksReport(checks, contacts, options) {
         <table class="table">
           <thead>
             <tr>
-              <th>Banco</th>
-              <th>Número</th>
-              <th>F. Pago</th>
-              <th>Origen (Vendedor)</th>
-              <th>Destino (Comprador)</th>
+              <th>Banco / #</th>
+              <th>F. Pago / Emisión</th>
+              <th>Librador (CUIT)</th>
+              <th>Origen / Destino</th>
               <th>Estado</th>
               <th class="amount">V. Nominal ($)</th>
               <th class="amount">Ganancia ($)</th>
