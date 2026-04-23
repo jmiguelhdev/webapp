@@ -69,6 +69,18 @@ export function renderClientAccounts(options) {
     `;
     wrapper.appendChild(paymentCard);
 
+    // Form to add Generic Sale (DEBT)
+    const saleCard = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #ef4444;' });
+    saleCard.innerHTML = `
+      <h3 style="margin-bottom: 1rem; color: #ef4444;">🛒 Registrar Venta (Genérica)</h3>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; min-width: 120px; margin: 0;"><label>Monto ($)</label><input type="number" id="sale-amount" class="form-input" placeholder="0.00"></div>
+        <div class="form-group" style="flex: 2; min-width: 200px; margin: 0;"><label>Descripción / Concepto</label><input type="text" id="sale-desc" class="form-input" placeholder="Ej: Venta de productos, Flete..."></div>
+        <button id="sale-btn" class="btn-primary" style="background: #ef4444; margin: 0;">Registrar Venta</button>
+      </div>
+    `;
+    wrapper.appendChild(saleCard);
+
     // Transactions Table
     const histCard = el('div', { classes: ['glass-card'] });
     histCard.innerHTML = `<h3 style="margin-bottom: 1rem;">Historial de Movimientos</h3>`;
@@ -121,6 +133,12 @@ export function renderClientAccounts(options) {
       const desc = document.getElementById('pay-desc').value;
       const received = document.getElementById('pay-received').value;
       if (amt) onAddPayment(amt, desc, received);
+    };
+
+    saleCard.querySelector('#sale-btn').onclick = () => {
+      const amt = document.getElementById('sale-amount').value;
+      const desc = document.getElementById('sale-desc').value || 'Venta Genérica';
+      if (amt && options.onAddSale) options.onAddSale(amt, desc);
     };
 
     wrapper.querySelectorAll('.view-detail-btn').forEach(btn => {
@@ -188,6 +206,183 @@ export function renderClientAccounts(options) {
   container.appendChild(wrapper);
 }
 
+function renderTransactionDetailModal(tx) {
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 500px; width: 100%; padding: 2rem;' });
+  
+  const header = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;' });
+  header.innerHTML = `
+    <h3 style="margin: 0; color: var(--primary);">Detalle de Movimiento</h3>
+    <button class="close-btn" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;">&times;</button>
+  `;
+  
+  const txDate = new Date(tx.date || tx.createdAt).toLocaleDateString('es-AR');
+  const txDesc = tx.description || (tx.type === 'DEBT' ? 'Despacho' : 'Pago');
+  
+  const infoSection = el('div', { style: 'margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;' });
+  infoSection.innerHTML = `
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+      <span style="color: var(--text-muted);">Fecha:</span>
+      <span style="font-weight: 500;">${txDate}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+      <span style="color: var(--text-muted);">Concepto:</span>
+      <span style="font-weight: 500; text-align: right;">${txDesc}</span>
+    </div>
+  `;
+  
+  const content = el('div');
+  
+  let rowsHtml = '';
+  let totalWeight = 0;
+  let totalPrice = 0;
+  let waText = `*Detalle de Movimiento*\nFecha: ${txDate}\nConcepto: ${txDesc}\n\n`;
+  
+  if (tx.breakout && tx.breakout.length > 0) {
+    waText += `*Detalle:*\n`;
+    const tbodyHtml = tx.breakout.map(item => {
+      const weight = Number(item.weight) || 0;
+      const total = Number(item.total) || 0;
+      totalWeight += weight;
+      totalPrice += total;
+      
+      waText += `• G#${item.garron}: ${weight}kg @ $${item.price} = $${total.toLocaleString('es-AR')}\n`;
+      
+      return `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <td style="padding: 0.5rem;">#${item.garron}</td>
+          <td style="padding: 0.5rem; text-align: right;">${weight}</td>
+          <td style="padding: 0.5rem; text-align: right;">$${item.price}</td>
+          <td style="padding: 0.5rem; text-align: right; color: #ef4444; font-weight: 500;">$${total.toLocaleString()}</td>
+        </tr>
+      `;
+    }).join('');
+    
+    waText += `\n*TOTAL:* ${totalWeight.toFixed(1)}kg - $${totalPrice.toLocaleString('es-AR')}`;
+
+    rowsHtml = `
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; text-align: left;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+            <th style="padding: 0.5rem;">Garrón</th>
+            <th style="padding: 0.5rem; text-align: right;">Peso (kg)</th>
+            <th style="padding: 0.5rem; text-align: right;">Precio/kg</th>
+            <th style="padding: 0.5rem; text-align: right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tbodyHtml}
+        </tbody>
+        <tfoot>
+          <tr style="border-top: 2px solid var(--border); font-weight: bold;">
+            <td style="padding: 0.5rem;">TOTAL</td>
+            <td style="padding: 0.5rem; text-align: right;">${totalWeight.toFixed(1)} kg</td>
+            <td style="padding: 0.5rem;"></td>
+            <td style="padding: 0.5rem; text-align: right; color: #ef4444;">$${totalPrice.toLocaleString()}</td>
+          </tr>
+        </tfoot>
+      </table>
+    `;
+  } else {
+    waText += `Monto: $${(tx.amount || 0).toLocaleString('es-AR')}`;
+    rowsHtml = '<p style="color: var(--text-muted);">No hay detalles desglosados para este movimiento.</p>';
+  }
+  
+  content.innerHTML = rowsHtml;
+  
+  const footer = el('div', { style: 'display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;' });
+  footer.innerHTML = `
+    <button class="btn-outline print-btn" style="display: flex; align-items: center; gap: 0.5rem;">
+      🖨️ Imprimir
+    </button>
+    <button class="btn-outline wa-btn" style="display: flex; align-items: center; gap: 0.5rem; color: #25D366; border-color: rgba(37,211,102,0.3);">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+      WhatsApp
+    </button>
+    <button class="btn-primary close-modal-btn" style="padding: 0.5rem 1.5rem;">Cerrar</button>
+  `;
+  
+  modal.appendChild(header);
+  modal.appendChild(infoSection);
+  modal.appendChild(content);
+  modal.appendChild(footer);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  const close = () => document.body.removeChild(overlay);
+  header.querySelector('.close-btn').onclick = close;
+  footer.querySelector('.close-modal-btn').onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  
+  footer.querySelector('.wa-btn').onclick = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank');
+  };
+  
+  footer.querySelector('.print-btn').onclick = () => {
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    let printRows = '';
+    if (tx.breakout && tx.breakout.length > 0) {
+      printRows = tx.breakout.map(item => `
+        <tr>
+          <td>#${item.garron}</td>
+          <td style="text-align:right;">${item.weight}kg</td>
+          <td style="text-align:right;">$${item.price}</td>
+          <td style="text-align:right;">$${Number(item.total).toLocaleString()}</td>
+        </tr>
+      `).join('');
+      printRows += `
+        <tr style="font-weight:bold; border-top:1px solid #000;">
+          <td>TOTAL</td>
+          <td style="text-align:right;">${totalWeight.toFixed(1)}kg</td>
+          <td></td>
+          <td style="text-align:right;">$${totalPrice.toLocaleString()}</td>
+        </tr>
+      `;
+    }
+    
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Detalle de Movimiento</title>
+        <style>
+          body { font-family: monospace; padding: 20px; color: #000; font-size: 14px; }
+          .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+          .info { margin-bottom: 15px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 4px 0; border-bottom: 1px dotted #ccc; }
+          @media print { @page { margin: 0; } body { padding: 10px; } }
+        </style>
+      </head>
+      <body onload="window.print(); window.close();">
+        <div class="header">
+          <h2>DETALLE DE MOVIMIENTO</h2>
+        </div>
+        <div class="info">
+          <div><strong>Fecha:</strong> ${txDate}</div>
+          <div><strong>Concepto:</strong> ${txDesc}</div>
+        </div>
+        ${tx.breakout && tx.breakout.length > 0 ? `
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left;">Garrón</th>
+                <th style="text-align:right;">Peso</th>
+                <th style="text-align:right;">$/kg</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${printRows}
+            </tbody>
+          </table>
+        ` : `<p>Monto: $${(tx.amount || 0).toLocaleString()}</p>`}
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+}
+
 function showPrintOptionsModal(client, transactions) {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
   const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; padding: 2rem;' });
@@ -217,7 +412,7 @@ function showPrintOptionsModal(client, transactions) {
       </div>
       <div style="display: flex; gap: 1rem; margin-top: 2rem;">
         <button type="button" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-main); cursor: pointer;">Cancelar</button>
-        <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: var(--primary); color: #fff; cursor: pointer;">Imprimir</button>
+        <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: var(--primary); color: var(--on-primary); cursor: pointer;">Imprimir</button>
       </div>
     </form>
   `;

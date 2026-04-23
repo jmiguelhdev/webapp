@@ -153,7 +153,7 @@ export function renderDateModal(options) {
       </div>
       <div style="display: flex; gap: 1rem; margin-top: 2rem;">
         <button type="button" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-main); cursor: pointer;">Cancelar</button>
-        <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: var(--primary); color: #fff; font-weight: 600; cursor: pointer;">${submitText}</button>
+        <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 600; cursor: pointer;">${submitText}</button>
       </div>
     </form>
   `;

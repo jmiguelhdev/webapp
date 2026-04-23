@@ -68,6 +68,27 @@ export class ClientPresenter {
     }
   }
 
+  async addSale(amount, description) {
+    if (!this.selectedClient) return;
+    this.ui.showLoading();
+    try {
+      const transaction = {
+        clientId: this.selectedClient.id,
+        type: 'DEBT',
+        amount: parseFloat(amount),
+        description: description,
+        date: Date.now()
+      };
+      await this.clientRepository.addTransaction(transaction);
+      await this.selectClient(this.selectedClient);
+      await this.loadClients(); // Update balance in list
+    } catch (e) {
+      this.ui.showError("Error al registrar venta: " + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
   render() {
     this.ui.renderClientAccounts({
       clients: this.clients,
@@ -75,6 +96,7 @@ export class ClientPresenter {
       transactions: this.transactions,
       onSelectClient: this.selectClient.bind(this),
       onAddPayment: this.addPayment.bind(this),
+      onAddSale: this.addSale.bind(this),
       onAnalyzePrice: this.openPriceAnalysis.bind(this),
       onBack: () => { 
         if (this.viewMode === 'analysis') {

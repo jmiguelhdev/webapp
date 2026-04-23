@@ -148,11 +148,12 @@ export function renderSettings(container, options) {
   const renderPriceInputs = (prices = {}) => {
     const priceGrid = wrapper.querySelector('#category-prices-grid');
     if (!priceGrid) return;
-    const categories = ['NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO'];
+    const categories = ['NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO', 'ACHURAS'];
     priceGrid.innerHTML = '';
     categories.forEach(cat => {
       const fg = el('div', { classes: ['form-group'], style: 'margin: 0;' });
-      fg.innerHTML = `<label>${cat}</label><input type="number" class="cat-price-input" data-cat="${cat}" value="${prices[cat] || ''}" placeholder="Ej: 5000">`;
+      const label = cat === 'ACHURAS' ? 'ACHURAS ($/juego)' : cat;
+      fg.innerHTML = `<label>${label}</label><input type="number" class="cat-price-input" data-cat="${cat}" value="${prices[cat] || ''}" placeholder="Ej: 5000">`;
       priceGrid.appendChild(fg);
     });
   };

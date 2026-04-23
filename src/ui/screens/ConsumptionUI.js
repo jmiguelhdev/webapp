@@ -240,21 +240,24 @@ export function renderFaenaConsumption(container, options) {
     transition: all 0.2s ease;
     border: none;
     background: ${isActive ? 'var(--primary)' : 'transparent'};
-    color: ${isActive ? '#ffffff' : 'var(--text-muted)'};
+    color: ${isActive ? 'var(--on-primary)' : 'var(--text-muted)'};
     box-shadow: ${isActive ? '0 4px 12px rgba(132, 29, 29, 0.3)' : 'none'};
   `;
   
   const btnStock = el('button', { style: getTabStyle(state.activeTab === 'STOCK'), text: '📦 Dispónible' });
   const btnDrafts = el('button', { style: getTabStyle(state.activeTab === 'DRAFTS'), text: '📝 Preparaciones' });
   const btnHistory = el('button', { style: getTabStyle(state.activeTab === 'HISTORY'), text: '📜 Historial' });
+  const btnAchuras = el('button', { style: getTabStyle(state.activeTab === 'ACHURAS'), text: '🥩 Achuras' });
 
   btnStock.onclick = () => onTabSwitch('STOCK');
   btnDrafts.onclick = () => onTabSwitch('DRAFTS');
   btnHistory.onclick = () => onTabSwitch('HISTORY');
+  btnAchuras.onclick = () => onTabSwitch('ACHURAS');
 
   tabs.appendChild(btnStock);
   tabs.appendChild(btnDrafts);
   tabs.appendChild(btnHistory);
+  tabs.appendChild(btnAchuras);
   
   header.appendChild(tabs);
   wrapper.appendChild(header);
@@ -284,7 +287,7 @@ export function renderFaenaConsumption(container, options) {
         transition: all 0.2s;
         border: 1px solid ${isCatActive ? 'var(--primary)' : 'var(--border)'};
         background: ${isCatActive ? 'var(--primary)' : 'transparent'};
-        color: ${isCatActive ? '#ffffff' : 'var(--text-main)'};
+        color: ${isCatActive ? 'var(--on-primary)' : 'var(--text-main)'};
       `
     });
     catBtn.onclick = () => onCategoryChange(cat);
@@ -301,7 +304,7 @@ export function renderFaenaConsumption(container, options) {
   
   const allCamaraBtn = el('button', { 
     text: 'Todas', 
-    style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${state.camaraFilter === 'ALL' ? 'var(--primary)' : 'var(--border)'}; background: ${state.camaraFilter === 'ALL' ? 'var(--primary)' : 'transparent'}; color: ${state.camaraFilter === 'ALL' ? '#fff' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;` 
+    style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${state.camaraFilter === 'ALL' ? 'var(--primary)' : 'var(--border)'}; background: ${state.camaraFilter === 'ALL' ? 'var(--primary)' : 'transparent'}; color: ${state.camaraFilter === 'ALL' ? 'var(--on-primary)' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;` 
   });
   allCamaraBtn.onclick = () => options.onCamaraChange('ALL');
   camaraChipsWrap.appendChild(allCamaraBtn);
@@ -323,7 +326,7 @@ export function renderFaenaConsumption(container, options) {
     
     const chip = el('button', { 
       text: displayStr,
-      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : isWarning ? 'var(--danger)' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : isWarning ? 'rgba(239,68,68,0.1)' : 'transparent'}; color: ${isActive ? '#fff' : isWarning ? 'var(--danger)' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s; font-weight: ${isWarning ? '600' : '400'}`
+      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : isWarning ? 'var(--danger)' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : isWarning ? 'rgba(239,68,68,0.1)' : 'transparent'}; color: ${isActive ? 'var(--on-primary)' : isWarning ? 'var(--danger)' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s; font-weight: ${isWarning ? '600' : '400'}`
     });
     chip.onclick = () => options.onCamaraChange(camaraName);
     camaraChipsWrap.appendChild(chip);
@@ -340,7 +343,7 @@ export function renderFaenaConsumption(container, options) {
   
   const allTropaBtn = el('button', { 
     text: 'Todas', 
-    style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${state.tropaFilter === 'ALL' ? 'var(--primary)' : 'var(--border)'}; background: ${state.tropaFilter === 'ALL' ? 'var(--primary)' : 'transparent'}; color: ${state.tropaFilter === 'ALL' ? '#fff' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;` 
+    style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${state.tropaFilter === 'ALL' ? 'var(--primary)' : 'var(--border)'}; background: ${state.tropaFilter === 'ALL' ? 'var(--primary)' : 'transparent'}; color: ${state.tropaFilter === 'ALL' ? 'var(--on-primary)' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;` 
   });
   allTropaBtn.onclick = () => onTropaChange('ALL');
   tropaChipsWrap.appendChild(allTropaBtn);
@@ -350,7 +353,7 @@ export function renderFaenaConsumption(container, options) {
     const isActive = state.tropaFilter === tropa;
     const chip = el('button', { 
       text: `Tr. ${tropa}${isFinished ? ' ✓' : ''}`,
-      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : isFinished ? '#10b981' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : isFinished ? 'rgba(16,185,129,0.1)' : 'transparent'}; color: ${isActive ? '#fff' : isFinished ? '#10b981' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s; font-weight: ${isFinished ? '600' : '400'};`
+      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : isFinished ? '#10b981' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : isFinished ? 'rgba(16,185,129,0.1)' : 'transparent'}; color: ${isActive ? 'var(--on-primary)' : isFinished ? '#10b981' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s; font-weight: ${isFinished ? '600' : '400'};`
     });
     chip.onclick = () => onTropaChange(tropa);
     tropaChipsWrap.appendChild(chip);
@@ -764,6 +767,96 @@ export function renderFaenaConsumption(container, options) {
        });
     }
     wrapper.appendChild(draftCard);
+
+  } else if (state.activeTab === 'ACHURAS') {
+    // --- ACHURAS VIEW ---
+    const achurasCard = el('div', { classes: ['glass-card'] });
+    achurasCard.innerHTML = `<h3 style="margin-bottom: 1rem;">🥩 Stock de Achuras</h3>`;
+
+    const totalJuegos = (options.achurasItems || []).reduce((sum, item) => sum + (item.availableQuantity || 0), 0);
+    
+    // Stats
+    const statsContainer = el('div', { style: 'display: flex; gap: 1rem; margin-bottom: 2rem;' });
+    statsContainer.innerHTML = `
+      <div class="stat-card glass-card" style="flex: 1;">
+        <h3>Juegos Disponibles</h3>
+        <div class="stat-value" style="color: #10b981;">${totalJuegos}</div>
+      </div>
+    `;
+    achurasCard.appendChild(statsContainer);
+
+    // Dispatch form
+    if (totalJuegos > 0) {
+      const dispatchPanel = el('div', { style: 'background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;' });
+      const currentPrice = state.categoryPriceInputs['ACHURAS'] || (options.categoryPrices && options.categoryPrices['ACHURAS']) || '';
+      dispatchPanel.innerHTML = `
+        <h4 style="margin-top: 0; color: #ef4444; margin-bottom: 1rem;">🚚 Despachar Achuras</h4>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+          <div class="form-group" style="flex: 1; min-width: 120px; margin: 0;">
+            <label>Cantidad (Juegos)</label>
+            <input type="number" id="achuras-qty" class="form-input" placeholder="Ej: 10" min="1" max="${totalJuegos}">
+          </div>
+          <div class="form-group" style="flex: 2; min-width: 200px; margin: 0;">
+            <label>Destino / Cliente</label>
+            <input type="text" id="achuras-dest" class="form-input" list="clients-list" placeholder="Ej: Carnicería Centro">
+            <datalist id="clients-list">
+              ${(options.clients || []).map(c => `<option value="${c.name}">`).join('')}
+            </datalist>
+          </div>
+          <div class="form-group" style="flex: 1; min-width: 120px; margin: 0;">
+             <label>Precio por Juego ($)</label>
+             <input type="number" class="form-input cat-price-input" data-cat="ACHURAS" value="${currentPrice}" placeholder="Ej: 5000">
+          </div>
+          <button id="dispatch-achuras-btn" class="btn-primary" style="background: #ef4444; margin: 0;">Despachar</button>
+        </div>
+      `;
+      achurasCard.appendChild(dispatchPanel);
+
+      dispatchPanel.querySelector('.cat-price-input').addEventListener('input', e => {
+        options.onCategoryPriceInput('ACHURAS', e.target.value);
+      });
+
+      dispatchPanel.querySelector('#dispatch-achuras-btn').onclick = () => {
+         const qty = parseInt(dispatchPanel.querySelector('#achuras-qty').value, 10);
+         const dest = dispatchPanel.querySelector('#achuras-dest').value;
+         if (options.onDispatchAchuras) {
+            options.onDispatchAchuras(qty, dest);
+         }
+      };
+    }
+
+    // Table of batches
+    const tableWrap = el('div', { style: 'overflow-x: auto;' });
+    const table = document.createElement('table');
+    table.className = 'faena-table';
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.innerHTML = `
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;">
+          <th style="padding: 1rem;">Fecha Origen</th>
+          <th style="padding: 1rem;">Tropa</th>
+          <th style="padding: 1rem;">Stock Inicial</th>
+          <th style="padding: 1rem;">Stock Disponible</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(!options.achurasItems || options.achurasItems.length === 0) ? '<tr><td colspan="4" style="padding: 2rem; text-align: center;">Sin stock de achuras.</td></tr>' : 
+          options.achurasItems.map(item => `
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 1rem;">${item.date ? new Date(item.date).toLocaleDateString() : '-'}</td>
+              <td style="padding: 1rem;">Tr. ${item.tropa}</td>
+              <td style="padding: 1rem;">${item.initialQuantity}</td>
+              <td style="padding: 1rem; color: #10b981; font-weight: bold;">${item.availableQuantity}</td>
+            </tr>
+          `).join('')
+        }
+      </tbody>
+    `;
+    tableWrap.appendChild(table);
+    achurasCard.appendChild(tableWrap);
+
+    wrapper.appendChild(achurasCard);
 
   } else {
     // --- HISTORY VIEW ---

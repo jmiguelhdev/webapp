@@ -11,6 +11,7 @@ export class ConsumptionPresenter {
     this.clients = [];
     this.categoryPrices = {};
     this.camarasList = [];
+    this.achurasItems = [];
     this.userRole = null;
     
     this.state = {
@@ -53,6 +54,7 @@ export class ConsumptionPresenter {
       this.clients = await this.clientRepository.getClients();
       this.categoryPrices = await this.clientRepository.getCategoryPrices();
       this.camarasList = await this.clientRepository.getCamaras() || [];
+      this.achurasItems = await this.travelRepository.fetchAchurasStock(uid);
       
       // Sort desc by creation/faena date
       this.allFaenas.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -279,6 +281,49 @@ export class ConsumptionPresenter {
     }
   }
 
+  async dispatchAchuras(uid, quantity, destination) {
+    if (!quantity || quantity <= 0) return alert("Ingresa una cantidad válida de achuras.");
+    if (!destination) return alert("Selecciona un cliente/destino.");
+    
+    const pricePerUnit = parseFloat(this.state.categoryPriceInputs['ACHURAS']) || 0;
+    if (pricePerUnit <= 0) return alert("Debes configurar el precio de Achuras (en Configuración o ingresarlo aquí).");
+
+    const totalAvailable = this.achurasItems.reduce((s, i) => s + (i.availableQuantity || 0), 0);
+    if (quantity > totalAvailable) {
+      return alert(`Stock insuficiente. Tienes ${totalAvailable} juegos disponibles.`);
+    }
+
+    const totalDebt = quantity * pricePerUnit;
+
+    if (!confirm(`¿Confirmar SALIDA de ${quantity} juegos de achuras a "${destination}" por $${totalDebt.toLocaleString()}?`)) return;
+
+    this.ui.showLoading();
+    try {
+      // 1. Consume Stock
+      await this.travelRepository.consumeAchuras(uid, quantity);
+      
+      // 2. Generate Transaction
+      const clientId = await this.clientRepository.saveClient({ name: destination });
+      const transaction = {
+        clientId,
+        type: 'DEBT',
+        amount: totalDebt,
+        description: `Despacho de ${quantity} juegos de Achuras`,
+        date: Date.now()
+      };
+      await this.clientRepository.addTransaction(transaction);
+
+      // Refresh
+      this.state.destinationInput = '';
+      await this.loadFaenas(uid);
+      alert("Achuras despachadas con éxito.");
+    } catch (e) {
+      console.error(e);
+      alert(`Error al despachar achuras: ${e.message}`);
+      this.ui.hideLoading();
+    }
+  }
+
   async confirmDraftGroup(groupItems, destination, draftPrices) {
     if (this.userRole !== 'ADMIN') {
        alert("Solo Administradores pueden confirmar despachos.");
@@ -405,6 +450,7 @@ export class ConsumptionPresenter {
       stockItems: stock,
       draftItems: drafts,
       historyItems: history,
+      achurasItems: this.achurasItems,
       allTropas,
       finishedTropas,
       userRole: this.userRole,
@@ -415,6 +461,7 @@ export class ConsumptionPresenter {
       onClearSelection: this.clearSelection.bind(this),
       onDestinationInput: this.setDestination.bind(this),
       onDispatch: () => { this.dispatchSelected(this.currentUid); },
+      onDispatchAchuras: (qty, dest) => { this.dispatchAchuras(this.currentUid, qty, dest); },
       onFilterChange: this.setHistoryFilter.bind(this),
       onToggleSort: this.toggleSort.bind(this),
       onStockSearch: this.setStockSearch.bind(this),

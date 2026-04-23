@@ -538,6 +538,11 @@ export class TravelPresenter {
       }));
       await this.travelRepository.saveFaenaDetalle(uid, detailRecords);
 
+      // Generate Achuras Stock based on head count
+      if (pdfData.totalHeadCount > 0) {
+        await this.travelRepository.addAchurasBatch(uid, pdfData.tropa, Date.now(), pdfData.totalHeadCount);
+      }
+
       if (!isBulk) {
         // 3. Refresh display only if not bulk (bulk refreshes once at the end)
         await this.loadTravels(uid);

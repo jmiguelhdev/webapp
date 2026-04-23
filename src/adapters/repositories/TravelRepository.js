@@ -60,4 +60,16 @@ export class FirebaseTravelRepository {
   async checkIfTropaExists(uid, tropa) {
     return api.checkIfTropaExists(db, uid, tropa);
   }
+
+  async addAchurasBatch(uid, tropa, date, quantity) {
+    await api.addAchurasBatch(db, uid, tropa, date, quantity);
+  }
+
+  async fetchAchurasStock(uid) {
+    return await api.fetchAchurasStock(db, uid);
+  }
+
+  async consumeAchuras(uid, quantity) {
+    await api.consumeAchuras(db, uid, quantity);
+  }
 }

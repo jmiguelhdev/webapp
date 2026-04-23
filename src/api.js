@@ -173,6 +173,62 @@ export async function moveFaenasToCamara(db, uid, recordsInfo, camaraId) {
   await batch.commit();
 }
 
+/**
+ * ACHURAS STOCK API
+ */
+export async function addAchurasBatch(db, uid, tropa, date, quantity) {
+  if (!uid) throw new Error("UID is required to add achuras");
+  const collRef = collection(db, 'achuras_stock');
+  await addDoc(collRef, {
+    ownerUid: uid,
+    tropa: tropa,
+    date: date || Date.now(),
+    initialQuantity: quantity,
+    availableQuantity: quantity,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
+}
+
+export async function fetchAchurasStock(db, uid) {
+  if (!uid) throw new Error("UID is required to fetch achuras");
+  const collRef = collection(db, 'achuras_stock');
+  const q = query(collRef, where("ownerUid", "==", uid));
+  const snapshot = await getDocs(q);
+  const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return docs.filter(d => d.availableQuantity > 0).sort((a, b) => (a.date || 0) - (b.date || 0));
+}
+
+export async function consumeAchuras(db, uid, quantityToConsume) {
+  if (!uid) throw new Error("UID is required to consume achuras");
+  
+  // Fetch available batches sorted by date (FIFO)
+  const batches = await fetchAchurasStock(db, uid);
+  
+  const totalAvailable = batches.reduce((sum, b) => sum + b.availableQuantity, 0);
+  if (totalAvailable < quantityToConsume) {
+    throw new Error(`Stock insuficiente de achuras. Disponible: ${totalAvailable}, Requerido: ${quantityToConsume}`);
+  }
+  
+  let remainingToConsume = quantityToConsume;
+  const batch = writeBatch(db);
+  
+  for (const b of batches) {
+    if (remainingToConsume <= 0) break;
+    
+    const docRef = doc(db, 'achuras_stock', b.id);
+    if (b.availableQuantity <= remainingToConsume) {
+      batch.update(docRef, { availableQuantity: 0, updatedAt: Date.now() });
+      remainingToConsume -= b.availableQuantity;
+    } else {
+      batch.update(docRef, { availableQuantity: b.availableQuantity - remainingToConsume, updatedAt: Date.now() });
+      remainingToConsume = 0;
+    }
+  }
+  
+  await batch.commit();
+}
+
 /** 
  * CLIENTS API
  */
