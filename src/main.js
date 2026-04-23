@@ -256,8 +256,13 @@ const navigateTo = (view, role = currentUserRole) => {
         
         let usersList = [];
         if (currentUserRole === 'ADMIN') {
-          usersList = await api.fetchAllUsersRoles(db);
+          if (!window.usersListCache) {
+            window.usersListCache = await api.fetchAllUsersRoles(db);
+          }
+          usersList = window.usersListCache;
         }
+
+        uiInterface.hideLoading();
 
         uiLib.renderSettings(content, { 
           categoryPrices: prices,
@@ -268,7 +273,10 @@ const navigateTo = (view, role = currentUserRole) => {
           onSavePrices: (newPrices) => clientRepository.saveCategoryPrices(newPrices),
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
-          onSaveUserRole: (uid, role) => api.saveUserRole(db, uid, role),
+          onSaveUserRole: async (uid, role) => {
+            await api.saveUserRole(db, uid, role);
+            window.usersListCache = null; // Clear cache on update
+          },
           onReloadClients: loadSettingsData,
           onPriceShare: () => navigateTo('price-share'),
           onBack: () => navigateTo('dashboard')

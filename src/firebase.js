@@ -1,6 +1,6 @@
 // webApp/src/firebase.js
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getAnalytics } from "firebase/analytics";
 
@@ -19,4 +19,14 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 
 export const db = getFirestore(app);
+
+// Activar persistencia offline (IndexedDB)
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code == 'failed-precondition') {
+    console.warn("Múltiples pestañas abiertas, persistencia solo funciona en una.");
+  } else if (err.code == 'unimplemented') {
+    console.warn("El navegador actual no soporta persistencia offline.");
+  }
+});
+
 export const auth = getAuth(app);

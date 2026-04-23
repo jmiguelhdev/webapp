@@ -5,25 +5,38 @@ import * as api from '../../api.js';
 export class AccountingRepository {
   constructor(collectionName = 'accounting_entries') {
     this.collectionName = collectionName;
+    this.entriesCache = null;
+    this.clientsCache = null;
+    this.travelsCache = null;
   }
 
   async fetchEntries(uid) {
-    return api.fetchAccountingEntries(db, uid, this.collectionName);
+    if (this.entriesCache) return this.entriesCache;
+    this.entriesCache = await api.fetchAccountingEntries(db, uid, this.collectionName);
+    return this.entriesCache;
   }
 
   async saveEntry(uid, entry) {
-    return api.saveAccountingEntry(db, uid, entry, this.collectionName);
+    const res = await api.saveAccountingEntry(db, uid, entry, this.collectionName);
+    this.entriesCache = null;
+    return res;
   }
 
   async deleteEntry(entryId) {
-    return api.deleteAccountingEntry(db, entryId, this.collectionName);
+    const res = await api.deleteAccountingEntry(db, entryId, this.collectionName);
+    this.entriesCache = null;
+    return res;
   }
 
   async getClients() {
-    return api.fetchClients(db);
+    if (this.clientsCache) return this.clientsCache;
+    this.clientsCache = await api.fetchClients(db);
+    return this.clientsCache;
   }
 
   async getTravels(uid) {
-    return api.fetchTravels(db, uid);
+    if (this.travelsCache) return this.travelsCache;
+    this.travelsCache = await api.fetchTravels(db, uid);
+    return this.travelsCache;
   }
 }
