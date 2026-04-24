@@ -15,6 +15,12 @@ export function renderSidebar(container, onNavigate, userRole) {
   const menuItems = [
     { id: 'dashboard', label: '📊 Dashboard', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
     { id: 'travels', label: '🚛 Gestión de Viajes', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
+    { id: 'logistics-travels', label: '🚚 Carga de Viajes (Logística)', roles: ['ADMIN', 'OPERARIO'] },
+    { id: 'logistics-drivers', label: '🚚 Choferes', roles: ['ADMIN'] },
+    { id: 'logistics-trailers', label: '🚚 Jaulas', roles: ['ADMIN'] },
+    { id: 'logistics-trucks', label: '🚚 Camiones', roles: ['ADMIN'] },
+    { id: 'logistics-liquidations', label: '💵 Liquidación Choferes', roles: ['ADMIN', 'OPERARIO'] },
+    { id: 'logistics-fuel', label: '⛽ Rendimiento Combustible', roles: ['ADMIN', 'OPERARIO'] },
     { id: 'consumption', label: '🥩 Despacho y Stock', roles: ['ADMIN', 'OPERARIO'] },
     { id: 'simulator', label: '🧮 Simulador de Costos', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
     { id: 'price-share', label: '📲 Placa de Precios', roles: ['ADMIN', 'OPERARIO'] },

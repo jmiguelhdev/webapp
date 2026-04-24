@@ -11,7 +11,10 @@ import { renderPriceAnalysis } from './ui/screens/PriceAnalysisUI.js';
 import { renderSidebar } from './ui/components/Sidebar.js';
 import { renderExportModal, renderScanResultsModal, renderDateModal, showAuxiliaryCalculator } from './ui/components/Modals.js';
 import { generateTravelReport, generateExcelReport, generateAccountingExcel, generateChecksExcel, printChecksReport } from './ui/reports/ReportService.js';
-
+import { renderLogisticsMaster } from './ui/screens/LogisticsMastersUI.js';
+import { renderTravelManagement } from './ui/screens/TravelManagementUI.js';
+import { renderLiquidations } from './ui/screens/LiquidationsUI.js';
+import { renderFuelEfficiency } from './ui/screens/FuelEfficiencyUI.js';
 /**
  * Aggregator module for the UI layer.
  * Re-exports all rendering functions to maintain backward compatibility with main.js
@@ -37,5 +40,9 @@ export {
   generateExcelReport,
   generateAccountingExcel,
   generateChecksExcel,
-  printChecksReport
+  printChecksReport,
+  renderLogisticsMaster,
+  renderTravelManagement,
+  renderLiquidations,
+  renderFuelEfficiency
 };

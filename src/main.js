@@ -14,6 +14,8 @@ import { CheckRepository } from './adapters/repositories/CheckRepository.js';
 import { CheckPresenter } from './adapters/presenters/CheckPresenter.js';
 import { AccountingRepository } from './adapters/repositories/AccountingRepository.js';
 import { AccountingPresenter } from './adapters/presenters/AccountingPresenter.js';
+import { LogisticsRepository } from './adapters/repositories/LogisticsRepository.js';
+import { LogisticsPresenter } from './adapters/presenters/LogisticsPresenter.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
 
 // Dependencies
@@ -22,6 +24,7 @@ const clientRepository = new ClientRepository();
 const checkRepository = new CheckRepository();
 const accountingRepository = new AccountingRepository('accounting_entries');
 const frigorificoRepository = new AccountingRepository('frigorifico_entries');
+const logisticsRepository = new LogisticsRepository();
 
 // State
 let currentUser = null;
@@ -82,7 +85,24 @@ const uiInterface = {
   generateAccountingExcel: (entries, title) => uiLib.generateAccountingExcel(entries, title),
   renderDateModal: (options) => uiLib.renderDateModal(options),
   generateChecksExcel: (checks, contacts) => uiLib.generateChecksExcel(checks, contacts),
-  printChecksReport: (checks, contacts, options) => uiLib.printChecksReport(checks, contacts, options)
+  printChecksReport: (checks, contacts, options) => uiLib.printChecksReport(checks, contacts, options),
+  renderLogisticsMaster: (presenter, type, data, deps) => {
+    uiInterface.hideLoading();
+    window.currentPresenter = presenter; // Hack for HTML inline handlers in LogisticsMastersUI
+    uiLib.renderLogisticsMaster(content, type, data, deps);
+  },
+  renderTravelManagement: (presenter, travels, deps) => {
+    uiInterface.hideLoading();
+    uiLib.renderTravelManagement(presenter, travels, deps);
+  },
+  renderLiquidations: (presenter, travels, drivers) => {
+    uiInterface.hideLoading();
+    uiLib.renderLiquidations(presenter, travels, drivers);
+  },
+  renderFuelEfficiency: (presenter, travels, trucks) => {
+    uiInterface.hideLoading();
+    uiLib.renderFuelEfficiency(presenter, travels, trucks);
+  }
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
@@ -97,6 +117,7 @@ const frigorificoPresenter = new AccountingPresenter(frigorificoRepository, clie
   title: 'Caja Frigorífico', 
   syncLabel: 'Pago Frigorífico' 
 });
+const logisticsPresenter = new LogisticsPresenter(logisticsRepository, uiInterface);
 
 // Auth Global Watcher
 onAuthStateChanged(auth, async (user) => {
@@ -177,9 +198,9 @@ function showLogin() {
 
 function getAllowedViews(role) {
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'logistics-travels', 'logistics-drivers', 'logistics-trailers', 'logistics-trucks', 'logistics-liquidations', 'logistics-fuel'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-travels', 'logistics-liquidations', 'logistics-fuel'];
   } else {
     // VISOR
     return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
@@ -245,6 +266,24 @@ const navigateTo = (view, role = currentUserRole) => {
       break;
     case 'frigorifico':
       frigorificoPresenter.loadData();
+      break;
+    case 'logistics-travels':
+      logisticsPresenter.loadTravelManagement();
+      break;
+    case 'logistics-liquidations':
+      logisticsPresenter.loadLiquidations();
+      break;
+    case 'logistics-fuel':
+      logisticsPresenter.loadFuelEfficiency();
+      break;
+    case 'logistics-drivers':
+      logisticsPresenter.loadDrivers();
+      break;
+    case 'logistics-trailers':
+      logisticsPresenter.loadTrailers();
+      break;
+    case 'logistics-trucks':
+      logisticsPresenter.loadTrucks();
       break;
     case 'simulator': uiLib.renderSimulator(content, { onBack: () => navigateTo('dashboard') }); break;
     case 'settings': {
