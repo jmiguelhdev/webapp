@@ -91,9 +91,9 @@ const uiInterface = {
     window.currentPresenter = presenter; // Hack for HTML inline handlers in LogisticsMastersUI
     uiLib.renderLogisticsMaster(content, type, data, deps);
   },
-  renderTravelManagement: (presenter, travels, deps) => {
+  showTravelModal: (travel, options) => {
     uiInterface.hideLoading();
-    uiLib.renderTravelManagement(presenter, travels, deps);
+    uiLib.showTravelModal(travel, options);
   },
   renderLiquidations: (presenter, travels, drivers) => {
     uiInterface.hideLoading();
@@ -105,7 +105,7 @@ const uiInterface = {
   }
 };
 
-const travelPresenter = new TravelPresenter(travelRepository, uiInterface);
+const travelPresenter = new TravelPresenter(travelRepository, uiInterface, logisticsRepository);
 const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface, clientRepository);
 const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
 const checkPresenter = new CheckPresenter(checkRepository, uiInterface);
@@ -198,9 +198,9 @@ function showLogin() {
 
 function getAllowedViews(role) {
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'logistics-travels', 'logistics-drivers', 'logistics-trailers', 'logistics-trucks', 'logistics-liquidations', 'logistics-fuel'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-travels', 'logistics-liquidations', 'logistics-fuel'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel'];
   } else {
     // VISOR
     return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
@@ -267,23 +267,14 @@ const navigateTo = (view, role = currentUserRole) => {
     case 'frigorifico':
       frigorificoPresenter.loadData();
       break;
-    case 'logistics-travels':
-      logisticsPresenter.loadTravelManagement();
+    case 'master-data':
+      logisticsPresenter.loadTrucks(); // By default load trucks, UI will have tabs
       break;
     case 'logistics-liquidations':
       logisticsPresenter.loadLiquidations();
       break;
     case 'logistics-fuel':
       logisticsPresenter.loadFuelEfficiency();
-      break;
-    case 'logistics-drivers':
-      logisticsPresenter.loadDrivers();
-      break;
-    case 'logistics-trailers':
-      logisticsPresenter.loadTrailers();
-      break;
-    case 'logistics-trucks':
-      logisticsPresenter.loadTrucks();
       break;
     case 'simulator': uiLib.renderSimulator(content, { onBack: () => navigateTo('dashboard') }); break;
     case 'settings': {

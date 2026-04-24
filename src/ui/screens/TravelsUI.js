@@ -29,15 +29,21 @@ export function renderTravels(container, options) {
 
   container.innerHTML = '';
 
-  const mainHeader = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;' });
+  const mainHeader = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;' });
   mainHeader.innerHTML = `
-    <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
-      <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
-    </button>
-    <h2 style="margin: 0;">🚛 Gestión de Viajes</h2>
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
+        <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+      </button>
+      <h2 style="margin: 0;">🚛 Gestión de Viajes</h2>
+    </div>
+    <button id="btn-add-travel" class="btn-primary" style="margin:0;">+ Nuevo Viaje</button>
   `;
   container.appendChild(mainHeader);
   mainHeader.querySelector('#back-to-dash').onclick = options.onBack;
+  mainHeader.querySelector('#btn-add-travel').onclick = () => {
+    if (options.onAddTravel) options.onAddTravel();
+  };
 
   // Category Statistics Area
   const statsArea = el('div', { classes: ['category-stats-container'] });
@@ -254,18 +260,28 @@ export function renderTravels(container, options) {
     const totalOpWithComm = buy.totalOperationWithCommission || 0;
     const yieldValue = buy.generalYield || 0;
     
+    const editSvg = `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z" /></svg>`;
+    const delSvg = `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z" /></svg>`;
+
     card.innerHTML = `
       <div class="card-header">
         <div class="header-main">
           <h3>${travel.truck?.name || 'Viaje #' + travel.id}</h3>
           <span class="card-subtitle">${travel.date || ''} - ${travel.description || ''}</span>
         </div>
-        <div class="header-status">
+        <div class="header-status" style="display:flex; align-items:center; gap:0.5rem;">
           ${agentName ? `<span class="agent-badge">👤 ${agentName}</span>` : ''}
           <span class="status-badge ${travel.status?.toLowerCase() || 'borrador'}">${travel.status === 'DRAFT' ? 'BORRADOR' : (travel.status || 'BORRADOR')}</span>
+          <div class="travel-actions" style="display:flex; gap:0.5rem; margin-left:1rem;">
+            <button class="btn-icon btn-edit-travel" data-id="${travel.id}" title="Editar Logística" style="background:var(--surface); border:1px solid var(--border); color:var(--primary); padding:0.5rem; border-radius:8px; cursor:pointer;">${editSvg}</button>
+            <button class="btn-icon btn-delete-travel" data-id="${travel.id}" title="Eliminar Viaje" style="background:var(--surface); border:1px solid var(--border); color:var(--danger); padding:0.5rem; border-radius:8px; cursor:pointer;">${delSvg}</button>
+          </div>
         </div>
       </div>
     `;
+
+    // Wait until card is appended to add event listeners later. 
+    // We'll attach listeners at the container level.
 
     const buyCategories = buy.categories || [];
     const buyCategoryDisplay = buyCategories.join(', ') || 'N/A';
@@ -397,6 +413,26 @@ export function renderTravels(container, options) {
       }
     }
   }
+
+  // Attach event listeners for travel cards
+  container.querySelectorAll('.btn-edit-travel').forEach(btn => {
+    btn.onclick = (e) => {
+      const id = e.currentTarget.dataset.id;
+      const travel = data.find(t => String(t.id) === String(id));
+      if (travel && options.onEditTravel) {
+        options.onEditTravel(travel);
+      }
+    };
+  });
+
+  container.querySelectorAll('.btn-delete-travel').forEach(btn => {
+    btn.onclick = (e) => {
+      const id = e.currentTarget.dataset.id;
+      if (confirm('¿Eliminar este viaje?') && options.onDeleteTravel) {
+        options.onDeleteTravel(id);
+      }
+    };
+  });
 }
 
 /** Render Settlement Modal */
@@ -608,4 +644,236 @@ export function renderSettlementModal(travel, producer, options) {
   updateContent();
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
+}
+
+export function showTravelModal(travel, options) {
+  const container = document.getElementById('travel-modal-container') || (() => {
+    const div = el('div', { attrs: { id: 'travel-modal-container' } });
+    document.body.appendChild(div);
+    return div;
+  })();
+  
+  const isEdit = !!travel;
+  const trucks = options.trucks || [];
+
+  // Local state for expenses since it's an array
+  let expArray = travel?.expenses ? (Array.isArray(travel.expenses) ? travel.expenses : Object.values(travel.expenses)) : [];
+  let localExpenses = [...expArray];
+
+  const renderModal = () => {
+    const trucksOpts = trucks.map(t => `<option value="${t.id}" ${travel?.truck?.id == t.id ? 'selected' : ''}>${t.name}</option>`).join('');
+    
+    // Calc helpers based on current values
+    let kmO = Number(travel?.kmOnOrigin || 0);
+    let kmD = Number(travel?.kmOnDestination || 0);
+    let dist = Math.max(0, kmD - kmO);
+
+    container.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal active" id="travel-modal" style="max-width: 600px; padding: 0;">
+          
+          <div style="padding: 1.5rem 1.5rem 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--surface);">
+            <h3 style="margin: 0; color: var(--primary); font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+              <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z" /></svg>
+              ${isEdit ? 'Editar Logística de Viaje' : 'Nuevo Viaje'}
+            </h3>
+          </div>
+
+          <form id="travel-form" style="padding: 1.5rem;">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">📅 Fecha</label>
+                <input type="date" id="t-date" value="${travel?.date || new Date().toISOString().split('T')[0]}" required style="padding: 0.5rem; border-radius: 8px;">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">📌 Estado</label>
+                <select id="t-status" style="padding: 0.5rem; border-radius: 8px;">
+                  <option value="DRAFT" ${travel?.status === 'DRAFT' ? 'selected' : ''}>Borrador</option>
+                  <option value="ACTIVE" ${travel?.status === 'ACTIVE' || !travel ? 'selected' : ''}>Activo</option>
+                  <option value="COMPLETED" ${travel?.status === 'COMPLETED' ? 'selected' : ''}>Completado</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+              <label style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">📝 Descripción / Observaciones</label>
+              <input type="text" id="t-desc" value="${travel?.description || ''}" placeholder="Ej. Viaje a Liniers..." style="padding: 0.5rem; border-radius: 8px;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+              <label style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">🚛 Camión Asignado</label>
+              <select id="t-truck" required style="padding: 0.5rem; border-radius: 8px;"><option value="">-- Seleccionar --</option>${trucksOpts}</select>
+            </div>
+
+            <!-- Secciones -->
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+              <h4 style="margin: 0 0 1rem 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
+                🛣️ Odómetro
+              </h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group" style="margin: 0;">
+                  <label style="font-size: 0.8rem; color: var(--text-muted);">Km Origen</label>
+                  <input type="number" id="t-km-o" step="0.1" value="${kmO}" required style="padding: 0.5rem; border-radius: 8px;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label style="font-size: 0.8rem; color: var(--text-muted);">Km Destino</label>
+                  <input type="number" id="t-km-d" step="0.1" value="${kmD}" required style="padding: 0.5rem; border-radius: 8px;">
+                </div>
+              </div>
+              <div style="margin-top: 1rem; padding: 0.5rem 1rem; background: var(--primary-container); border-radius: 8px; color: var(--on-primary-container); display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.85rem; font-weight: 500;">Distancia Calculada</span>
+                <strong id="t-dist" style="font-size: 1.1rem;">${dist} km</strong>
+              </div>
+            </div>
+
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+              <h4 style="margin: 0 0 1rem 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
+                ⛽ Combustible
+              </h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group" style="margin: 0;">
+                  <label style="font-size: 0.8rem; color: var(--text-muted);">Km en Surtidor</label>
+                  <input type="number" id="t-km-p" step="0.1" value="${travel?.kmOnPump || 0}" style="padding: 0.5rem; border-radius: 8px;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label style="font-size: 0.8rem; color: var(--text-muted);">Litros Cargados</label>
+                  <input type="number" id="t-liters" step="0.1" value="${travel?.litersOnPump || 0}" style="padding: 0.5rem; border-radius: 8px;">
+                </div>
+              </div>
+            </div>
+
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;">
+              <h4 style="margin: 0 0 1rem 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
+                💸 Gastos Adicionales
+              </h4>
+              
+              <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+                ${localExpenses.map((e, index) => `
+                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border);">
+                    <div style="display: flex; flex-direction: column;">
+                      <span style="font-size: 0.9rem; font-weight: 500;">${e.description}</span>
+                      <span style="font-size: 0.75rem; color: ${e.isReimbursable ? 'var(--primary)' : 'var(--text-muted)'};">${e.isReimbursable ? '♻️ A Devolver' : '❌ No Devolver'}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                      <strong style="font-size: 1rem;">$${e.amount}</strong>
+                      <button type="button" class="btn-icon btn-delete-exp" data-idx="${index}" style="color: var(--danger); padding: 0.25rem;">
+                        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                `).join('')}
+                ${localExpenses.length === 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 0.5rem;">No hay gastos registrados</div>` : ''}
+              </div>
+
+              <div style="display: flex; gap: 0.5rem; align-items: center; background: var(--bg-main); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border);">
+                <input type="text" id="e-desc" placeholder="Descripción" style="flex: 2; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem; background: var(--surface);">
+                <input type="number" id="e-amount" placeholder="$ Monto" style="flex: 1; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem; background: var(--surface);">
+                <label style="display:flex; align-items:center; gap:0.25rem; font-size: 0.8rem; cursor: pointer; color: var(--text-muted);">
+                  <input type="checkbox" id="e-reimb" checked> ♻️ Reemb.
+                </label>
+                <button type="button" id="btn-add-exp" class="btn-secondary" style="padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.85rem;">+</button>
+              </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 1rem;">
+              <button type="button" class="btn-secondary" id="btn-cancel-tmodal" style="padding: 0.65rem 1.5rem; border-radius: 100px; border: 1px solid var(--outline); background: transparent; cursor: pointer;">Cancelar</button>
+              <button type="submit" class="btn-primary" style="padding: 0.65rem 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" /></svg>
+                Guardar Viaje
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-cancel-tmodal').addEventListener('click', () => { container.innerHTML = ''; });
+    
+    // Auto-update distance calculation visual
+    const updateDist = () => {
+      const o = Number(document.getElementById('t-km-o').value || 0);
+      const d = Number(document.getElementById('t-km-d').value || 0);
+      document.getElementById('t-dist').textContent = Math.max(0, d - o) + ' km';
+    };
+    document.getElementById('t-km-o').addEventListener('input', updateDist);
+    document.getElementById('t-km-d').addEventListener('input', updateDist);
+
+    // Add Expense
+    document.getElementById('btn-add-exp').addEventListener('click', () => {
+      const desc = document.getElementById('e-desc').value;
+      const amt = Number(document.getElementById('e-amount').value);
+      const isR = document.getElementById('e-reimb').checked;
+      if (desc && amt > 0) {
+        localExpenses.push({
+          id: Date.now(),
+          travelId: travel?.id || 0,
+          description: desc,
+          amount: amt,
+          category: 'OTROS',
+          date: document.getElementById('t-date').value,
+          isReimbursable: isR
+        });
+        updateFormValuesToTemp();
+        renderModal();
+      }
+    });
+
+    // Delete Expense
+    document.querySelectorAll('.btn-delete-exp').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = e.currentTarget.dataset.idx;
+        localExpenses.splice(idx, 1);
+        updateFormValuesToTemp();
+        renderModal();
+      });
+    });
+
+    document.getElementById('travel-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const selectedTruckId = document.getElementById('t-truck').value;
+      const selectedTruck = trucks.find(t => String(t.id) === selectedTruckId);
+
+      const payload = {
+        id: travel ? travel.id : Date.now(),
+        date: document.getElementById('t-date').value,
+        status: document.getElementById('t-status').value,
+        description: document.getElementById('t-desc').value,
+        truck: selectedTruck || null,
+        kmOnOrigin: Number(document.getElementById('t-km-o').value),
+        kmOnDestination: Number(document.getElementById('t-km-d').value),
+        kmOnPump: Number(document.getElementById('t-km-p').value),
+        litersOnPump: Number(document.getElementById('t-liters').value),
+        expenses: localExpenses,
+        driverPricePerKmSimple: travel?.driverPricePerKmSimple || 0,
+        driverPricePerKmDouble: travel?.driverPricePerKmDouble || 0,
+        fuelPrice: travel?.fuelPrice || 0,
+        pricePerKm: travel?.pricePerKm || 0,
+        buy: travel?.buy || null, // preserve commercial data
+        kgFaenaTotal: travel?.kgFaenaTotal || 0,
+        updatedAt: Date.now()
+      };
+
+      container.innerHTML = '';
+      if (options.onSaveTravel) {
+        options.onSaveTravel(payload);
+      }
+    });
+  };
+
+  const updateFormValuesToTemp = () => {
+    if(!travel) travel = {};
+    travel.date = document.getElementById('t-date')?.value || travel.date;
+    travel.status = document.getElementById('t-status')?.value || travel.status;
+    travel.description = document.getElementById('t-desc')?.value || travel.description;
+    const tId = document.getElementById('t-truck')?.value;
+    travel.truck = trucks.find(t => String(t.id) === tId) || travel.truck;
+    travel.kmOnOrigin = document.getElementById('t-km-o')?.value || travel.kmOnOrigin;
+    travel.kmOnDestination = document.getElementById('t-km-d')?.value || travel.kmOnDestination;
+    travel.kmOnPump = document.getElementById('t-km-p')?.value || travel.kmOnPump;
+    travel.litersOnPump = document.getElementById('t-liters')?.value || travel.litersOnPump;
+  };
+
+  renderModal();
 }

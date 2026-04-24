@@ -103,6 +103,68 @@ export class LogisticsPresenter {
     }
   }
 
+  // --- PRODUCERS ---
+  async loadProducers() {
+    this.ui.showLoading(true);
+    try {
+      const producers = await this.repository.getProducers();
+      this.ui.renderLogisticsMaster(this, 'productores', producers);
+    } catch (e) {
+      this.ui.showError("Error loading producers: " + e.message);
+    }
+  }
+
+  async saveProducer(producerObj) {
+    this.ui.showLoading(true);
+    try {
+      await this.repository.saveProducer(producerObj);
+      await this.loadProducers();
+    } catch (e) {
+      this.ui.showError("Error saving producer: " + e.message);
+    }
+  }
+
+  async deleteProducer(id) {
+    this.ui.showLoading(true);
+    try {
+      await this.repository.deleteProducer(id);
+      await this.loadProducers();
+    } catch (e) {
+      this.ui.showError("Error deleting producer: " + e.message);
+    }
+  }
+
+  // --- AGENTS ---
+  async loadAgents() {
+    this.ui.showLoading(true);
+    try {
+      const agents = await this.repository.getAgents();
+      this.ui.renderLogisticsMaster(this, 'comisionistas', agents);
+    } catch (e) {
+      this.ui.showError("Error loading agents: " + e.message);
+    }
+  }
+
+  async saveAgent(agentObj) {
+    this.ui.showLoading(true);
+    try {
+      await this.repository.saveAgent(agentObj);
+      await this.loadAgents();
+    } catch (e) {
+      this.ui.showError("Error saving agent: " + e.message);
+    }
+  }
+
+  async deleteAgent(id) {
+    this.ui.showLoading(true);
+    try {
+      await this.repository.deleteAgent(id);
+      await this.loadAgents();
+    } catch (e) {
+      this.ui.showError("Error deleting agent: " + e.message);
+    }
+  }
+
   // --- TRAVELS DELEGATION ---
 
   async loadTravelManagement() {

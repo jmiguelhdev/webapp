@@ -7,8 +7,9 @@ import { debounce } from '../../utils.js';
 
 
 export class TravelPresenter {
-  constructor(travelRepository, ui) {
+  constructor(travelRepository, ui, logisticsRepository) {
     this.travelRepository = travelRepository;
+    this.logisticsRepository = logisticsRepository;
     this.getTravelsUseCase = new GetTravels(travelRepository);
     this.calculateStatsUseCase = new CalculateCategoryStats();
     this.pdfService = new PdfFaenaService();
@@ -232,8 +233,63 @@ export class TravelPresenter {
       onPdfUpload: (file) => this.handlePdfFaenaUpload(file, SHARED_DATA_SOURCE_UID),
       onScanDirectory: (files) => this.handleScanDirectory(SHARED_DATA_SOURCE_UID, files),
       onReduceUpdate: (id, val) => this.handleReduceUpdate(SHARED_DATA_SOURCE_UID, id, val),
-      onProducerSettlement: (travel, producer) => this.handleProducerSettlement(travel, producer)
+      onProducerSettlement: (travel, producer) => this.handleProducerSettlement(travel, producer),
+      onAddTravel: () => this.openTravelModal(),
+      onEditTravel: (travel) => this.openTravelModal(travel),
+      onDeleteTravel: (id) => this.handleDeleteTravel(id)
     });
+  }
+
+  async openTravelModal(travel = null) {
+    try {
+      this.ui.showLoading();
+      // We need trucks to assign to the travel
+      const rawTrucks = await this.logisticsRepository.getTrucks();
+      this.ui.hideLoading();
+      
+      this.ui.showTravelModal(travel, {
+        trucks: rawTrucks,
+        onSaveTravel: (payload) => this.handleSaveTravel(payload)
+      });
+    } catch (e) {
+      this.ui.hideLoading();
+      this.ui.showError("Error al cargar camiones: " + e.message);
+    }
+  }
+
+  async handleSaveTravel(payload) {
+    try {
+      this.ui.showLoading();
+      
+      const { Travel } = await import('../../domain/entities/LogisticsModels.js');
+      const travel = new Travel(payload);
+
+      if (!travel.driverPricePerKmSimple) {
+        const config = await this.logisticsRepository.getAppConfig();
+        travel.driverPricePerKmSimple = config.defaultDriverPricePerKmSimple || 0;
+        travel.driverPricePerKmDouble = config.defaultDriverPricePerKmDouble || 0;
+        travel.simulationFreightPriceSimple = config.simulationFreightPriceSimple || 0;
+        travel.simulationFreightPriceDouble = config.simulationFreightPriceDouble || 0;
+        travel.fuelPrice = config.fuelPrice || 0;
+      }
+
+      await this.travelRepository.saveTravel(SHARED_DATA_SOURCE_UID, travel);
+      await this.loadTravels(SHARED_DATA_SOURCE_UID);
+    } catch (e) {
+      this.ui.hideLoading();
+      this.ui.showError("Error al guardar viaje: " + e.message);
+    }
+  }
+
+  async handleDeleteTravel(id) {
+    try {
+      this.ui.showLoading();
+      await this.travelRepository.deleteTravel(SHARED_DATA_SOURCE_UID, id);
+      await this.loadTravels(SHARED_DATA_SOURCE_UID);
+    } catch (e) {
+      this.ui.hideLoading();
+      this.ui.showError("Error al eliminar viaje: " + e.message);
+    }
   }
 
   async handleReduceUpdate(uid, travelId, newValue) {

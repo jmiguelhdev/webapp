@@ -1,4 +1,4 @@
-import { renderTravels, renderSettlementModal } from './ui/screens/TravelsUI.js';
+import { renderTravels, renderSettlementModal, showTravelModal } from './ui/screens/TravelsUI.js';
 import { renderSimulator } from './ui/screens/SimulatorUI.js';
 import { renderDashboard } from './ui/screens/DashboardUI.js';
 import { renderFaenaConsumption } from './ui/screens/ConsumptionUI.js';
@@ -12,7 +12,6 @@ import { renderSidebar } from './ui/components/Sidebar.js';
 import { renderExportModal, renderScanResultsModal, renderDateModal, showAuxiliaryCalculator } from './ui/components/Modals.js';
 import { generateTravelReport, generateExcelReport, generateAccountingExcel, generateChecksExcel, printChecksReport } from './ui/reports/ReportService.js';
 import { renderLogisticsMaster } from './ui/screens/LogisticsMastersUI.js';
-import { renderTravelManagement } from './ui/screens/TravelManagementUI.js';
 import { renderLiquidations } from './ui/screens/LiquidationsUI.js';
 import { renderFuelEfficiency } from './ui/screens/FuelEfficiencyUI.js';
 /**
@@ -22,6 +21,7 @@ import { renderFuelEfficiency } from './ui/screens/FuelEfficiencyUI.js';
 export {
   renderTravels,
   renderSettlementModal,
+  showTravelModal,
   renderSimulator,
   renderDashboard,
   renderFaenaConsumption,
@@ -42,7 +42,6 @@ export {
   generateChecksExcel,
   printChecksReport,
   renderLogisticsMaster,
-  renderTravelManagement,
   renderLiquidations,
   renderFuelEfficiency
 };

@@ -1,6 +1,6 @@
 // src/adapters/repositories/LogisticsRepository.js
 import * as api from '../../api/LogisticsApi.js';
-import { Driver, Trailer, Truck, Travel } from '../../domain/entities/LogisticsModels.js';
+import { Driver, Trailer, Truck, Travel, Producer, Agent } from '../../domain/entities/LogisticsModels.js';
 
 export class LogisticsRepository {
   constructor() {
@@ -86,5 +86,39 @@ export class LogisticsRepository {
 
   async deleteTravel(id) {
     await api.deleteTravel(id);
+  }
+
+  // --- PRODUCERS ---
+  async getProducers() {
+    const data = await api.fetchMasterDataByType('PRODUCER');
+    this.producers = data.map(p => new Producer(p));
+    return this.producers;
+  }
+
+  async saveProducer(producerObj) {
+    const domainProducer = new Producer(producerObj);
+    await api.saveMasterData(domainProducer.id, 'PRODUCER', domainProducer);
+    return domainProducer;
+  }
+
+  async deleteProducer(id) {
+    await api.deleteMasterData(id, 'PRODUCER');
+  }
+
+  // --- AGENTS ---
+  async getAgents() {
+    const data = await api.fetchMasterDataByType('AGENT');
+    this.agents = data.map(a => new Agent(a));
+    return this.agents;
+  }
+
+  async saveAgent(agentObj) {
+    const domainAgent = new Agent(agentObj);
+    await api.saveMasterData(domainAgent.id, 'AGENT', domainAgent);
+    return domainAgent;
+  }
+
+  async deleteAgent(id) {
+    await api.deleteMasterData(id, 'AGENT');
   }
 }

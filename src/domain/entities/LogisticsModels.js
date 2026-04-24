@@ -100,3 +100,24 @@ export class Travel {
     return diff > 0 ? diff / this.litersOnPump : 0;
   }
 }
+
+export class Producer {
+  constructor(data = {}) {
+    this.id = data.id || Date.now();
+    this.name = data.name || '';
+    this.phone = data.phone || '';
+    this.cuit = data.cuit || '';
+    this.cbu = data.cbu || '';
+    this.listOfProducts = data.listOfProducts || [];
+    this.usageCount = data.usageCount || 0;
+  }
+}
+
+export class Agent {
+  constructor(data = {}) {
+    this.id = data.id || Date.now();
+    this.name = data.name || '';
+    this.phone = data.phone || '';
+    this.percent = Number(data.percent) || 0;
+  }
+}
