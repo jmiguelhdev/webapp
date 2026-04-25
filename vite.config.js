@@ -16,9 +16,13 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['firebase/app', 'firebase/firestore', 'firebase/auth', 'firebase/analytics'],
-          pdf: ['pdfjs-dist', 'html2canvas']
+        manualChunks: (id) => {
+          if (id.includes('firebase/app') || id.includes('firebase/firestore') || id.includes('firebase/auth') || id.includes('firebase/analytics')) {
+            return 'vendor';
+          }
+          if (id.includes('pdfjs-dist') || id.includes('html2canvas')) {
+            return 'pdf';
+          }
         }
       }
     }
