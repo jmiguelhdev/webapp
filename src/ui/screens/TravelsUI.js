@@ -788,7 +788,10 @@ export function showTravelModal(travel, options) {
       </div>
     `;
 
-    document.getElementById('btn-cancel-tmodal').addEventListener('click', () => { container.innerHTML = ''; });
+    document.getElementById('btn-cancel-tmodal').addEventListener('click', () => {
+      container.innerHTML = '';
+      if (options.onCancel) options.onCancel();
+    });
     
     // Auto-update distance calculation visual
     const updateDist = () => {

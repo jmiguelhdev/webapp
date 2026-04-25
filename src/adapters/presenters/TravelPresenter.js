@@ -250,7 +250,8 @@ export class TravelPresenter {
       
       this.ui.showTravelModal(travel, {
         trucks: rawTrucks,
-        onSaveTravel: (payload) => this.handleSaveTravel(payload)
+        onSaveTravel: (payload) => this.handleSaveTravel(payload),
+        onCancel: () => this.updateView()
       });
     } catch (e) {
       this.ui.hideLoading();
