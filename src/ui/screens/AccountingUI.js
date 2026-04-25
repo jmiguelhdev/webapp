@@ -166,8 +166,8 @@ export function renderAccounting(container, options) {
   container.appendChild(statsGrid);
 
   // Table
-  const tableWrapper = el('div', { classes: ['glass-card'], style: 'padding: 0; overflow: hidden; margin-bottom: 1.5rem;' });
-  const table = el('table', { style: 'width: 100%; border-collapse: collapse;' });
+  const tableWrapper = el('div', { classes: ['glass-card', 'table-responsive'], style: 'padding: 0; margin-bottom: 1.5rem;' });
+  const table = el('table', { style: 'width: 100%; min-width: 800px; border-collapse: collapse;' });
   
   const thead = el('thead', { html: `
     <tr style="background: rgba(255,255,255,0.05); text-align: left;">
@@ -335,7 +335,7 @@ function showEntryModal(existingEntry, { clients, producers, onSave, title = 'Co
         <input type="text" name="description" required placeholder="Ej: Pago de flete, Cobro venta meat..." value="${existingEntry?.description || ''}">
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+      <div class="responsive-grid-2" style="margin-bottom: 1.5rem;">
         <div class="form-group">
           <label>Cliente (Opcional)</label>
           <input type="text" id="client-input" list="clients-datalist" placeholder="🔎 Buscar cliente..." autocomplete="off" value="${existingEntry?.clientName || ''}">
@@ -352,7 +352,7 @@ function showEntryModal(existingEntry, { clients, producers, onSave, title = 'Co
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1rem;">
+      <div class="responsive-grid-2" style="margin-bottom: 1rem;">
         <div class="form-group">
           <label>Monto Esperado ($)</label>
           <input type="number" step="0.01" name="amount" id="expected-amount-input" required placeholder="0.00" style="font-size: 1.25rem; font-weight: 700;" value="${existingEntry?.amount || ''}">
@@ -375,7 +375,7 @@ function showEntryModal(existingEntry, { clients, producers, onSave, title = 'Co
 
       <div id="diff-container" style="display: none; margin-bottom: 1.5rem; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; text-align: center; font-size: 1.1rem; border: 1px solid transparent;"></div>
 
-      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; align-items: center;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 1rem; margin-top: 2rem; align-items: center;">
         <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cancelar</button>
         <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(99,102,241,0.4); letter-spacing: 0.03em;">Guardar</button>
       </div>
@@ -478,7 +478,8 @@ function showBillCalculator(expectedAmount, onApply) {
 
   content.innerHTML = `
     <h3 style="margin-top:0; margin-bottom: 1.5rem;">🔢 Recuento de Billetes</h3>
-    <div id="calc-rows" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem;">
+    <div class="table-responsive">
+      <div id="calc-rows" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; min-width: 600px;">
       <div style="display: grid; grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
         <div>Valor</div>
         <div></div>

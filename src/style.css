@@ -520,9 +520,24 @@ body.authenticated .sidebar { display: block; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+/* Table Responsiveness */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1.5rem;
+}
+
+/* Form Responsive Grid */
+.responsive-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 1024px) {
-  .grid-2-cols, .simulator-wrapper { grid-template-columns: 1fr; gap: 1.5rem; }
+  .grid-2-cols, .simulator-wrapper, .responsive-grid-2 { grid-template-columns: 1fr; gap: 1.5rem; }
   .content { padding: 1.5rem; }
 }
 
@@ -553,6 +568,7 @@ body.authenticated .sidebar { display: block; }
   
   .stats-grid { grid-template-columns: 1fr; }
   .travel-card-full { padding: 1.25rem; }
+  .modal { padding: 1.25rem; width: 95%; max-height: 85vh; }
 }
 
 @media (max-width: 480px) {

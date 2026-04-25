@@ -269,10 +269,10 @@ export function renderTravels(container, options) {
           <h3>${travel.truck?.name || 'Viaje #' + travel.id}</h3>
           <span class="card-subtitle">${travel.date || ''} - ${travel.description || ''}</span>
         </div>
-        <div class="header-status" style="display:flex; align-items:center; gap:0.5rem;">
+        <div class="header-status" style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem;">
           ${agentName ? `<span class="agent-badge">👤 ${agentName}</span>` : ''}
           <span class="status-badge ${travel.status?.toLowerCase() || 'borrador'}">${travel.status === 'DRAFT' ? 'BORRADOR' : (travel.status || 'BORRADOR')}</span>
-          <div class="travel-actions" style="display:flex; gap:0.5rem; margin-left:1rem;">
+          <div class="travel-actions" style="display:flex; gap:0.5rem;">
             <button class="btn-icon btn-edit-travel" data-id="${travel.id}" title="Editar Logística" style="background:var(--surface); border:1px solid var(--border); color:var(--primary); padding:0.5rem; border-radius:8px; cursor:pointer;">${editSvg}</button>
             <button class="btn-icon btn-delete-travel" data-id="${travel.id}" title="Eliminar Viaje" style="background:var(--surface); border:1px solid var(--border); color:var(--danger); padding:0.5rem; border-radius:8px; cursor:pointer;">${delSvg}</button>
           </div>
@@ -454,9 +454,9 @@ export function renderSettlementModal(travel, producer, options) {
     modal.appendChild(title);
     modal.appendChild(subtitle);
     
-    const tableContainer = el('div', { style: 'overflow-x: auto; margin-bottom: 1.5rem;' });
+    const tableContainer = el('div', { classes: ['table-responsive'] });
     const table = el('table', { 
-      style: 'width: 100%; border-collapse: collapse; font-size: 0.9rem;',
+      style: 'width: 100%; min-width: 600px; border-collapse: collapse; font-size: 0.9rem;',
       html: `
         <thead>
           <tr style="border-bottom: 2px solid var(--border); text-align: left;">
@@ -681,7 +681,7 @@ export function showTravelModal(travel, options) {
 
           <form id="travel-form" style="padding: 1.5rem;">
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="responsive-grid-2" style="margin-bottom: 1rem;">
               <div class="form-group" style="margin: 0;">
                 <label style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">📅 Fecha</label>
                 <input type="date" id="t-date" value="${travel?.date || new Date().toISOString().split('T')[0]}" required style="padding: 0.5rem; border-radius: 8px;">
@@ -711,7 +711,7 @@ export function showTravelModal(travel, options) {
               <h4 style="margin: 0 0 1rem 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
                 🛣️ Odómetro
               </h4>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="responsive-grid-2">
                 <div class="form-group" style="margin: 0;">
                   <label style="font-size: 0.8rem; color: var(--text-muted);">Km Origen</label>
                   <input type="number" id="t-km-o" step="0.1" value="${kmO}" required style="padding: 0.5rem; border-radius: 8px;">
@@ -731,7 +731,7 @@ export function showTravelModal(travel, options) {
               <h4 style="margin: 0 0 1rem 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
                 ⛽ Combustible
               </h4>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="responsive-grid-2">
                 <div class="form-group" style="margin: 0;">
                   <label style="font-size: 0.8rem; color: var(--text-muted);">Km en Surtidor</label>
                   <input type="number" id="t-km-p" step="0.1" value="${travel?.kmOnPump || 0}" style="padding: 0.5rem; border-radius: 8px;">
@@ -766,7 +766,7 @@ export function showTravelModal(travel, options) {
                 ${localExpenses.length === 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 0.5rem;">No hay gastos registrados</div>` : ''}
               </div>
 
-              <div style="display: flex; gap: 0.5rem; align-items: center; background: var(--bg-main); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border);">
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; background: var(--bg-main); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border);">
                 <input type="text" id="e-desc" placeholder="Descripción" style="flex: 2; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem; background: var(--surface);">
                 <input type="number" id="e-amount" placeholder="$ Monto" style="flex: 1; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem; background: var(--surface);">
                 <label style="display:flex; align-items:center; gap:0.25rem; font-size: 0.8rem; cursor: pointer; color: var(--text-muted);">

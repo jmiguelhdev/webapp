@@ -621,7 +621,7 @@ export function renderFaenaConsumption(container, options) {
     listHeader.appendChild(selectAllBtn);
     listCard.appendChild(listHeader);
 
-    const tableWrap = el('div', { style: 'overflow-x: auto;' });
+    const tableWrap = el('div', { classes: ['table-responsive'] });
     const table = document.createElement('table');
     table.className = 'faena-table';
     table.style.width = '100%';
@@ -743,7 +743,8 @@ export function renderFaenaConsumption(container, options) {
           }
           
           // Show items table
-          const itemsTable = el('table', { style: 'width: 100%; font-size: 0.9rem; border-collapse: collapse;' });
+          const itemsTableWrap = el('div', { classes: ['table-responsive'] });
+          const itemsTable = el('table', { style: 'width: 100%; min-width: 400px; font-size: 0.9rem; border-collapse: collapse;' });
           itemsTable.innerHTML = `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);">
                <th style="text-align: left; padding: 0.5rem;">Tropa</th>
@@ -762,7 +763,8 @@ export function renderFaenaConsumption(container, options) {
                </tr>
              `;
           });
-          groupCard.appendChild(itemsTable);
+          itemsTableWrap.appendChild(itemsTable);
+          groupCard.appendChild(itemsTableWrap);
           draftCard.appendChild(groupCard);
        });
     }

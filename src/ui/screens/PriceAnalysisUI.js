@@ -34,7 +34,8 @@ export function renderPriceAnalysis(container, options) {
   header.querySelector('#back-analysis').onclick = onBack;
 
   const mainGrid = el('div', { 
-    style: 'display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;' 
+    classes: ['grid-2-cols'],
+    style: 'align-items: start;' 
   });
 
   // LEFT COLUMN: FORM AND RESULTS
@@ -172,7 +173,9 @@ export function renderPriceAnalysis(container, options) {
           </tbody>
         `;
       }
-      container.appendChild(table);
+      const tableWrap = el('div', { classes: ['table-responsive'] });
+      tableWrap.appendChild(table);
+      container.appendChild(tableWrap);
     };
 
     renderTable('faenas');

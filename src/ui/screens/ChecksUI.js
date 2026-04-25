@@ -192,8 +192,8 @@ function getCheckStatusBadge(op) {
 }
 
 function renderCheckTable(checksList, contacts, onSave, onDelete) {
-  const tableWrapper = el('div', { classes: ['glass-card'], style: 'padding: 0; overflow: hidden; margin-bottom: 2rem;' });
-  const table = el('table', { style: 'width: 100%; border-collapse: collapse;' });
+  const tableWrapper = el('div', { classes: ['glass-card', 'table-responsive'], style: 'padding: 0; margin-bottom: 2rem;' });
+  const table = el('table', { style: 'width: 100%; min-width: 800px; border-collapse: collapse;' });
   
   const thead = el('thead', { html: `
     <tr style="background: rgba(255,255,255,0.05); text-align: left;">
@@ -322,7 +322,7 @@ function showOperationModal(existingOp, contacts, onSave) {
       <!-- ISSUER INFO -->
       <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem; border-left: 4px solid var(--primary);">
         <h3 style="margin-top:0; font-size: 1rem; color: var(--primary);">👤 Datos del Librador</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <div class="responsive-grid-2" style="gap: 1.5rem;">
           <div class="form-group" style="margin-bottom:0;">
             <label>Nombre / Razón Social</label>
             <input type="text" name="issuerName" value="${existingOp?.issuerName || ''}" placeholder="Nombre del librador">
@@ -339,7 +339,7 @@ function showOperationModal(existingOp, contacts, onSave) {
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+      <div class="responsive-grid-2" style="margin-bottom: 2rem;">
         <!-- BUY SIDE -->
         <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.02);">
           <h3 style="margin-top:0; color: var(--primary);">📥 Compra (Origen)</h3>
@@ -360,11 +360,10 @@ function showOperationModal(existingOp, contacts, onSave) {
           </div>
         </div>
 
-        <!-- SELL SIDE -->
         <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.02);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem;">
             <h3 style="margin: 0; color: var(--success);">📤 Venta (Destino / Estado)</h3>
-            <div class="form-group" style="margin: 0; min-width: 150px;">
+            <div class="form-group" style="margin: 0; min-width: 150px; flex: 1;">
               <select name="sellSide_status" style="padding: 0.5rem; border-radius: 8px;">
                 <option value="PENDING" ${!existingOp?.sellSide || existingOp?.sellSide?.status === 'PENDING' ? 'selected' : ''}>En Cartera</option>
                 <option value="SOLD" ${existingOp?.sellSide?.status === 'SOLD' ? 'selected' : ''}>Vendido</option>
