@@ -4,6 +4,7 @@ import { CalculateCategoryStats } from '../../domain/usecases/CalculateCategoryS
 import { PdfFaenaService } from '../../services/PdfFaenaService.js';
 import { SHARED_DATA_SOURCE_UID } from '../../config.js';
 import { debounce } from '../../utils.js';
+import { Travel } from '../../domain/entities/LogisticsModels.js';
 
 
 export class TravelPresenter {
@@ -261,7 +262,6 @@ export class TravelPresenter {
     try {
       this.ui.showLoading();
       
-      const { Travel } = await import('../../domain/entities/LogisticsModels.js');
       const travel = new Travel(payload);
 
       if (!travel.driverPricePerKmSimple) {
