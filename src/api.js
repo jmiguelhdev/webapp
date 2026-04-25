@@ -40,15 +40,44 @@ export async function fetchBuys(db, uid) {
 }
 
 export async function fetchTrucks(db, uid) {
-  const masterData = await fetchAndParseRootCollection(db, uid, 'master_data');
-  // MasterDataFirebaseDto has a 'type' field and the 'data' field is already parsed in fetchAndParseRootCollection
-  return masterData.filter(item => item.type === 'TRUCK' || (item.licensePlate && !item.type));
+  if (!uid) throw new Error("UID is required to fetch data");
+  const collRef = collection(db, 'master_data');
+  const q = query(collRef, where('type', '==', 'TRUCK'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(docSnap => {
+    const dto = docSnap.data();
+    try {
+      const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
+      if (rawData && typeof rawData === 'string') {
+        const parsed = JSON.parse(rawData);
+        return { ...topLevelFields, ...parsed, firebaseId: docSnap.id };
+      }
+      return { id: docSnap.id, ...dto };
+    } catch (e) {
+      return { id: docSnap.id, ...dto };
+    }
+  });
 }
 
 /** Fetch master data of a specific type (AGENT, DRIVER, etc.) */
 export async function fetchMasterData(db, uid, type) {
-  const all = await fetchAndParseRootCollection(db, uid, 'master_data');
-  return all.filter(item => item.type === type);
+  if (!uid) throw new Error("UID is required to fetch data");
+  const collRef = collection(db, 'master_data');
+  const q = query(collRef, where('type', '==', type));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(docSnap => {
+    const dto = docSnap.data();
+    try {
+      const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
+      if (rawData && typeof rawData === 'string') {
+        const parsed = JSON.parse(rawData);
+        return { ...topLevelFields, ...parsed, firebaseId: docSnap.id };
+      }
+      return { id: docSnap.id, ...dto };
+    } catch (e) {
+      return { id: docSnap.id, ...dto };
+    }
+  });
 }
 
 /** 

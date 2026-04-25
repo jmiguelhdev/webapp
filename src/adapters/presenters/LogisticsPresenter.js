@@ -104,11 +104,16 @@ export class LogisticsPresenter {
   }
 
   // --- PRODUCERS ---
-  async loadProducers() {
-    this.ui.showLoading(true);
+  async loadProducers(lastVisible = null, isLoadMore = false) {
+    if (!isLoadMore) this.ui.showLoading(true);
     try {
-      const producers = await this.repository.getProducers();
-      this.ui.renderLogisticsMaster(this, 'productores', producers);
+      const { producers, lastVisible: newLastVisible, hasMore } = await this.repository.getProducersPaginated(20, lastVisible);
+      this.ui.renderLogisticsMaster(this, 'productores', producers, { lastVisible: newLastVisible, hasMore, isLoadMore });
+      
+      // En paralelo, pre-calentar la caché completa para los selectores si no está en caché
+      if (!isLoadMore && !lastVisible) {
+        this.repository.getProducers().catch(e => console.warn("Background cache error:", e));
+      }
     } catch (e) {
       this.ui.showError("Error loading producers: " + e.message);
     }

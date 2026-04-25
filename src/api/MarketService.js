@@ -33,33 +33,34 @@ export class MarketService {
       console.warn("Error fetching MAG prices. Using fallbacks.", e);
     }
 
-    // 3. Fallback (Static Mock Data)
+    // 3. Fallback (Static Mock Data) - multiplied by 1.105 for IVA
     return {
-      'NOVILLO': 4750.0,
-      'VAQUILLONA': 4650.0,
-      'VACA': 2750.0,
-      'TORO': 2950.0,
-      'TERNERO': 5150.0,
-      'NOVILLITO': 5020.0,
-      'MEJ': 4700.0
+      'NOVILLO': 4750.0 * 1.105,
+      'VAQUILLONA': 4650.0 * 1.105,
+      'VACA': 2750.0 * 1.105,
+      'TORO': 2950.0 * 1.105,
+      'TERNERO': 5150.0 * 1.105,
+      'NOVILLITO': 5020.0 * 1.105,
+      'MEJ': 4700.0 * 1.105
     };
   }
 
   /** Normalizes the array data from API to a Dict mapped to the local Categories */
   static formatMagData(data) {
     const prices = {};
-    // Map Array objects back to key value pairs
+    // Map Array objects back to key value pairs, applying 1.105 for IVA
     data.forEach(item => {
-      if (item.category.toLowerCase().includes('novillito')) prices['NOVILLITO'] = item.avg;
-      else if (item.category.toLowerCase().includes('novillo')) prices['NOVILLO'] = item.avg;
-      else if (item.category.toLowerCase().includes('vaquillona')) prices['VAQUILLONA'] = item.avg;
-      else if (item.category.toLowerCase().includes('vaca')) prices['VACA'] = item.avg;
+      const priceWithIva = item.avg * 1.105;
+      if (item.category.toLowerCase().includes('novillito')) prices['NOVILLITO'] = priceWithIva;
+      else if (item.category.toLowerCase().includes('novillo')) prices['NOVILLO'] = priceWithIva;
+      else if (item.category.toLowerCase().includes('vaquillona')) prices['VAQUILLONA'] = priceWithIva;
+      else if (item.category.toLowerCase().includes('vaca')) prices['VACA'] = priceWithIva;
     });
     
     // Add default fallbacks for missing categories in case MAG doesn't report them today
-    if (!prices['NOVILLO']) prices['NOVILLO'] = 4750;
-    if (!prices['TORO']) prices['TORO'] = 2950;
-    if (!prices['MEJ']) prices['MEJ'] = 4700;
+    if (!prices['NOVILLO']) prices['NOVILLO'] = 4750 * 1.105;
+    if (!prices['TORO']) prices['TORO'] = 2950 * 1.105;
+    if (!prices['MEJ']) prices['MEJ'] = 4700 * 1.105;
     
     return prices;
   }

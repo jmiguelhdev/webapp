@@ -1,5 +1,5 @@
 // src/api/LogisticsApi.js
-import { collection, getDocs, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, getDoc, query, where, limit, startAfter } from 'firebase/firestore';
 import { db, auth } from '../firebase.js';
 
 const MASTER_DATA_COLLECTION = 'master_data';
@@ -52,16 +52,38 @@ function createTravelPayload(domainObject) {
 
 export async function fetchMasterDataByType(type) {
   const colRef = collection(db, MASTER_DATA_COLLECTION);
-  const snapshot = await getDocs(colRef);
+  const q = query(colRef, where('type', '==', type));
+  const snapshot = await getDocs(q);
   const results = [];
   snapshot.forEach(docSnap => {
-    const firestoreData = docSnap.data();
-    if (firestoreData.type === type) {
-      const parsed = parseData(docSnap);
-      if (parsed) results.push(parsed);
-    }
+    const parsed = parseData(docSnap);
+    if (parsed) results.push(parsed);
   });
   return results;
+}
+
+export async function fetchProducersPaginated(limitCount = 20, lastVisibleDoc = null) {
+  const colRef = collection(db, MASTER_DATA_COLLECTION);
+  let q;
+  if (lastVisibleDoc) {
+    q = query(colRef, where('type', '==', 'PRODUCER'), startAfter(lastVisibleDoc), limit(limitCount));
+  } else {
+    q = query(colRef, where('type', '==', 'PRODUCER'), limit(limitCount));
+  }
+  
+  const snapshot = await getDocs(q);
+  const results = [];
+  let newLastVisible = null;
+  
+  if (!snapshot.empty) {
+    newLastVisible = snapshot.docs[snapshot.docs.length - 1];
+    snapshot.forEach(docSnap => {
+      const parsed = parseData(docSnap);
+      if (parsed) results.push(parsed);
+    });
+  }
+  
+  return { results, lastVisible: newLastVisible, hasMore: snapshot.docs.length === limitCount };
 }
 
 export async function fetchDrivers() {

@@ -12,37 +12,58 @@ export class ClientRepository {
   }
 
   async getClients() {
-    if (this.clientsCache) return this.clientsCache;
+    const cacheKey = 'client_clients';
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      this.clientsCache = JSON.parse(cached);
+      return this.clientsCache;
+    }
     this.clientsCache = await api.fetchClients(db);
+    localStorage.setItem(cacheKey, JSON.stringify(this.clientsCache));
     return this.clientsCache;
   }
 
   async saveClient(clientData) {
     const res = await api.saveClient(db, clientData);
+    localStorage.removeItem('client_clients');
     this.clientsCache = null;
     return res;
   }
 
   async getCategoryPrices() {
-    if (this.categoryPricesCache) return this.categoryPricesCache;
+    const cacheKey = 'client_category_prices';
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      this.categoryPricesCache = JSON.parse(cached);
+      return this.categoryPricesCache;
+    }
     this.categoryPricesCache = await api.fetchCategoryPrices(db);
+    localStorage.setItem(cacheKey, JSON.stringify(this.categoryPricesCache));
     return this.categoryPricesCache;
   }
 
   async saveCategoryPrices(prices) {
     const res = await api.saveCategoryPrices(db, prices);
+    localStorage.removeItem('client_category_prices');
     this.categoryPricesCache = null;
     return res;
   }
 
   async getCamaras() {
-    if (this.camarasCache) return this.camarasCache;
+    const cacheKey = 'client_camaras';
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      this.camarasCache = JSON.parse(cached);
+      return this.camarasCache;
+    }
     this.camarasCache = await api.fetchCamaras(db);
+    localStorage.setItem(cacheKey, JSON.stringify(this.camarasCache));
     return this.camarasCache;
   }
 
   async saveCamaras(camarasList) {
     const res = await api.saveCamaras(db, camarasList);
+    localStorage.removeItem('client_camaras');
     this.camarasCache = null;
     return res;
   }
