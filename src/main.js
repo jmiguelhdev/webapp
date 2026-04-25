@@ -75,6 +75,7 @@ const uiInterface = {
     uiLib.renderFaenaConsumption(content, { ...options, onBack: () => navigateTo('dashboard') });
   },
   renderScanResultsModal: (options) => uiLib.renderScanResultsModal(options),
+  renderExportModal: (options) => uiLib.renderExportModal(options),
   generateTravelReport: (data) => uiLib.generateTravelReport(data),
   generateExcelReport: (data) => uiLib.generateExcelReport(data),
   renderClientAccounts: (options) => uiLib.renderClientAccounts({ ...options, onBackToDashboard: () => navigateTo('dashboard') }),

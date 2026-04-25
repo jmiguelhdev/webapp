@@ -89,17 +89,17 @@ export async function saveFaenaDetalle(db, uid, faenaRecords) {
  * Check if a faena PDF was already processed by searching its filename in the details collection.
  */
 export async function checkIfFaenaExists(db, uid, fileName) {
-  if (!uid) return false;
+  if (!fileName) return false;
   const collRef = collection(db, 'faenas_detalle');
-  const q = query(collRef, where("ownerUid", "==", uid), where("fileName", "==", fileName), limit(1));
+  const q = query(collRef, where("fileName", "==", fileName), limit(1));
   const snapshot = await getDocs(q);
   return !snapshot.empty;
 }
 
 export async function checkIfTropaExists(db, uid, tropa) {
-  if (!uid || !tropa) return false;
+  if (!tropa) return false;
   const collRef = collection(db, 'faenas_detalle');
-  const q = query(collRef, where("ownerUid", "==", uid), where("tropa", "==", tropa), limit(1));
+  const q = query(collRef, where("tropa", "==", tropa), limit(1));
   const snapshot = await getDocs(q);
   return !snapshot.empty;
 }
@@ -108,10 +108,8 @@ export async function checkIfTropaExists(db, uid, tropa) {
  * Fetch all faena details for a specific user to build the Stock and History views.
  */
 export async function fetchFaenaDetalle(db, uid) {
-  if (!uid) throw new Error("UID is required");
   const collRef = collection(db, 'faenas_detalle');
-  const q = query(collRef, where("ownerUid", "==", uid));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(collRef);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
@@ -191,10 +189,8 @@ export async function addAchurasBatch(db, uid, tropa, date, quantity) {
 }
 
 export async function fetchAchurasStock(db, uid) {
-  if (!uid) throw new Error("UID is required to fetch achuras");
   const collRef = collection(db, 'achuras_stock');
-  const q = query(collRef, where("ownerUid", "==", uid));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(collRef);
   const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   return docs.filter(d => d.availableQuantity > 0).sort((a, b) => (a.date || 0) - (b.date || 0));
 }
@@ -372,10 +368,8 @@ export async function fetchTransactionsInRange(db, clientId, startDate, endDate)
  * CHECK OPERATIONS API
  */
 export async function fetchCheckOperations(db, uid) {
-  if (!uid) throw new Error("UID is required to fetch checks");
   const collRef = collection(db, 'check_operations');
-  const q = query(collRef, where("ownerUid", "==", uid));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(collRef);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
@@ -412,10 +406,9 @@ export async function deleteCheckOperation(db, operationId) {
  * ACCOUNTING API
  */
 export async function fetchAccountingEntries(db, uid, collectionName = 'accounting_entries') {
-  if (!uid) throw new Error("UID is required to fetch accounting");
+  // Removemos el filtro por ownerUid para que sea una caja única compartida por todos
   const collRef = collection(db, collectionName);
-  const q = query(collRef, where("ownerUid", "==", uid));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(collRef);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
