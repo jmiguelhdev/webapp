@@ -13,7 +13,7 @@
     "chart.js": "^4.5.1",
     "cheerio": "^1.2.0",
     "express": "^4.21.2",
-    "firebase": "^10.14.1",
+    "firebase": "^12.12.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "node-fetch": "^3.3.2",
@@ -21,6 +21,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "vite": "^5.4.14"
+    "vite": "^8.0.10"
   }
 }
