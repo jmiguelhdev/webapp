@@ -15,7 +15,15 @@ export function renderTimeFilterUI(options) {
     `
   });
   
-  const timeControlsArea = el('div', { style: 'display: flex; gap: 0.5rem; align-items: center;' });
+  const timeControlsArea = el('div', { style: 'display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;' });
+
+  // Compute default dates for range inputs
+  const _today = new Date().toISOString().split('T')[0];
+  const _oneMonthAgo = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split('T')[0];
+  })();
   
   const updateTimeUI = () => {
     timeControlsArea.innerHTML = '';
@@ -27,10 +35,12 @@ export function renderTimeFilterUI(options) {
       timeControlsArea.appendChild(input);
       timeControlsArea.appendChild(applyBtn);
     } else if (t === 'range') {
-      const val = options.timeFilterType === 'range' && options.timeFilterValue ? options.timeFilterValue : {};
-      const today = new Date().toISOString().split('T')[0];
-      const startInput = el('input', { attrs: { type: 'date', value: val.start || today }, style: 'padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main);' });
-      const endInput = el('input', { attrs: { type: 'date', value: val.end || today }, style: 'padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main);' });
+      // Use current filter value if available, otherwise fall back to last month
+      const val = options.timeFilterType === 'range' && options.timeFilterValue
+        ? options.timeFilterValue
+        : { start: _oneMonthAgo, end: _today };
+      const startInput = el('input', { attrs: { type: 'date', value: val.start || _oneMonthAgo }, style: 'padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main);' });
+      const endInput = el('input', { attrs: { type: 'date', value: val.end || _today }, style: 'padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main);' });
       const applyBtn = el('button', { classes: ['btn-primary'], text: 'Aplicar', style: 'padding: 0.4rem 0.8rem; margin: 0; font-size: 0.85rem;' });
       applyBtn.onclick = () => options.onTimeFilter('range', { start: startInput.value, end: endInput.value });
       timeControlsArea.appendChild(startInput);

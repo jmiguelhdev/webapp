@@ -16,6 +16,13 @@ export class TravelPresenter {
     this.pdfService = new PdfFaenaService();
     this.ui = ui;
     this.allTravels = [];
+    // Default: last month range
+    const _today = new Date();
+    const _oneMonthAgo = new Date(_today);
+    _oneMonthAgo.setMonth(_oneMonthAgo.getMonth() - 1);
+    const _defaultStart = _oneMonthAgo.toISOString().split('T')[0];
+    const _defaultEnd = _today.toISOString().split('T')[0];
+
     this.state = {
       filter: 'TODOS',
       sort: 'DESC',
@@ -24,8 +31,8 @@ export class TravelPresenter {
       selectedCategories: [], // Array of strings
       includeCommission: false,
       currentView: 'travels', // Tracks active view for reactive updates
-      timeFilterType: 'all', // 'all', 'count', 'range'
-      timeFilterValue: null,
+      timeFilterType: 'range',
+      timeFilterValue: { start: _defaultStart, end: _defaultEnd },
       searchQuery: ''
     };
     
