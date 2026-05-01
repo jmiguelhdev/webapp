@@ -8,9 +8,10 @@ import { Travel } from '../../domain/entities/LogisticsModels.js';
 
 
 export class TravelPresenter {
-  constructor(travelRepository, ui, logisticsRepository) {
+  constructor(travelRepository, ui, logisticsRepository, clientRepository) {
     this.travelRepository = travelRepository;
     this.logisticsRepository = logisticsRepository;
+    this.clientRepository = clientRepository;
     this.getTravelsUseCase = new GetTravels(travelRepository);
     this.calculateStatsUseCase = new CalculateCategoryStats();
     this.pdfService = new PdfFaenaService();
@@ -30,10 +31,14 @@ export class TravelPresenter {
       itemsPerPage: 5,
       selectedCategories: [], // Array of strings
       includeCommission: false,
-      currentView: 'travels', // Tracks active view for reactive updates
-      timeFilterType: 'range',
-      timeFilterValue: { start: _defaultStart, end: _defaultEnd },
-      searchQuery: ''
+      currentView: 'dashboard', // Tracks active view for reactive updates
+      timeFilterType: 'all',
+      timeFilterValue: 'all',
+      searchQuery: '',
+      dashHistoryFilters: {
+        destination: '',
+        date: _today.toISOString().split('T')[0] // Default to today
+      }
     };
     
     // Debounce search to prevent focus loss and flickers on every keystroke
@@ -83,7 +88,8 @@ export class TravelPresenter {
       // Cache completed travels and their categories to prevent recalculation on every filter change
       this.completedTravelsCache = this.allTravels.filter(t => {
         const s = String(t.status || '').toUpperCase();
-        return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+        const isComp = t.isCompleted === true || s === 'COMPLETED' || s === 'FINALIZADO';
+        return isComp && s !== 'DRAFT' && s !== 'BORRADOR';
       });
 
       const categoriesSet = new Set();
@@ -365,13 +371,13 @@ export class TravelPresenter {
     }
   }
 
-  showDashboard() {
+  async showDashboard() {
     this.state.currentView = 'dashboard';
     
     const completed = this.completedTravelsCache || [];
     const allCategories = this.allCategoriesCache || ['TODOS'];
 
-    // 1. Filter data by time and categories
+    // 1. Filter travels data by time and categories
     let filtered = this._applyTimeFilter(completed);
     if (this.state.selectedCategories.length > 0) {
       filtered = filtered.filter(t => 
@@ -379,17 +385,59 @@ export class TravelPresenter {
       );
     }
 
-    // 2. Render Dashboard via UI Interface
+    // 2. Calculate KPI stats
+    const categoryStats = this.calculateStatsUseCase.execute(
+      filtered,
+      this.state.selectedCategories,
+      this.state.includeCommission
+    );
+
+    // 3. NEW: Load Stock and Dispatch data
+    let stockItems = [];
+    let historyItems = [];
+    let clients = [];
+    
+    let categoryPrices = {};
+    
+    try {
+      const [allFaenaData, catsRes] = await Promise.all([
+        this.travelRepository.getFaenaStock(SHARED_DATA_SOURCE_UID),
+        this.clientRepository.getCategoryPrices()
+      ]);
+      categoryPrices = catsRes || {};
+      stockItems = allFaenaData.filter(f => f.status === 'AVAILABLE');
+      historyItems = allFaenaData.filter(f => f.status === 'DISPATCHED');
+      clients = await this.clientRepository.getClients();
+    } catch (e) {
+      console.error("Error loading dashboard extended data:", e);
+    }
+
+    // 4. Render Dashboard via UI Interface
     this.ui.renderDashboard({
       data: filtered,
       categories: allCategories,
       selectedCategories: this.state.selectedCategories,
       includeCommission: this.state.includeCommission,
+      categoryStats,
+      
+      // Stock & Dispatch data
+      stockItems,
+      historyItems,
+      clients,
+      categoryPrices,
+      dashHistoryFilters: this.state.dashHistoryFilters,
+
       onCategoryToggle: (cat) => this.toggleCategory(cat),
       onCommissionToggle: (val) => this.toggleCommission(val),
       timeFilterType: this.state.timeFilterType,
       timeFilterValue: this.state.timeFilterValue,
-      onTimeFilter: (type, val) => this.setTimeFilter(type, val)
+      onTimeFilter: (type, val) => this.setTimeFilter(type, val),
+      
+      // Dashboard-specific handlers
+      onDashHistoryFilter: (key, val) => {
+        this.state.dashHistoryFilters[key] = val;
+        this.showDashboard(); // Re-render
+      }
     });
   }
 

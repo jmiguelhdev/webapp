@@ -1,13 +1,6 @@
 import { el } from '../../utils/dom.js';
-import { MarketService } from '../../api/MarketService.js';
 import { renderTimeFilterUI } from '../components/Filters.js';
 
-function renderStatCard(label, value, icon) {
-  return el('div', { 
-    classes: ['stat-card'], 
-    html: `<div class="stat-icon">${icon}</div><div class="stat-info"><p>${label}</p><h3>${value}</h3></div>` 
-  });
-}
 
 
 /** 
@@ -79,107 +72,6 @@ export function renderTravels(container, options) {
   selectorRow.appendChild(chipsContainer);
   selectorRow.appendChild(commToggle);
   statsArea.appendChild(selectorRow);
-  
-  if (options.selectedCategories.length > 0 || true) {
-    const labelSuffix = options.selectedCategories.length === 0 ? 'Totales' : options.selectedCategories.join(', ');
-    const statsGrid = el('div', { classes: ['stats-grid'] });
-    
-    statsGrid.appendChild(renderStatCard(
-      `Precio Prom. [${labelSuffix}]`, 
-      `$${categoryStats.avgPrice.toFixed(2)}`, 
-      '💰'
-    ));
-
-    statsGrid.appendChild(renderStatCard(
-      `Precio c/Comis.`, 
-      `$${categoryStats.avgPriceWithCommission.toFixed(2)}`, 
-      '💸'
-    ));
-
-    statsGrid.appendChild(renderStatCard(
-      'Kg Totales (Finalizados)', 
-      `${categoryStats.totalKg.toLocaleString()} kg`, 
-      '⚖️'
-    ));
-    
-    const facturaEmoji = categoryStats.hasFacturaWarning ? '⚠️' : '✅';
-    statsGrid.appendChild(renderStatCard(
-      'Factura / Operación', 
-      `${(categoryStats.facturaOverOp * 100).toFixed(1)}% ${facturaEmoji}`, 
-      '📄'
-    ));
-
-    statsGrid.appendChild(renderStatCard(
-      'Viajes Incluidos', 
-      `${categoryStats.travelCount}`, 
-      '🚛'
-    ));
-
-    statsGrid.appendChild(renderStatCard(
-      'Peso Media Res (Prom.)', 
-      `${categoryStats.avgKgMediaRes.toFixed(2)} kg`, 
-      '🥩'
-    ));
-
-    statsGrid.appendChild(renderStatCard(
-      'Cabezas Totales', 
-      `${categoryStats.totalQuantity}`, 
-      '🐂'
-    ));
-
-    statsGrid.appendChild(renderStatCard(
-      'Rendimiento Promedio', 
-      `${(categoryStats.avgYield * 100).toFixed(2)}%`, 
-      '📈'
-    ));
-
-    const maxYieldLabel = categoryStats.maxYield > 0 ? `${(categoryStats.maxYield * 100).toFixed(2)}%` : 'N/A';
-    const maxYieldSub = categoryStats.maxYield > 0 ? `<div style="font-size:0.7em; color:var(--text-muted);">${categoryStats.maxYieldEntity}</div>` : '';
-    const maxYieldEl = el('div', { 
-      classes: ['stat-card'], 
-      html: `<div class="stat-icon">👑</div><div class="stat-info"><p>Rendimiento Máximo</p><h3>${maxYieldLabel}</h3>${maxYieldSub}</div>` 
-    });
-    statsGrid.appendChild(maxYieldEl);
-
-    const totalCostoFaenados = categoryStats.totalKgFaena > 0 
-      ? categoryStats.totalKgFaena * categoryStats.avgPriceWithCommission
-      : 0;
-
-    const kgFaenadosEl = el('div', { 
-      classes: ['stat-card'], 
-      html: `<div class="stat-icon">🔪</div><div class="stat-info"><p>Kilos Faenados</p><h3>${(categoryStats.totalKgFaena || 0).toLocaleString()} kg</h3><div style="font-size:0.8em; color:var(--text-muted); margin-top: 2px;">Costo total: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div></div>` 
-    });
-    statsGrid.appendChild(kgFaenadosEl);
-
-    const selectedCat = options.selectedCategories.length === 1 ? options.selectedCategories[0] : null;
-    if (selectedCat && selectedCat !== 'TODOS') {
-      MarketService.getReferencePrices().then(prices => {
-        const ref = prices[selectedCat];
-        if (ref) {
-          const gap = MarketService.calculateGap(categoryStats.avgPrice, ref);
-          const gapColor = gap > 0 ? '#ef4444' : '#10b981';
-          const sign = gap > 0 ? '+' : '';
-          const gapEl = el('div', { 
-            classes: ['stat-card', 'market-gap'], 
-            html: `<div class="stat-icon">📈</div><div class="stat-info"><p>Vs Mercado (MAG)</p><h3 style="color: ${gapColor}">${sign}${gap.toFixed(1)}%</h3></div>` 
-          });
-          const refEl = el('div', { 
-            classes: ['stat-card', 'market-ref'], 
-            html: `
-              <div class="stat-icon" title="Fuente: Mercado Agroganadero (MAG) - mercadoagroganadero.com.ar">🏷️</div>
-              <div class="stat-info">
-                <p>Precio MAG (+IVA) <a href="https://www.mercadoagroganadero.com.ar" target="_blank" title="Fuente: Mercado Agroganadero (MAG)" style="text-decoration:none; filter:grayscale(1); opacity:0.6; font-size:0.9em;">ℹ️</a></p>
-                <h3>$${ref.toLocaleString()}</h3>
-              </div>`
-          });
-          statsGrid.appendChild(gapEl);
-          statsGrid.appendChild(refEl);
-        }
-      });
-    }
-
-    statsArea.appendChild(statsGrid);
-  }
   
   container.appendChild(statsArea);
   

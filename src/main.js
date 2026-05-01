@@ -106,7 +106,7 @@ const uiInterface = {
   }
 };
 
-const travelPresenter = new TravelPresenter(travelRepository, uiInterface, logisticsRepository);
+const travelPresenter = new TravelPresenter(travelRepository, uiInterface, logisticsRepository, clientRepository);
 const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface, clientRepository);
 const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
 const checkPresenter = new CheckPresenter(checkRepository, uiInterface);
@@ -150,8 +150,8 @@ onAuthStateChanged(auth, async (user) => {
       console.error("Error rendering sidebar:", e);
     }
 
-    // Default view based on role
-    const startView = (currentUserRole === 'VISOR') ? 'dashboard' : 'travels';
+    // Default view: Dashboard for everyone
+    const startView = 'dashboard';
     navigateTo(startView);
     
     // Auto-load main data

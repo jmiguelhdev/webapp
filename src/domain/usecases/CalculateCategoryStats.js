@@ -8,6 +8,7 @@ export class CalculateCategoryStats {
     let totalFactura = 0;
     let totalQuantity = 0;
     let totalKgFaena = 0;
+    let totalFreight = 0;
     let count = 0;
     let totalKgForYield = 0;
 
@@ -35,6 +36,7 @@ export class CalculateCategoryStats {
           totalKg += kg;
           totalQuantity += buy.totalQuantity;
           totalKgFaena += buy.totalKgFaena;
+          totalFreight += (buy.totalFreight || 0);
           
           buy.listOfProducers.forEach(p => {
             const prodName = p.producer?.name || 'Productor';
@@ -105,7 +107,19 @@ export class CalculateCategoryStats {
             }
           });
         });
-        if (foundInCategory) count++;
+        if (foundInCategory) {
+          count++;
+          // Allocate freight proportionally for selected categories in this travel
+          if (buy.totalKgClean > 0 && buy.totalFreight > 0) {
+            const travelKgForCats = buy.listOfProducers.reduce((sum, p) => {
+              return sum + p.listOfProducts.reduce((s, pr) => {
+                return s + (catsToFilter.includes(pr.standardizedCategory) ? (pr.kgClean || 0) : 0);
+              }, 0);
+            }, 0);
+            const freightShare = (travelKgForCats / buy.totalKgClean) * buy.totalFreight;
+            totalFreight += freightShare;
+          }
+        }
       }
     });
 
@@ -138,7 +152,8 @@ export class CalculateCategoryStats {
       avgKgMediaRes,
       avgYield,
       maxYield,
-      maxYieldEntity
+      maxYieldEntity,
+      totalFreight
     };
   }
 }
