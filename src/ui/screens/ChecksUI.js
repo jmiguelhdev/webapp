@@ -298,65 +298,72 @@ function showOperationModal(existingOp, contacts, onSave) {
   const isEditing = !!existingOp;
   const modal = el('div', { 
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: flex-start; justify-content: center; z-index: 2000; padding: clamp(0.5rem, 3vw, 2rem); overflow-y: auto;'
   });
 
   const content = el('div', { 
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 800px; max-height: 90vh; overflow-y: auto; padding: 2rem;'
+    style: 'width: 100%; max-width: 1100px; margin: auto; padding: 0; overflow: hidden; border-radius: 20px;'
   });
 
   content.innerHTML = `
-    <h2 style="margin-top: 0; margin-bottom: 2rem;">${isEditing ? 'Editar' : 'Nueva'} Operación de Cheque</h2>
-    
+    <!-- Modal sticky header -->
+    <div style="position: sticky; top: 0; z-index: 10; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; border-radius: 20px 20px 0 0;">
+      <h2 style="margin: 0; font-size: clamp(1.1rem, 3vw, 1.4rem); font-weight: 700;">${isEditing ? '✏️ Editar' : '💸 Nueva'} Operación de Cheque</h2>
+      <button type="button" class="btn-close-modal" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--text-main); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s;">✕</button>
+    </div>
+
+    <div style="padding: clamp(1rem, 3vw, 2rem);">
     <form id="check-form">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-        <div class="form-group">
-          <label>Banco</label>
-          <input type="text" name="bank" value="${existingOp?.bank || ''}" required placeholder="Ej: Banco Nación">
-        </div>
-        <div class="form-group">
-          <label>Número de Cheque</label>
-          <input type="text" name="checkNumber" value="${existingOp?.checkNumber || ''}" required placeholder="12345678">
-        </div>
-        <div class="form-group">
-          <label>Valor Nominal ($)</label>
-          <input type="number" step="0.01" name="nominalValue" value="${existingOp?.nominalValue || ''}" required placeholder="0.00">
-        </div>
-        <div class="form-group">
-          <label>Clearing (Días)</label>
-          <input type="number" name="clearing" value="${existingOp?.clearing || 0}" required>
+
+      <!-- ═══ SECCIÓN 1: Info del cheque ═══ -->
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+        <h3 style="margin: 0 0 1.25rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 600;">📄 Datos del Cheque</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem 1.5rem;">
+          <div class="form-group" style="margin:0;">
+            <label>Banco</label>
+            <input type="text" name="bank" value="${existingOp?.bank || ''}" required placeholder="Ej: Banco Nación">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Número de Cheque</label>
+            <input type="text" name="checkNumber" value="${existingOp?.checkNumber || ''}" required placeholder="12345678">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Valor Nominal ($)</label>
+            <input type="number" step="0.01" name="nominalValue" value="${existingOp?.nominalValue || ''}" required placeholder="0.00">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Clearing (Días)</label>
+            <input type="number" name="clearing" value="${existingOp?.clearing || 0}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Fecha Emisión</label>
+            <input type="date" name="issueDate" value="${existingOp?.issueDate || ''}">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Fecha Recepción</label>
+            <input type="date" name="receptionDate" value="${existingOp?.receptionDate || new Date().toISOString().split('T')[0]}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Fecha de Pago</label>
+            <input type="date" name="dueDate" value="${existingOp?.dueDate || ''}" required>
+          </div>
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-        <div class="form-group">
-          <label>Fecha Emisión</label>
-          <input type="date" name="issueDate" value="${existingOp?.issueDate || ''}">
-        </div>
-        <div class="form-group">
-          <label>Fecha Recepción</label>
-          <input type="date" name="receptionDate" value="${existingOp?.receptionDate || new Date().toISOString().split('T')[0]}" required>
-        </div>
-        <div class="form-group">
-          <label>Fecha de Pago</label>
-          <input type="date" name="dueDate" value="${existingOp?.dueDate || ''}" required>
-        </div>
-      </div>
-
-      <!-- ISSUER INFO -->
-      <div class="glass-card" style="padding: 1.5rem; margin-bottom: 2rem; border-left: 4px solid var(--primary);">
-        <h3 style="margin-top:0; font-size: 1rem; color: var(--primary);">👤 Datos del Librador</h3>
-        <div class="responsive-grid-2" style="gap: 1.5rem;">
-          <div class="form-group" style="margin-bottom:0;">
+      <!-- ═══ SECCIÓN 2: Librador ═══ -->
+      <div style="background: rgba(99,102,241,0.04); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+        <h3 style="margin: 0 0 1.25rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--primary); font-weight: 600;">👤 Datos del Librador</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem 1.5rem;">
+          <div class="form-group" style="margin:0;">
             <label>Nombre / Razón Social</label>
             <input type="text" name="issuerName" value="${existingOp?.issuerName || ''}" placeholder="Nombre del librador">
           </div>
-          <div class="form-group" style="margin-bottom:0;">
+          <div class="form-group" style="margin:0;">
             <label>CUIT Librador</label>
             <div style="display: flex; gap: 0.5rem;">
               <input type="text" name="issuerCuit" id="issuer-cuit" value="${existingOp?.issuerCuit || ''}" placeholder="20-XXXXXXXX-X" style="flex: 1;">
-              <button type="button" id="btn-bcra" title="Consultar Situación Crediticia en BCRA" style="padding: 0 1rem; border-radius: 8px; background: #2563eb; color: white; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem;">
+              <button type="button" id="btn-bcra" title="Consultar Situación Crediticia en BCRA" style="padding: 0 1rem; border-radius: 8px; background: #2563eb; color: white; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
                 🔍 BCRA
               </button>
             </div>
@@ -364,10 +371,12 @@ function showOperationModal(existingOp, contacts, onSave) {
         </div>
       </div>
 
-      <div class="responsive-grid-2" style="margin-bottom: 2rem;">
+      <!-- ═══ SECCIÓN 3: Compra / Venta (side by side) ═══ -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+
         <!-- BUY SIDE -->
-        <div style="padding: 1.5rem; border: 2px solid var(--primary); border-radius: 16px; background: rgba(99,102,241,0.06);">
-          <h3 style="margin-top:0; color: var(--primary);">📥 Compra (Origen)</h3>
+        <div style="padding: 1.25rem 1.5rem; border: 2px solid var(--primary); border-radius: 14px; background: rgba(99,102,241,0.06);">
+          <h3 style="margin: 0 0 1.25rem; color: var(--primary); font-size: 0.95rem;">📥 Compra (Origen)</h3>
           <div class="form-group">
             <label>Vendedor</label>
             <select name="buySide_contactId" required style="${getSelectStyle('var(--primary)', '#6366f1')}">
@@ -375,28 +384,29 @@ function showOperationModal(existingOp, contacts, onSave) {
               ${contacts.map(c => `<option value="${c.id}" ${existingOp?.buySide?.contactId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
             </select>
           </div>
-          <div class="form-group">
-            <label>Pesificación (%)</label>
-            <input type="number" step="0.01" name="buySide_pesificacionRate" value="${existingOp?.buySide?.pesificacionRate || ''}" required>
-          </div>
-          <div class="form-group">
-            <label>Interés Mensual (%)</label>
-            <input type="number" step="0.01" name="buySide_monthlyInterest" value="${existingOp?.buySide?.monthlyInterest || ''}" required>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" style="margin:0;">
+              <label>Pesificación (%)</label>
+              <input type="number" step="0.01" name="buySide_pesificacionRate" value="${existingOp?.buySide?.pesificacionRate || ''}" required>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Interés Mensual (%)</label>
+              <input type="number" step="0.01" name="buySide_monthlyInterest" value="${existingOp?.buySide?.monthlyInterest || ''}" required>
+            </div>
           </div>
         </div>
 
-        <div style="padding: 1.5rem; border: 2px solid var(--success); border-radius: 16px; background: rgba(16,185,129,0.06);">
-          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem;">
-            <h3 style="margin: 0; color: var(--success);">📤 Venta (Destino / Estado)</h3>
-            <div class="form-group" style="margin: 0; min-width: 150px; flex: 1;">
-              <select name="sellSide_status" style="padding: 0.5rem; ${getSelectStyle('var(--success)', '#10b981')}">
-                <option value="PENDING" ${!existingOp?.sellSide || existingOp?.sellSide?.status === 'PENDING' ? 'selected' : ''}>En Cartera</option>
-                <option value="SOLD" ${existingOp?.sellSide?.status === 'SOLD' ? 'selected' : ''}>Vendido</option>
-                <option value="RETURNED" ${existingOp?.sellSide?.status === 'RETURNED' ? 'selected' : ''}>Devuelto</option>
-                <option value="BACK" ${existingOp?.sellSide?.status === 'BACK' ? 'selected' : ''}>Volvió</option>
-                <option value="REJECTED" ${existingOp?.sellSide?.status === 'REJECTED' ? 'selected' : ''}>Rechazado</option>
-              </select>
-            </div>
+        <!-- SELL SIDE -->
+        <div style="padding: 1.25rem 1.5rem; border: 2px solid var(--success); border-radius: 14px; background: rgba(16,185,129,0.06);">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.25rem;">
+            <h3 style="margin: 0; color: var(--success); font-size: 0.95rem;">📤 Venta (Destino / Estado)</h3>
+            <select name="sellSide_status" style="${getSelectStyle('var(--success)', '#10b981')} padding: 0.55rem 0.75rem; flex-shrink: 0; min-width: 140px;">
+              <option value="PENDING" ${!existingOp?.sellSide || existingOp?.sellSide?.status === 'PENDING' ? 'selected' : ''}>En Cartera</option>
+              <option value="SOLD" ${existingOp?.sellSide?.status === 'SOLD' ? 'selected' : ''}>Vendido</option>
+              <option value="RETURNED" ${existingOp?.sellSide?.status === 'RETURNED' ? 'selected' : ''}>Devuelto</option>
+              <option value="BACK" ${existingOp?.sellSide?.status === 'BACK' ? 'selected' : ''}>Volvió</option>
+              <option value="REJECTED" ${existingOp?.sellSide?.status === 'REJECTED' ? 'selected' : ''}>Rechazado</option>
+            </select>
           </div>
           <div class="form-group">
             <label>Comprador / Destinatario</label>
@@ -405,31 +415,38 @@ function showOperationModal(existingOp, contacts, onSave) {
               ${contacts.map(c => `<option value="${c.id}" ${existingOp?.sellSide?.contactId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
             </select>
           </div>
-          <div class="form-group">
-            <label>Pesificación (%)</label>
-            <input type="number" step="0.01" name="sellSide_pesificacionRate" value="${existingOp?.sellSide?.pesificacionRate || ''}">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" style="margin:0;">
+              <label>Pesificación (%)</label>
+              <input type="number" step="0.01" name="sellSide_pesificacionRate" value="${existingOp?.sellSide?.pesificacionRate || ''}">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label>Interés Mensual (%)</label>
+              <input type="number" step="0.01" name="sellSide_monthlyInterest" value="${existingOp?.sellSide?.monthlyInterest || ''}">
+            </div>
           </div>
-          <div class="form-group">
-            <label>Interés Mensual (%)</label>
-            <input type="number" step="0.01" name="sellSide_monthlyInterest" value="${existingOp?.sellSide?.monthlyInterest || ''}">
-          </div>
-          <div class="form-group" id="back-reason-group" style="display: ${existingOp?.sellSide?.status === 'BACK' ? 'flex' : 'none'};">
+          <div class="form-group" id="back-reason-group" style="margin-top: 1rem; display: ${existingOp?.sellSide?.status === 'BACK' ? 'flex' : 'none'}; flex-direction: column; gap: 0.5rem;">
             <label>⚠️ Motivo de Retorno (Volvió)</label>
             <textarea name="sellSide_backReason" rows="2" placeholder="Ej: El cliente no tenía fondos suficientes..." style="resize: vertical;">${existingOp?.sellSide?.backReason || ''}</textarea>
           </div>
         </div>
+
       </div>
 
+      <!-- ═══ SECCIÓN 4: Notas ═══ -->
       <div class="form-group">
         <label>Notas / Observaciones</label>
-        <textarea name="notes" rows="3" placeholder="Observaciones adicionales..." style="resize: vertical;">${existingOp?.notes || ''}</textarea>
+        <textarea name="notes" rows="2" placeholder="Observaciones adicionales..." style="resize: vertical;">${existingOp?.notes || ''}</textarea>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; align-items: center;">
-        <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cancelar</button>
-        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(99,102,241,0.4); letter-spacing: 0.03em;">Guardar Operación</button>
+      <!-- ACTIONS -->
+      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+        <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.06); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer; min-width: 120px;">Cancelar</button>
+        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(99,102,241,0.4); letter-spacing: 0.03em; min-width: 180px;">Guardar Operación</button>
       </div>
+
     </form>
+    </div>
   `;
 
   modal.appendChild(content);
@@ -487,7 +504,11 @@ function showOperationModal(existingOp, contacts, onSave) {
     modal.remove();
   };
 
-  content.querySelector('.btn-cancel').onclick = () => modal.remove();
+  const closeModal = () => modal.remove();
+  content.querySelector('.btn-cancel').onclick = closeModal;
+  content.querySelector('.btn-close-modal').onclick = closeModal;
+  // Click outside the card closes the modal
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
   // Show/hide backReason field dynamically
   const statusSelect = content.querySelector('[name="sellSide_status"]');
