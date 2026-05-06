@@ -166,10 +166,25 @@ function getCheckStatusBadge(op) {
   
   // Evaluate date alerts if it's in portfolio
   if (status === 'PENDING' || status === 'BACK') {
+    // Use local-date parsing (YYYY-MM-DD → local midnight) to avoid UTC day-shift.
+    // new Date("YYYY-MM-DD") is UTC midnight which in UTC-3 is 21:00 the day before,
+    // causing setHours(0,0,0,0) to land on the wrong calendar day.
     const today = new Date();
     today.setHours(0,0,0,0);
-    const payDate = new Date(op.dueDate); // dueDate field stores payment date
-    payDate.setHours(0,0,0,0);
+
+    const parseDateLocal = (str) => {
+      if (!str) return null;
+      const parts = String(str).split('T')[0].split('-');
+      if (parts.length === 3) {
+        const [y, m, d] = parts.map(Number);
+        return new Date(y, m - 1, d); // local midnight, no timezone shift
+      }
+      const dt = new Date(str);
+      dt.setHours(0,0,0,0);
+      return dt;
+    };
+
+    const payDate = parseDateLocal(op.dueDate);
     const expiryDate = new Date(payDate);
     expiryDate.setDate(payDate.getDate() + 30);
 
@@ -190,6 +205,7 @@ function getCheckStatusBadge(op) {
 
   return badgeHtml || '<span class="status-badge badge-pending">EN CARTERA</span>';
 }
+
 
 function renderCheckTable(checksList, contacts, onSave, onDelete) {
   const tableWrapper = el('div', { classes: ['glass-card', 'table-responsive'], style: 'padding: 0; margin-bottom: 2rem;' });
@@ -225,8 +241,8 @@ function renderCheckTable(checksList, contacts, onSave, onDelete) {
           ${op.issuerName ? `<div style="font-size: 0.75rem; color: var(--primary); margin-top: 0.25rem;">👤 ${op.issuerName}</div>` : ''}
         </td>
         <td style="padding: 1rem;">
-          <div style="font-weight: 500;">${formatDate(op.dueDate)}</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">Venc: ${formatDate(addDays(op.dueDate, 30))}</div>
+          <div style="font-weight: 500; color: var(--primary);">💳 ${formatDateLocal(op.dueDate)}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Venc: ${formatDateLocal(addDays(op.dueDate, 30))}</div>
           <div style="font-size: 0.75rem; color: var(--text-muted);">${op.days} días</div>
         </td>
         <td style="padding: 1rem; font-weight: 600;">${formatCurrency(op.nominalValue)}</td>
@@ -267,6 +283,15 @@ function createStatCard(label, value, color) {
   card.appendChild(el('div', { text: label, style: 'font-size: 0.85rem; color: var(--text-muted); font-weight: 500;' }));
   card.appendChild(el('div', { text: value, style: 'font-size: 1.5rem; font-weight: 700;' }));
   return card;
+}
+
+// Returns a CSS string for select elements with solid backgrounds for legibility.
+// We read the current theme from body.classList and emit explicit color-scheme + bg.
+function getSelectStyle(accentColor, bgHex) {
+  const isDark = document.body.classList.contains('dark');
+  const bg = isDark ? '#1e1e1e' : '#ffffff';
+  const fg = isDark ? '#ffffff' : '#1a1a1a';
+  return `border: 1.5px solid ${accentColor}; background-color: ${bg}; color: ${fg}; border-radius: 10px; color-scheme: ${isDark ? 'dark' : 'light'};`;
 }
 
 function showOperationModal(existingOp, contacts, onSave) {
@@ -341,11 +366,11 @@ function showOperationModal(existingOp, contacts, onSave) {
 
       <div class="responsive-grid-2" style="margin-bottom: 2rem;">
         <!-- BUY SIDE -->
-        <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.02);">
+        <div style="padding: 1.5rem; border: 2px solid var(--primary); border-radius: 16px; background: rgba(99,102,241,0.06);">
           <h3 style="margin-top:0; color: var(--primary);">📥 Compra (Origen)</h3>
           <div class="form-group">
             <label>Vendedor</label>
-            <select name="buySide_contactId" required>
+            <select name="buySide_contactId" required style="${getSelectStyle('var(--primary)', '#6366f1')}">
               <option value="">Seleccionar Vendedor</option>
               ${contacts.map(c => `<option value="${c.id}" ${existingOp?.buySide?.contactId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
             </select>
@@ -360,11 +385,11 @@ function showOperationModal(existingOp, contacts, onSave) {
           </div>
         </div>
 
-        <div style="padding: 1.5rem; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,0.02);">
+        <div style="padding: 1.5rem; border: 2px solid var(--success); border-radius: 16px; background: rgba(16,185,129,0.06);">
           <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem;">
             <h3 style="margin: 0; color: var(--success);">📤 Venta (Destino / Estado)</h3>
             <div class="form-group" style="margin: 0; min-width: 150px; flex: 1;">
-              <select name="sellSide_status" style="padding: 0.5rem; border-radius: 8px;">
+              <select name="sellSide_status" style="padding: 0.5rem; ${getSelectStyle('var(--success)', '#10b981')}">
                 <option value="PENDING" ${!existingOp?.sellSide || existingOp?.sellSide?.status === 'PENDING' ? 'selected' : ''}>En Cartera</option>
                 <option value="SOLD" ${existingOp?.sellSide?.status === 'SOLD' ? 'selected' : ''}>Vendido</option>
                 <option value="RETURNED" ${existingOp?.sellSide?.status === 'RETURNED' ? 'selected' : ''}>Devuelto</option>
@@ -375,7 +400,7 @@ function showOperationModal(existingOp, contacts, onSave) {
           </div>
           <div class="form-group">
             <label>Comprador / Destinatario</label>
-            <select name="sellSide_contactId">
+            <select name="sellSide_contactId" style="${getSelectStyle('var(--success)', '#10b981')}">
               <option value="">Seleccionar Comprador</option>
               ${contacts.map(c => `<option value="${c.id}" ${existingOp?.sellSide?.contactId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
             </select>
@@ -482,9 +507,31 @@ function formatDate(date) {
   return new Date(date).toLocaleDateString('es-AR');
 }
 
+// Parses YYYY-MM-DD as local date (avoids UTC offset day-shift bug)
+function formatDateLocal(dateStr) {
+  if (!dateStr) return '-';
+  // If it's already a Date object or has time component, fall back to locale string
+  if (dateStr instanceof Date) return dateStr.toLocaleDateString('es-AR');
+  // Handle YYYY-MM-DD format safely (no timezone shift)
+  const parts = String(dateStr).split('T')[0].split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts.map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('es-AR');
+  }
+  return new Date(dateStr).toLocaleDateString('es-AR');
+}
+
 function addDays(dateStr, days) {
   if (!dateStr) return null;
-  const d = new Date(dateStr);
+  // Parse as local date to avoid UTC shift
+  const parts = String(dateStr).split('T')[0].split('-');
+  let d;
+  if (parts.length === 3) {
+    const [y, m, day] = parts.map(Number);
+    d = new Date(y, m - 1, day);
+  } else {
+    d = new Date(dateStr);
+  }
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
 }

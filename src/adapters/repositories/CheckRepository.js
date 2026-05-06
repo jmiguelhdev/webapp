@@ -41,7 +41,9 @@ export class CheckRepository {
   }
 
   async getContacts() {
-    const cacheKey = 'checks_contacts';
+    // Use the same cache key as ClientRepository so that adding/editing
+    // a client in Settings automatically invalidates this list too.
+    const cacheKey = 'client_clients';
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       this.contactsCache = JSON.parse(cached);

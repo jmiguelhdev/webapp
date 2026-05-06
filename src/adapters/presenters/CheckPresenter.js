@@ -20,6 +20,10 @@ export class CheckPresenter {
 
   async loadData() {
     this.ui.showLoading();
+    // Migrate old contacts cache key (if any) to the shared 'client_clients' key
+    if (localStorage.getItem('checks_contacts')) {
+      localStorage.removeItem('checks_contacts');
+    }
     try {
       this.checks = await this.checkRepository.fetchChecks(this.currentUserUid);
       this.contacts = await this.checkRepository.getContacts();
