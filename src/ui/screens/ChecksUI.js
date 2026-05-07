@@ -170,7 +170,11 @@ export function renderChecks(container, options) {
     attrs: { type: 'text', list: 'checks-search-dl', placeholder: 'Escribí banco, número, librador, contacto...', value: filters?.searchTerm || '', autocomplete: 'off' },
     style: 'width: 100%;'
   });
-  searchInput.oninput = (e) => onFilterChange({ searchTerm: e.target.value });
+  let _searchDebounce = null;
+  searchInput.addEventListener('input', (e) => {
+    clearTimeout(_searchDebounce);
+    _searchDebounce = setTimeout(() => onFilterChange({ searchTerm: e.target.value }), 500);
+  });
   searchGroup.appendChild(searchDatalist);
   searchGroup.appendChild(searchInput);
 
