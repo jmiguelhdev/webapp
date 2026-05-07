@@ -93,13 +93,33 @@ export function renderChecks(container, options) {
   });
 
   const searchGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
-  searchGroup.appendChild(el('label', { text: '🔍 Buscar (Banco, #, Vendedor/Comprador)' }));
-  const searchInput = el('input', { 
-    attrs: { type: 'text', placeholder: 'Buscar cheques...', value: filters?.searchTerm || '' },
+  searchGroup.appendChild(el('label', { text: '🔍 Banco · Nº Cheque · Librador · CUIT · Vendedor / Comprador' }));
+
+  // Build suggestion list from all checks + contacts
+  const suggestionSet = new Set();
+  checks.forEach(c => {
+    if (c.bank) suggestionSet.add(c.bank);
+    if (c.checkNumber) suggestionSet.add(String(c.checkNumber));
+    if (c.issuerName) suggestionSet.add(c.issuerName);
+    if (c.issuerCuit) suggestionSet.add(String(c.issuerCuit));
+  });
+  contacts.forEach(c => { if (c.name) suggestionSet.add(c.name); });
+
+  const searchDatalist = el('datalist', { attrs: { id: 'checks-search-dl' } });
+  suggestionSet.forEach(val => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    searchDatalist.appendChild(opt);
+  });
+
+  const searchInput = el('input', {
+    attrs: { type: 'text', list: 'checks-search-dl', placeholder: 'Escribí banco, número, librador, contacto...', value: filters?.searchTerm || '', autocomplete: 'off' },
     style: 'width: 100%;'
   });
   searchInput.oninput = (e) => onFilterChange({ searchTerm: e.target.value });
+  searchGroup.appendChild(searchDatalist);
   searchGroup.appendChild(searchInput);
+
 
   const dateStartGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
   dateStartGroup.appendChild(el('label', { text: 'Desde' }));
@@ -801,35 +821,57 @@ function showBatchBuyModal(contacts, onBatchBuy) {
 
   function addRow() {
     rowCount++;
-    const idx = rowCount;
     const row = el('div', {
       classes: ['batch-check-row'],
-      style: 'background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:0.85rem 1rem;display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:0.75rem;align-items:end;'
+      style: 'background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.65rem;'
     });
     row.innerHTML = `
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:0.78rem;">Banco</label>
-        <input type="text" class="row-bank" placeholder="Ej: BNA" style="font-size:0.9rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:0.75rem;align-items:end;">
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.78rem;">Banco</label>
+          <input type="text" class="row-bank" placeholder="Ej: BNA" style="font-size:0.9rem;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.78rem;"># Cheque</label>
+          <input type="text" class="row-number" placeholder="12345678" style="font-size:0.9rem;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.78rem;">Nominal ($)</label>
+          <input type="number" step="0.01" class="row-nominal" placeholder="0.00" style="font-size:0.9rem;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.78rem;">F. Pago</label>
+          <input type="date" class="row-duedate" style="font-size:0.9rem;">
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">
+          <button type="button" class="row-remove-btn" style="background:rgba(239,68,68,0.15);border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:0.3rem 0.6rem;cursor:pointer;font-size:0.8rem;font-weight:700;">✕</button>
+          <span class="row-net-preview" style="font-size:0.75rem;color:var(--primary);white-space:nowrap;"></span>
+        </div>
       </div>
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:0.78rem;"># Cheque</label>
-        <input type="text" class="row-number" placeholder="12345678" style="font-size:0.9rem;">
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:0.78rem;">Nominal ($)</label>
-        <input type="number" step="0.01" class="row-nominal" placeholder="0.00" style="font-size:0.9rem;">
-      </div>
-      <div class="form-group" style="margin:0;">
-        <label style="font-size:0.78rem;">F. Pago</label>
-        <input type="date" class="row-duedate" style="font-size:0.9rem;">
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">
-        <button type="button" class="row-remove-btn" style="background:rgba(239,68,68,0.15);border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:0.3rem 0.6rem;cursor:pointer;font-size:0.8rem;font-weight:700;">✕</button>
-        <span class="row-net-preview" style="font-size:0.75rem;color:var(--primary);white-space:nowrap;"></span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;align-items:end;padding-top:0.15rem;border-top:1px solid rgba(255,255,255,0.06);">
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.78rem;">👤 Librador</label>
+          <input type="text" class="row-issuer-name" placeholder="Nombre del librador" style="font-size:0.9rem;">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.78rem;">CUIT Librador</label>
+          <div style="display:flex;gap:0.4rem;">
+            <input type="text" class="row-issuer-cuit" placeholder="20-XXXXXXXX-X" style="font-size:0.9rem;flex:1;">
+            <button type="button" class="row-bcra-btn" title="Consultar Central de Deudores BCRA" style="padding:0 0.8rem;border-radius:8px;background:#2563eb;color:white;border:none;cursor:pointer;font-size:0.75rem;font-weight:700;white-space:nowrap;flex-shrink:0;">🔍 BCRA</button>
+          </div>
+        </div>
       </div>
     `;
     row.querySelector('.row-remove-btn').onclick = () => { row.remove(); updateSummary(); };
     row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateSummary));
+    row.querySelector('.row-bcra-btn').onclick = () => {
+      const cuit = row.querySelector('.row-issuer-cuit').value.replace(/\D/g, '');
+      if (!cuit || cuit.length < 11) { alert('Por favor ingrese un CUIT válido (11 dígitos).'); return; }
+      navigator.clipboard.writeText(cuit).then(() => {
+        alert(`CUIT ${cuit} copiado al portapapeles.\n\nSe abrirá la web del BCRA. Pega el CUIT allí para consultar.`);
+        window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
+      }).catch(() => window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank'));
+    };
     rowsContainer.appendChild(row);
     updateSummary();
   }
@@ -859,6 +901,8 @@ function showBatchBuyModal(contacts, onBatchBuy) {
       const num = row.querySelector('.row-number').value.trim();
       const nv = row.querySelector('.row-nominal').value;
       const dueDate = row.querySelector('.row-duedate').value;
+      const issuerName = row.querySelector('.row-issuer-name').value.trim();
+      const issuerCuit = row.querySelector('.row-issuer-cuit').value.trim();
       if (!nv || !dueDate) return; // skip empty rows
       ops.push({
         bank,
@@ -868,8 +912,8 @@ function showBatchBuyModal(contacts, onBatchBuy) {
         receptionDate: recDate || today,
         clearing: clearing || 0,
         issueDate: '',
-        issuerName: '',
-        issuerCuit: '',
+        issuerName,
+        issuerCuit,
         notes: '',
         buySide: { contactId: sellerId, pesificacionRate: pesif, monthlyInterest: interest },
         sellSide: { status: 'PENDING', contactId: null, pesificacionRate: '', monthlyInterest: '', backReason: '' }
