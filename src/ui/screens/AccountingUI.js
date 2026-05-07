@@ -1072,6 +1072,10 @@ function printSalaryReceipt(entry, type = 'standard', boxTitle = 'Caja General')
           margin-top: 15px; 
         }
         .amount-val { font-size: ${isThermal ? '22px' : '24px'}; font-weight: 800; }
+        @page {
+          size: ${isThermal ? '80mm auto' : 'A4 portrait'};
+          margin: ${isThermal ? '0' : '10mm'};
+        }
         @media print {
           body { padding: 0; margin: 0; width: ${isThermal ? '80mm' : 'auto'}; }
           .receipt-card { border: none; box-shadow: none; max-width: 100%; margin: 0; border-bottom: ${isThermal ? '1px dashed #ccc' : 'none'}; padding-bottom: ${isThermal ? '20px' : '0'}; }
