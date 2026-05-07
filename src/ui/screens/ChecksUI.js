@@ -2,7 +2,7 @@ import { el } from '../../utils/dom.js';
 import { renderDateModal } from '../components/Modals.js';
 
 export function renderChecks(container, options) {
-  const { checks, filteredChecks, filters, contacts, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint } = options;
+  const { checks, filteredChecks, filters, contacts, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell } = options;
   container.innerHTML = '';
 
   const header = el('div', { 
@@ -40,6 +40,12 @@ export function renderChecks(container, options) {
     }
   };
 
+  const batchBuyBtn = el('button', {
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; cursor: pointer; font-weight: 600; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(99,102,241,0.35); transition: opacity 0.2s;',
+    html: '<svg viewBox="0 0 24 24" width="16" height="16" style="fill:currentColor;flex-shrink:0;"><path d="M17,12H14V8H10V12H7L12,17L17,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg> Compra Masiva'
+  });
+  batchBuyBtn.onclick = () => showBatchBuyModal(contacts, onBatchBuy);
+
   const addBtn = el('button', { 
     classes: ['btn-nueva-operacion'],
     style: 'margin: 0;',
@@ -48,6 +54,7 @@ export function renderChecks(container, options) {
   addBtn.onclick = () => showOperationModal(null, contacts, onSave);
   
   actionGroup.appendChild(exportBtn);
+  actionGroup.appendChild(batchBuyBtn);
   actionGroup.appendChild(addBtn);
   header.appendChild(actionGroup);
 
@@ -163,7 +170,54 @@ export function renderChecks(container, options) {
   portfolioHeader.appendChild(portfolioActions);
 
   container.appendChild(portfolioHeader);
-  container.appendChild(renderCheckTable(currentPortfolio, contacts, onSave, onDelete, 'dueDate', isAsc));
+
+  // Batch-sell selection bar (injected after table renders)
+  const batchSellBar = el('div', {
+    style: 'display: none; align-items: center; gap: 1rem; margin-bottom: 0.75rem; padding: 0.75rem 1.25rem; background: rgba(16,185,129,0.1); border: 1px solid var(--success); border-radius: 12px; flex-wrap: wrap;'
+  });
+  const batchSellLabel = el('span', { text: '0 cheques seleccionados', style: 'font-weight: 600; flex: 1; color: var(--success);' });
+  const batchSellBtn = el('button', {
+    classes: ['btn-nueva-operacion'],
+    style: 'margin: 0; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 12px rgba(16,185,129,0.35);',
+    html: '📤 Vender Selección'
+  });
+  const clearSelBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'border-radius: 8px; padding: 0.5rem 1rem;',
+    text: 'Limpiar selección'
+  });
+  batchSellBar.appendChild(batchSellLabel);
+  batchSellBar.appendChild(clearSelBtn);
+  batchSellBar.appendChild(batchSellBtn);
+  container.appendChild(batchSellBar);
+
+  let selectedIds = new Set();
+
+  const updateBatchBar = () => {
+    if (selectedIds.size > 0) {
+      batchSellBar.style.display = 'flex';
+      batchSellLabel.textContent = `${selectedIds.size} cheque${selectedIds.size > 1 ? 's' : ''} seleccionado${selectedIds.size > 1 ? 's' : ''}`;
+    } else {
+      batchSellBar.style.display = 'none';
+    }
+  };
+
+  clearSelBtn.onclick = () => {
+    selectedIds.clear();
+    container.querySelectorAll('.portfolio-check-cb').forEach(cb => { cb.checked = false; });
+    updateBatchBar();
+  };
+
+  batchSellBtn.onclick = () => {
+    if (selectedIds.size === 0) return;
+    showBatchSellModal(contacts, Array.from(selectedIds), onBatchSell, () => {
+      selectedIds.clear();
+      updateBatchBar();
+    });
+  };
+
+  const portfolioTable = renderCheckTable(currentPortfolio, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar);
+  container.appendChild(portfolioTable);
 
   // Section 2: OPERACIONES REALIZADAS
   const currentHistory = currentList.filter(isHistory);
@@ -235,12 +289,13 @@ function getCheckStatusBadge(op) {
 }
 
 
-function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false) {
+function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false, selectable = false, selectedIds = null, onSelectionChange = null) {
   const tableWrapper = el('div', { classes: ['glass-card', 'table-responsive'], style: 'padding: 0; margin-bottom: 2rem;' });
   const table = el('table', { style: 'width: 100%; min-width: 800px; border-collapse: collapse;' });
   
   const thead = el('thead', { html: `
     <tr style="background: rgba(255,255,255,0.05); text-align: left;">
+      ${selectable ? '<th style="padding: 1rem; width: 40px;"><input type="checkbox" id="check-all-cb" title="Seleccionar todos"></th>' : ''}
       <th style="padding: 1rem;">Banco / #</th>
       <th style="padding: 1rem;">F. Pago / Vencimiento</th>
       <th style="padding: 1rem;">Valor Nominal</th>
@@ -265,8 +320,11 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       const isSold = op.sellSide && op.sellSide.status === 'SOLD';
       const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Desconocido';
       const buyer = contacts.find(c => c.id === op.sellSide?.contactId)?.name || op.sellSide?.contactId || '-';
+
+      const cbCell = selectable ? `<td style="padding: 1rem; width: 40px;"><input type="checkbox" class="portfolio-check-cb" data-id="${op.id}" style="width:18px;height:18px;cursor:pointer;"></td>` : '';
       
       tr.innerHTML = `
+        ${cbCell}
         <td style="padding: 1rem;">
           <div style="font-weight: 600;">${op.bank || 'S/B'}</div>
           <div style="font-size: 0.8rem; color: var(--text-muted);">#${op.checkNumber || 'S/N'}</div>
@@ -293,14 +351,40 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
         </td>
       `;
       
-      // Use closest() so SVG child clicks don't break wiring
       tr.addEventListener('click', (e) => {
-        if (e.target.closest('.edit-btn')) showOperationModal(op, contacts, onSave);
-        if (e.target.closest('.delete-btn')) onDelete(op.id);
+        if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, onSave); return; }
+        if (e.target.closest('.delete-btn')) { onDelete(op.id); return; }
+        if (e.target.closest('.portfolio-check-cb')) return; // handled by change
       });
+
+      if (selectable && selectedIds !== null) {
+        const cb = tr.querySelector('.portfolio-check-cb');
+        if (cb) {
+          if (selectedIds.has(op.id)) cb.checked = true;
+          cb.addEventListener('change', () => {
+            if (cb.checked) selectedIds.add(op.id); else selectedIds.delete(op.id);
+            if (onSelectionChange) onSelectionChange();
+          });
+        }
+      }
       
       tbody.appendChild(tr);
     });
+
+    // "Select all" header checkbox wiring
+    if (selectable) {
+      const allCb = table.querySelector('#check-all-cb');
+      if (allCb) {
+        allCb.addEventListener('change', () => {
+          table.querySelectorAll('.portfolio-check-cb').forEach(cb => {
+            cb.checked = allCb.checked;
+            const id = cb.dataset.id;
+            if (allCb.checked) selectedIds.add(id); else selectedIds.delete(id);
+          });
+          if (onSelectionChange) onSelectionChange();
+        });
+      }
+    }
   }
   table.appendChild(tbody);
   tableWrapper.appendChild(table);
@@ -593,4 +677,306 @@ function addDays(dateStr, days) {
   }
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
+}
+
+// ─────────────────────────────────────────────────────────────────
+// COMPRA MASIVA
+// ─────────────────────────────────────────────────────────────────
+function showBatchBuyModal(contacts, onBatchBuy) {
+  const today = new Date().toISOString().split('T')[0];
+
+  const modal = el('div', {
+    classes: ['modal-overlay'],
+    style: 'position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-start;justify-content:center;z-index:2000;padding:clamp(0.5rem,3vw,2rem);overflow-y:auto;'
+  });
+
+  const content = el('div', {
+    classes: ['glass-card'],
+    style: 'width:100%;max-width:1050px;margin:auto;padding:0;overflow:hidden;border-radius:20px;'
+  });
+
+  content.innerHTML = `
+    <div style="position:sticky;top:0;z-index:10;background:var(--card-bg);border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0;">
+      <h2 style="margin:0;font-size:clamp(1.1rem,3vw,1.35rem);font-weight:700;">📥 Compra Masiva de Cheques</h2>
+      <button type="button" class="btn-close-modal" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-main);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <div style="padding:clamp(1rem,3vw,1.75rem);">
+
+      <!-- Datos compartidos -->
+      <div style="background:rgba(99,102,241,0.06);border:2px solid var(--primary);border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
+        <h3 style="margin:0 0 1rem;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--primary);font-weight:600;">🔗 Datos Comunes del Lote</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
+          <div class="form-group" style="margin:0;">
+            <label>Vendedor (Origen)</label>
+            <input type="text" id="batch-seller-input" list="batch-contacts-dl" placeholder="🔎 Buscar..." autocomplete="off">
+            <datalist id="batch-contacts-dl">
+              ${contacts.map(c => `<option value="${c.name}"></option>`).join('')}
+            </datalist>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Pesificación Compra (%)</label>
+            <input type="number" step="0.01" id="batch-buy-pesif" placeholder="0.00">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Interés Mensual Compra (%)</label>
+            <input type="number" step="0.01" id="batch-buy-interest" placeholder="0.00">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>F. Recepción</label>
+            <input type="date" id="batch-reception-date" value="${today}">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Clearing (Días)</label>
+            <input type="number" id="batch-clearing" value="0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de cheques -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+        <h3 style="margin:0;font-size:0.9rem;font-weight:700;">📄 Cheques del Lote</h3>
+        <button type="button" id="batch-add-row" style="padding:0.5rem 1.2rem;border-radius:8px;background:var(--primary);color:#fff;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;">+ Agregar cheque</button>
+      </div>
+      <div id="batch-rows-container" style="display:flex;flex-direction:column;gap:0.75rem;max-height:380px;overflow-y:auto;padding-right:4px;"></div>
+
+      <!-- Resumen -->
+      <div id="batch-summary" style="margin-top:1.25rem;padding:1rem 1.5rem;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;display:flex;gap:2rem;flex-wrap:wrap;">
+        <div><span style="color:var(--text-muted);font-size:0.82rem;">Cant. cheques</span><br><strong id="sum-count">0</strong></div>
+        <div><span style="color:var(--text-muted);font-size:0.82rem;">Nominal total</span><br><strong id="sum-nominal">$0</strong></div>
+        <div><span style="color:var(--text-muted);font-size:0.82rem;">Neto a pagar (total)</span><br><strong id="sum-net" style="color:var(--primary);">$0</strong></div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;">
+        <button type="button" class="btn-cancel" style="padding:0.85rem 2rem;border-radius:12px;background:rgba(255,255,255,0.06);color:var(--text-main);font-size:1rem;font-weight:600;border:1px solid var(--outline);cursor:pointer;">Cancelar</button>
+        <button type="button" id="batch-save-btn" style="padding:0.85rem 2.5rem;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:1rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 15px rgba(99,102,241,0.4);">Guardar Lote</button>
+      </div>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  const rowsContainer = content.querySelector('#batch-rows-container');
+  let rowCount = 0;
+
+  function calcRowNet(nomVal, pesif, interest, receptionDate, dueDate, clearing) {
+    const nv = parseFloat(nomVal) || 0;
+    const p = parseFloat(pesif) || 0;
+    const ir = parseFloat(interest) || 0;
+    const cl = parseInt(clearing) || 0;
+    if (!receptionDate || !dueDate || nv === 0) return null;
+    const rec = new Date(receptionDate + 'T00:00:00');
+    const due = new Date(dueDate + 'T00:00:00');
+    const days = Math.max(0, Math.ceil((due - rec) / 86400000) + cl);
+    const pesifAmt = nv * (p / 100);
+    const intAmt = nv * (ir / 100 / 30) * days;
+    return { net: nv - pesifAmt - intAmt, days, nv };
+  }
+
+  function updateSummary() {
+    const rows = rowsContainer.querySelectorAll('.batch-check-row');
+    const pesif = content.querySelector('#batch-buy-pesif').value;
+    const interest = content.querySelector('#batch-buy-interest').value;
+    const recDate = content.querySelector('#batch-reception-date').value;
+    const clearing = content.querySelector('#batch-clearing').value;
+    let totalNominal = 0;
+    let totalNet = 0;
+    let validCount = 0;
+    rows.forEach(row => {
+      const nv = row.querySelector('.row-nominal').value;
+      const dd = row.querySelector('.row-duedate').value;
+      const calc = calcRowNet(nv, pesif, interest, recDate, dd, clearing);
+      if (calc) {
+        totalNominal += calc.nv;
+        totalNet += calc.net;
+        validCount++;
+        const netEl = row.querySelector('.row-net-preview');
+        if (netEl) netEl.textContent = `Neto: ${formatCurrency(calc.net)} (${calc.days}d)`;
+      }
+    });
+    content.querySelector('#sum-count').textContent = rows.length;
+    content.querySelector('#sum-nominal').textContent = formatCurrency(totalNominal);
+    content.querySelector('#sum-net').textContent = formatCurrency(totalNet);
+  }
+
+  function addRow() {
+    rowCount++;
+    const idx = rowCount;
+    const row = el('div', {
+      classes: ['batch-check-row'],
+      style: 'background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:0.85rem 1rem;display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:0.75rem;align-items:end;'
+    });
+    row.innerHTML = `
+      <div class="form-group" style="margin:0;">
+        <label style="font-size:0.78rem;">Banco</label>
+        <input type="text" class="row-bank" placeholder="Ej: BNA" style="font-size:0.9rem;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label style="font-size:0.78rem;"># Cheque</label>
+        <input type="text" class="row-number" placeholder="12345678" style="font-size:0.9rem;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label style="font-size:0.78rem;">Nominal ($)</label>
+        <input type="number" step="0.01" class="row-nominal" placeholder="0.00" style="font-size:0.9rem;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label style="font-size:0.78rem;">F. Pago</label>
+        <input type="date" class="row-duedate" style="font-size:0.9rem;">
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">
+        <button type="button" class="row-remove-btn" style="background:rgba(239,68,68,0.15);border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:0.3rem 0.6rem;cursor:pointer;font-size:0.8rem;font-weight:700;">✕</button>
+        <span class="row-net-preview" style="font-size:0.75rem;color:var(--primary);white-space:nowrap;"></span>
+      </div>
+    `;
+    row.querySelector('.row-remove-btn').onclick = () => { row.remove(); updateSummary(); };
+    row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateSummary));
+    rowsContainer.appendChild(row);
+    updateSummary();
+  }
+
+  // Start with 3 empty rows
+  addRow(); addRow(); addRow();
+
+  content.querySelector('#batch-add-row').onclick = addRow;
+
+  // Re-calculate when shared fields change
+  content.querySelectorAll('#batch-buy-pesif, #batch-buy-interest, #batch-reception-date, #batch-clearing')
+    .forEach(inp => inp.addEventListener('input', updateSummary));
+
+  content.querySelector('#batch-save-btn').onclick = () => {
+    const sellerName = content.querySelector('#batch-seller-input').value.trim();
+    const matchedSeller = contacts.find(c => c.name.toLowerCase() === sellerName.toLowerCase());
+    const sellerId = matchedSeller ? matchedSeller.id : (sellerName || null);
+    const pesif = content.querySelector('#batch-buy-pesif').value;
+    const interest = content.querySelector('#batch-buy-interest').value;
+    const recDate = content.querySelector('#batch-reception-date').value;
+    const clearing = content.querySelector('#batch-clearing').value;
+
+    const rows = rowsContainer.querySelectorAll('.batch-check-row');
+    const ops = [];
+    rows.forEach(row => {
+      const bank = row.querySelector('.row-bank').value.trim();
+      const num = row.querySelector('.row-number').value.trim();
+      const nv = row.querySelector('.row-nominal').value;
+      const dueDate = row.querySelector('.row-duedate').value;
+      if (!nv || !dueDate) return; // skip empty rows
+      ops.push({
+        bank,
+        checkNumber: num,
+        nominalValue: nv,
+        dueDate,
+        receptionDate: recDate || today,
+        clearing: clearing || 0,
+        issueDate: '',
+        issuerName: '',
+        issuerCuit: '',
+        notes: '',
+        buySide: { contactId: sellerId, pesificacionRate: pesif, monthlyInterest: interest },
+        sellSide: { status: 'PENDING', contactId: null, pesificacionRate: '', monthlyInterest: '', backReason: '' }
+      });
+    });
+
+    if (ops.length === 0) { alert('Agregue al menos un cheque con valor nominal y fecha de pago.'); return; }
+    onBatchBuy(ops);
+    modal.remove();
+  };
+
+  const closeModal = () => modal.remove();
+  content.querySelector('.btn-cancel').onclick = closeModal;
+  content.querySelector('.btn-close-modal').onclick = closeModal;
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// VENTA MASIVA
+// ─────────────────────────────────────────────────────────────────
+function showBatchSellModal(contacts, checkIds, onBatchSell, onDone) {
+  const modal = el('div', {
+    classes: ['modal-overlay'],
+    style: 'position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:2000;padding:clamp(0.5rem,3vw,2rem);'
+  });
+
+  const content = el('div', {
+    classes: ['glass-card'],
+    style: 'width:100%;max-width:520px;padding:0;overflow:hidden;border-radius:20px;'
+  });
+
+  content.innerHTML = `
+    <div style="background:var(--card-bg);border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0;">
+      <h2 style="margin:0;font-size:1.2rem;font-weight:700;">📤 Venta de ${checkIds.length} Cheque${checkIds.length > 1 ? 's' : ''}</h2>
+      <button type="button" class="btn-close-modal" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-main);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <div style="padding:1.5rem 2rem;">
+      <p style="margin:0 0 1.25rem;color:var(--text-muted);font-size:0.9rem;">Los datos de venta se aplicarán a los <strong>${checkIds.length}</strong> cheque(s) seleccionados.</p>
+
+      <div style="display:grid;grid-template-columns:1fr;gap:1rem;">
+        <div class="form-group" style="margin:0;">
+          <label>Comprador / Destinatario</label>
+          <input type="text" id="bsell-buyer-input" list="bsell-contacts-dl" placeholder="🔎 Buscar..." autocomplete="off">
+          <datalist id="bsell-contacts-dl">
+            ${contacts.map(c => `<option value="${c.name}"></option>`).join('')}
+          </datalist>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div class="form-group" style="margin:0;">
+            <label>Pesificación (%)</label>
+            <input type="number" step="0.01" id="bsell-pesif" placeholder="0.00">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Interés Mensual (%)</label>
+            <input type="number" step="0.01" id="bsell-interest" placeholder="0.00">
+          </div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Estado</label>
+          <select id="bsell-status" style="${getSelectStyle('var(--success)','#10b981')} padding:0.55rem 0.75rem;">
+            <option value="SOLD">Vendido</option>
+            <option value="PENDING">En Cartera</option>
+            <option value="RETURNED">Devuelto</option>
+            <option value="BACK">Volvió</option>
+            <option value="REJECTED">Rechazado</option>
+          </select>
+        </div>
+        <div class="form-group" id="bsell-backreason-group" style="margin:0;display:none;">
+          <label>⚠️ Motivo de Retorno</label>
+          <textarea id="bsell-backreason" rows="2" style="resize:vertical;" placeholder="Motivo..."></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:1.75rem;flex-wrap:wrap;">
+        <button type="button" class="btn-cancel" style="padding:0.85rem 2rem;border-radius:12px;background:rgba(255,255,255,0.06);color:var(--text-main);font-size:1rem;font-weight:600;border:1px solid var(--outline);cursor:pointer;">Cancelar</button>
+        <button type="button" id="bsell-save-btn" style="padding:0.85rem 2.5rem;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:1rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">Aplicar Venta</button>
+      </div>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  const statusSel = content.querySelector('#bsell-status');
+  const backReasonGrp = content.querySelector('#bsell-backreason-group');
+  statusSel.addEventListener('change', () => {
+    backReasonGrp.style.display = statusSel.value === 'BACK' ? 'block' : 'none';
+  });
+
+  content.querySelector('#bsell-save-btn').onclick = () => {
+    const buyerName = content.querySelector('#bsell-buyer-input').value.trim();
+    const matched = contacts.find(c => c.name.toLowerCase() === buyerName.toLowerCase());
+    const buyerId = matched ? matched.id : (buyerName || null);
+    const sellData = {
+      status: statusSel.value,
+      contactId: buyerId,
+      pesificacionRate: content.querySelector('#bsell-pesif').value,
+      monthlyInterest: content.querySelector('#bsell-interest').value,
+      backReason: content.querySelector('#bsell-backreason').value || ''
+    };
+    onBatchSell(sellData, checkIds);
+    if (onDone) onDone();
+    modal.remove();
+  };
+
+  const closeModal = () => modal.remove();
+  content.querySelector('.btn-cancel').onclick = closeModal;
+  content.querySelector('.btn-close-modal').onclick = closeModal;
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 }

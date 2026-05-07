@@ -223,6 +223,39 @@ export class CheckPresenter {
     return op;
   }
 
+  async saveBatchBuy(operationsArray) {
+    this.ui.showLoading();
+    try {
+      for (const op of operationsArray) {
+        const processed = this.calculateOperation(op);
+        await this.checkRepository.saveCheck(this.currentUserUid, processed);
+      }
+      await this.loadData();
+    } catch (e) {
+      this.ui.showError('Error al guardar lote de cheques: ' + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
+  async saveBatchSell(sellData, checkIds) {
+    this.ui.showLoading();
+    try {
+      for (const id of checkIds) {
+        const check = this.checks.find(c => c.id === id);
+        if (!check) continue;
+        const updated = { ...check, sellSide: { ...check.sellSide, ...sellData } };
+        const processed = this.calculateOperation(updated);
+        await this.checkRepository.saveCheck(this.currentUserUid, processed);
+      }
+      await this.loadData();
+    } catch (e) {
+      this.ui.showError('Error al guardar venta masiva: ' + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
   render() {
     this.ui.renderChecks({
       checks: this.checks,
@@ -234,7 +267,9 @@ export class CheckPresenter {
       onDelete: this.deleteOperation.bind(this),
       onRefresh: this.loadData.bind(this),
       onExport: this.exportData.bind(this),
-      onPrint: this.printList.bind(this)
+      onPrint: this.printList.bind(this),
+      onBatchBuy: this.saveBatchBuy.bind(this),
+      onBatchSell: this.saveBatchSell.bind(this)
     });
   }
 }
