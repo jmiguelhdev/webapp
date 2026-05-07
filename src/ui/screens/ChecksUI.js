@@ -65,11 +65,12 @@ export function renderChecks(container, options) {
   
   const isPortfolio = (c) => {
     const st = c.sellSide?.status;
-    return !st || st === 'PENDING' || st === 'BACK';
+    // RETURNED re-enters the portfolio so the check can be re-sold or tracked with its warning badge
+    return !st || st === 'PENDING' || st === 'BACK' || st === 'RETURNED';
   };
   const isHistory = (c) => {
     const st = c.sellSide?.status;
-    return st === 'SOLD' || st === 'RETURNED' || st === 'REJECTED';
+    return st === 'SOLD' || st === 'REJECTED';
   };
 
   const portfolioChecks = checks.filter(isPortfolio);
