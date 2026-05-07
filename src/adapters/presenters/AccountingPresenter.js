@@ -12,6 +12,7 @@ export class AccountingPresenter {
     this.entries = [];
     this.clients = [];
     this.producers = [];
+    this.establishments = [];
     this.currentUserUid = null;
     
     // Pagination & Filtering state
@@ -39,6 +40,12 @@ export class AccountingPresenter {
       
       const travels = await this.accountingRepository.getTravels(this.currentUserUid);
       this.producers = this.extractUniqueProducers(travels);
+      
+      // Load Establishments and their employees
+      this.establishments = await api.fetchEstablishments(db);
+      for (const est of this.establishments) {
+        est.employees = await api.fetchEmployees(db, est.id);
+      }
       
       this.render();
     } catch (e) {
@@ -184,6 +191,7 @@ export class AccountingPresenter {
       filteredEntries: filteredEntries, // For stats based on selection
       clients: this.clients,
       producers: this.producers,
+      establishments: this.establishments,
       pagination: {
         currentPage: this.currentPage,
         totalPages: totalPages,

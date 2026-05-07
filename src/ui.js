@@ -14,6 +14,7 @@ import { generateTravelReport, generateExcelReport, generateAccountingExcel, gen
 import { renderLogisticsMaster } from './ui/screens/LogisticsMastersUI.js';
 import { renderLiquidations } from './ui/screens/LiquidationsUI.js';
 import { renderFuelEfficiency } from './ui/screens/FuelEfficiencyUI.js';
+import { renderEstablishmentManager } from './ui/screens/EstablishmentUI.js';
 /**
  * Aggregator module for the UI layer.
  * Re-exports all rendering functions to maintain backward compatibility with main.js
@@ -43,5 +44,6 @@ export {
   printChecksReport,
   renderLogisticsMaster,
   renderLiquidations,
-  renderFuelEfficiency
+  renderFuelEfficiency,
+  renderEstablishmentManager
 };

@@ -4,7 +4,7 @@ import { renderDateModal, showAuxiliaryCalculator } from '../components/Modals.j
 const DENOMINATIONS = [20000, 10000, 2000, 1000, 500, 200, 100];
 
 export function renderAccounting(container, options) {
-  const { entries, filteredEntries, clients, producers, pagination, filters, onFilterChange, onSave, onDelete, onRefresh, onExport, title = 'Caja General' } = options;
+  const { entries, filteredEntries, clients, producers, establishments = [], pagination, filters, onFilterChange, onSave, onDelete, onRefresh, onExport, title = 'Caja General' } = options;
   container.innerHTML = '';
 
   const header = el('div', { 
@@ -85,8 +85,16 @@ export function renderAccounting(container, options) {
   });
   auxCalcBtn.onclick = () => showAuxiliaryCalculator(title);
 
+  const paySalaryBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; color: #10b981; border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.1);',
+    html: '<span>👨‍💼 Pagar Sueldo</span>'
+  });
+  paySalaryBtn.onclick = () => showSalaryPaymentModal({ establishments, onSave, title });
+
   actionGroup.appendChild(zeroBtn);
   actionGroup.appendChild(auxCalcBtn);
+  actionGroup.appendChild(paySalaryBtn);
   actionGroup.appendChild(exportBtn);
   actionGroup.appendChild(addBtn);
   header.appendChild(actionGroup);
@@ -234,9 +242,18 @@ export function renderAccounting(container, options) {
       `;
       
       tr.addEventListener('click', (e) => {
-        if (e.target.closest('.print-btn')) printReceipt(entry, 'standard');
-        if (e.target.closest('.thermal-btn')) printReceipt(entry, 'thermal');
-        if (e.target.closest('.edit-btn')) showEntryModal(entry, { clients, producers, onSave, title });
+        if (e.target.closest('.print-btn')) {
+          if (entry.isSalary) printSalaryReceipt(entry, 'standard', title);
+          else printReceipt(entry, 'standard');
+        }
+        if (e.target.closest('.thermal-btn')) {
+          if (entry.isSalary) printSalaryReceipt(entry, 'thermal', title);
+          else printReceipt(entry, 'thermal');
+        }
+        if (e.target.closest('.edit-btn')) {
+          if (entry.isSalary) alert("Para editar un pago de sueldo, elimínelo y vuelva a crearlo.");
+          else showEntryModal(entry, { clients, producers, onSave, title });
+        }
         if (e.target.closest('.delete-btn')) onDelete(entry.id);
       });
 
@@ -265,9 +282,9 @@ export function renderAccounting(container, options) {
     const prevBtn = el('button', { 
       classes: ['btn-secondary'], 
       text: 'Anterior',
-      attrs: { disabled: pagination.currentPage === 1 },
       style: 'padding: 0.5rem 1rem; font-size: 0.85rem;'
     });
+    prevBtn.disabled = pagination.currentPage === 1;
     prevBtn.onclick = () => pagination.onPageChange(pagination.currentPage - 1);
     btnGroup.appendChild(prevBtn);
 
@@ -280,9 +297,9 @@ export function renderAccounting(container, options) {
     const nextBtn = el('button', { 
       classes: ['btn-secondary'], 
       text: 'Siguiente',
-      attrs: { disabled: pagination.currentPage === pagination.totalPages },
       style: 'padding: 0.5rem 1rem; font-size: 0.85rem;'
     });
+    nextBtn.disabled = pagination.currentPage === pagination.totalPages;
     nextBtn.onclick = () => pagination.onPageChange(pagination.currentPage + 1);
     btnGroup.appendChild(nextBtn);
 
@@ -463,6 +480,170 @@ function showEntryModal(existingEntry, { clients, producers, onSave, title = 'Co
 
   content.querySelector('.btn-cancel').onclick = () => modal.remove();
 }
+
+function showSalaryPaymentModal({ establishments, onSave, title }) {
+  let currentBillCounts = null;
+
+  const modal = el('div', { 
+    classes: ['modal-overlay'],
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
+  });
+
+  const content = el('div', { 
+    classes: ['glass-card'],
+    style: 'width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 2rem;'
+  });
+
+  content.innerHTML = `
+    <h2 style="margin-top: 0; margin-bottom: 2rem;">Pago de Sueldos - ${title}</h2>
+    
+    <form id="salary-form">
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label>Sucursal / Establecimiento</label>
+        <select id="est-select" required style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <option value="">Seleccione una sucursal...</option>
+          ${establishments.map(est => `<option value="${est.id}">${est.name}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label>Empleado</label>
+        <select id="emp-select" required disabled style="width: 100%; padding: 0.75rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
+          <option value="">Primero seleccione sucursal...</option>
+        </select>
+      </div>
+
+      <div class="responsive-grid-2" style="margin-bottom: 1rem;">
+        <div class="form-group">
+          <label>Monto a Pagar ($)</label>
+          <input type="number" step="0.01" name="amount" id="expected-amount-input" required placeholder="0.00" style="font-size: 1.25rem; font-weight: 700;">
+        </div>
+        <div class="form-group">
+          <label>Detalle de Billetes (Opcional)</label>
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 0.5rem;">
+            <input type="number" step="0.01" name="countedAmount" id="counted-amount-input" placeholder="Monto Físico" style="width: 100%; font-size: 1.25rem; font-weight: 700;">
+            <button type="button" id="open-calc-btn" class="btn-secondary" style="white-space: nowrap; padding: 0 1rem; border-radius: 8px;">🧮 Calc.</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.9rem;">
+          <input type="checkbox" id="save-breakdown-chk"> 
+          <span>Guardar detalle de billetes ( breakdown )</span>
+        </label>
+      </div>
+
+      <div id="diff-container" style="display: none; margin-bottom: 1.5rem; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; text-align: center; font-size: 1.1rem; border: 1px solid transparent;"></div>
+
+      <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 1rem; margin-top: 2rem; align-items: center;">
+        <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cancelar</button>
+        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.4); letter-spacing: 0.03em;">Registrar Pago</button>
+      </div>
+    </form>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  const form = content.querySelector('#salary-form');
+  const estSelect = content.querySelector('#est-select');
+  const empSelect = content.querySelector('#emp-select');
+  const expectedAmountInput = content.querySelector('#expected-amount-input');
+  const countedAmountInput = content.querySelector('#counted-amount-input');
+  const diffContainer = content.querySelector('#diff-container');
+  const saveBreakdownChk = content.querySelector('#save-breakdown-chk');
+
+  estSelect.addEventListener('change', () => {
+    const selectedEstId = estSelect.value;
+    empSelect.innerHTML = '<option value="">Seleccione un empleado...</option>';
+    if (selectedEstId) {
+      const est = establishments.find(e => e.id === selectedEstId);
+      if (est && est.employees && est.employees.length > 0) {
+        est.employees.forEach(emp => {
+          empSelect.innerHTML += `<option value="${emp.id}" data-name="${emp.name}" data-dni="${emp.dni || ''}" data-position="${emp.position || ''}">${emp.name} ${emp.position ? `(${emp.position})` : ''}</option>`;
+        });
+        empSelect.disabled = false;
+      } else {
+        empSelect.innerHTML = '<option value="">No hay empleados en esta sucursal</option>';
+        empSelect.disabled = true;
+      }
+    } else {
+      empSelect.disabled = true;
+    }
+  });
+
+  const updateDiff = () => {
+    const exp = parseFloat(expectedAmountInput.value);
+    const count = parseFloat(countedAmountInput.value);
+    if (!isNaN(exp) && !isNaN(count)) {
+      const diff = count - exp;
+      diffContainer.style.display = 'block';
+      if (diff === 0) {
+         diffContainer.style.background = 'rgba(255,255,255,0.05)';
+         diffContainer.style.borderColor = 'var(--border)';
+         diffContainer.style.color = 'var(--text-main)';
+         diffContainer.textContent = 'Diferencias cuadradas (Monto y Caja son iguales)';
+      } else if (diff > 0) {
+         diffContainer.style.background = 'rgba(16,185,129,0.1)';
+         diffContainer.style.borderColor = 'rgba(16,185,129,0.3)';
+         diffContainer.style.color = '#10b981';
+         diffContainer.textContent = `Sobra en Caja: ${formatCurrency(diff)}`;
+      } else {
+         diffContainer.style.background = 'rgba(239,68,68,0.1)';
+         diffContainer.style.borderColor = 'rgba(239,68,68,0.3)';
+         diffContainer.style.color = '#ef4444';
+         diffContainer.textContent = `Falta en Caja: ${formatCurrency(Math.abs(diff))}`;
+      }
+    } else {
+      diffContainer.style.display = 'none';
+    }
+  };
+
+  expectedAmountInput.addEventListener('input', updateDiff);
+  countedAmountInput.addEventListener('input', updateDiff);
+
+  content.querySelector('#open-calc-btn').onclick = () => showBillCalculator(
+    parseFloat(expectedAmountInput.value) || 0,
+    (result) => {
+      countedAmountInput.value = result.grand;
+      currentBillCounts = result.breakdown;
+      saveBreakdownChk.checked = true; // Auto-check if calculator was used
+      updateDiff();
+    }
+  );
+
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    
+    const selectedEmpOption = empSelect.selectedOptions[0];
+    const employeeName = selectedEmpOption.dataset.name;
+    const employeeDni = selectedEmpOption.dataset.dni;
+    const employeePosition = selectedEmpOption.dataset.position;
+    
+    const countedVal = countedAmountInput.value;
+    
+    const data = {
+      type: 'OUT',
+      description: `Pago Sueldo: ${employeeName}`,
+      amount: parseFloat(expectedAmountInput.value),
+      countedAmount: countedVal ? parseFloat(countedVal) : null,
+      billCounts: saveBreakdownChk.checked ? currentBillCounts : null,
+      isSalary: true,
+      establishmentId: estSelect.value,
+      employeeId: empSelect.value,
+      employeeName: employeeName,
+      employeeDni: employeeDni,
+      employeePosition: employeePosition
+    };
+    
+    onSave(data);
+    modal.remove();
+  };
+
+  content.querySelector('.btn-cancel').onclick = () => modal.remove();
+}
+
 
 
 function showBillCalculator(expectedAmount, onApply) {
@@ -746,6 +927,166 @@ function printReceipt(entry, type = 'standard') {
           ⚠️ NO ES COMPROBANTE FISCAL<br>
           <span style="font-size: 8px; text-transform: none;">Documento informativo de control interno.</span>
         </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+function printSalaryReceipt(entry, type = 'standard', boxTitle = 'Caja General') {
+  const printWindow = window.open('', '_blank', 'width=800,height=900');
+  const dateStr = new Date(entry.createdAt).toLocaleDateString('es-AR');
+  const timeStr = new Date(entry.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  
+  const isThermal = type === 'thermal';
+  
+  let billDetailsHtml = '';
+  if (entry.billCounts) {
+    billDetailsHtml = `
+      <div style="margin-top: ${isThermal ? '10px' : '20px'}; border-top: 1px solid #eee; padding-top: ${isThermal ? '10px' : '15px'};">
+        <h4 style="margin-bottom: 8px; color: #444; font-size: ${isThermal ? '13px' : '16px'};">Detalle de Recuento:</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: ${isThermal ? '12px' : '14px'};">
+          <tr style="background: #f9f9f9; text-align: left;">
+            <th style="padding: 4px;">Denom.</th>
+            <th style="padding: 4px; text-align: center;">Cant.</th>
+            <th style="padding: 4px; text-align: right;">Total</th>
+          </tr>
+          ${Object.entries(entry.billCounts).sort((a, b) => b[0] - a[0]).map(([denom, data]) => {
+            const totalQty = (data.blocks || 0) * 1000 + (data.batches || 0) * 100 + (data.qtys || 0);
+            return `
+              <tr>
+                <td style="padding: 4px;">$ ${parseInt(denom).toLocaleString()}</td>
+                <td style="padding: 4px; text-align: center;">${totalQty}</td>
+                <td style="padding: 4px; text-align: right;">$ ${data.subtotal.toLocaleString()}</td>
+              </tr>
+            `;
+          }).join('')}
+        </table>
+      </div>
+    `;
+  }
+
+  const receiptContent = `
+    <div class="receipt-card">
+      <div class="header">
+        <div class="logo-area">
+          <img src="/logo.jpg" class="logo" alt="Logo">
+          <div>
+            <h1 class="company-name">FRIGORÍFICO PAMPA</h1>
+            <div style="font-size: ${isThermal ? '10px' : '12px'}; color: #666; margin-top: 4px;">COMPROBANTE DE PAGO DE HABERES</div>
+          </div>
+        </div>
+        <div class="receipt-info">
+          <div class="receipt-label">Fecha</div>
+          <div class="receipt-date">${dateStr} ${timeStr}</div>
+          <div class="receipt-label" style="margin-top: 8px;">Caja Origen</div>
+          <div style="font-weight: 600; font-size: ${isThermal ? '12px' : '14px'};">${boxTitle}</div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: ${isThermal ? 'column' : 'row'}; gap: 15px; margin-bottom: 20px;">
+        <div class="section" style="flex: 1; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 0;">
+          <div class="section-title">Datos del Empleado</div>
+          <div class="val" style="margin-bottom: 5px;">${entry.employeeName || 'No especificado'}</div>
+          ${entry.employeeDni ? `<div style="font-size: 12px; color: #475569;">DNI: ${entry.employeeDni}</div>` : ''}
+          ${entry.employeePosition ? `<div style="font-size: 12px; color: #475569;">Cargo: ${entry.employeePosition}</div>` : ''}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Concepto</div>
+        <div class="val" style="font-size: ${isThermal ? '13px' : '15px'};">${entry.description || 'Adelanto / Pago Sueldo'}</div>
+      </div>
+
+      ${billDetailsHtml}
+
+      <div class="amount-box" style="border-color: #10b981; background: ${isThermal ? '#fff' : '#ecfdf5'};">
+        <div class="receipt-label">Importe Abonado</div>
+        <div class="amount-val" style="color: ${isThermal ? '#000' : '#059669'};">${formatCurrency(entry.amount)}</div>
+      </div>
+
+      <div style="margin-top: ${isThermal ? '30px' : '50px'}; display: flex; flex-direction: column; align-items: center; gap: 5px;">
+        <div style="width: 200px; border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
+        <div style="font-size: 12px; font-weight: 600;">Firma del Empleado</div>
+        <div style="font-size: 10px; color: #666;">Aclaración: ${entry.employeeName || '________________________'}</div>
+      </div>
+    </div>
+  `;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Recibo Sueldo - ${entry.employeeName || ''}</title>
+      <style>
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+          padding: ${isThermal ? '10px' : '40px'}; 
+          color: #111; 
+          line-height: 1.4; 
+          margin: 0;
+          background: #fff;
+        }
+        .container {
+          display: flex;
+          flex-direction: column;
+          gap: ${isThermal ? '20px' : '40px'};
+        }
+        .receipt-card { 
+          border: ${isThermal ? 'none' : '1px solid #ddd'}; 
+          padding: ${isThermal ? '0' : '30px'}; 
+          border-radius: ${isThermal ? '0' : '8px'}; 
+          max-width: ${isThermal ? '300px' : '600px'}; 
+          margin: ${isThermal ? '0' : '0 auto'}; 
+          box-shadow: ${isThermal ? 'none' : '0 4px 10px rgba(0,0,0,0.05)'}; 
+          page-break-inside: avoid;
+        }
+        .header { 
+          display: flex; 
+          flex-direction: ${isThermal ? 'column' : 'row'};
+          justify-content: ${isThermal ? 'center' : 'space-between'}; 
+          align-items: ${isThermal ? 'center' : 'flex-start'}; 
+          margin-bottom: 15px; 
+          border-bottom: 2px solid ${isThermal ? '#000' : '#10b981'}; 
+          padding-bottom: 15px;
+          text-align: ${isThermal ? 'center' : 'left'};
+        }
+        .logo-area { display: flex; flex-direction: ${isThermal ? 'column' : 'row'}; align-items: center; gap: 10px; }
+        .logo { width: ${isThermal ? '80px' : '100px'}; height: auto; max-height: 60px; object-fit: contain; border-radius: 4px; }
+        .company-name { font-size: ${isThermal ? '14px' : '20px'}; font-weight: 800; color: ${isThermal ? '#000' : '#10b981'}; margin: 0; }
+        .receipt-info { text-align: ${isThermal ? 'center' : 'right'}; margin-top: ${isThermal ? '10px' : '0'}; }
+        .receipt-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+        .receipt-date { font-weight: 600; font-size: ${isThermal ? '12px' : '14px'}; }
+        .section { margin-bottom: 15px; }
+        .section-title { font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 4px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
+        .val { font-size: ${isThermal ? '14px' : '16px'}; font-weight: 600; }
+        .amount-box { 
+          background: #fff; 
+          padding: 15px; 
+          border-radius: 8px; 
+          text-align: center; 
+          border: ${isThermal ? '2px solid #000' : '2px dashed #10b981'}; 
+          margin-top: 20px; 
+        }
+        .amount-val { font-size: ${isThermal ? '22px' : '28px'}; font-weight: 800; }
+        @media print {
+          body { padding: 0; margin: 0; width: ${isThermal ? '80mm' : 'auto'}; }
+          .receipt-card { border: none; box-shadow: none; max-width: 100%; margin: 0; border-bottom: ${isThermal ? '1px dashed #ccc' : 'none'}; padding-bottom: ${isThermal ? '20px' : '0'}; }
+          .separator { display: ${isThermal ? 'none' : 'block'}; height: 1px; border-top: 1px dashed #ccc; margin: 20px 0; }
+        }
+      </style>
+    </head>
+    <body onload="setTimeout(() => { window.print(); window.close(); }, 500);">
+      <div class="container">
+        ${receiptContent}
+        ${!isThermal ? `
+          <div class="separator"></div>
+          <div style="text-align: center; font-size: 10px; color: #666; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px;">Duplicado Empresa</div>
+          ${receiptContent}
+        ` : ''}
       </div>
     </body>
     </html>

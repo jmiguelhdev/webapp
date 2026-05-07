@@ -25,6 +25,7 @@ export function renderSidebar(container, onNavigate, userRole) {
     { id: 'accounting', label: '💰 Caja General', roles: ['ADMIN', 'OPERARIO'] },
     { id: 'frigorifico', label: '🏢 Caja Frigorífico', roles: ['ADMIN', 'OPERARIO'] },
     { id: 'clients', label: '👥 Clientes y Cuentas', roles: ['ADMIN'] },
+    { id: 'establishments', label: '🏢 Sucursales y Personal', roles: ['ADMIN'] },
     { id: 'settings', label: '⚙️ Configuración', roles: ['ADMIN'] },
     { id: 'contact', label: '📖 Info y Contacto', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
   ];

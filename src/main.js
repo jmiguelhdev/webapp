@@ -16,6 +16,8 @@ import { AccountingRepository } from './adapters/repositories/AccountingReposito
 import { AccountingPresenter } from './adapters/presenters/AccountingPresenter.js';
 import { LogisticsRepository } from './adapters/repositories/LogisticsRepository.js';
 import { LogisticsPresenter } from './adapters/presenters/LogisticsPresenter.js';
+import { EstablishmentRepository } from './adapters/repositories/EstablishmentRepository.js';
+import { EstablishmentPresenter } from './adapters/presenters/EstablishmentPresenter.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
 
 // Dependencies
@@ -25,6 +27,7 @@ const checkRepository = new CheckRepository();
 const accountingRepository = new AccountingRepository('accounting_entries');
 const frigorificoRepository = new AccountingRepository('frigorifico_entries');
 const logisticsRepository = new LogisticsRepository();
+const establishmentRepository = new EstablishmentRepository();
 
 // State
 let currentUser = null;
@@ -103,6 +106,10 @@ const uiInterface = {
   renderFuelEfficiency: (presenter, travels, trucks) => {
     uiInterface.hideLoading();
     uiLib.renderFuelEfficiency(presenter, travels, trucks);
+  },
+  renderEstablishmentManager: (presenter) => {
+    uiInterface.hideLoading();
+    uiLib.renderEstablishmentManager(content, presenter);
   }
 };
 
@@ -119,6 +126,7 @@ const frigorificoPresenter = new AccountingPresenter(frigorificoRepository, clie
   syncLabel: 'Pago Frigorífico' 
 });
 const logisticsPresenter = new LogisticsPresenter(logisticsRepository, uiInterface);
+const establishmentPresenter = new EstablishmentPresenter(establishmentRepository, uiInterface);
 
 // Auth Global Watcher
 onAuthStateChanged(auth, async (user) => {
@@ -199,7 +207,7 @@ function showLogin() {
 
 function getAllowedViews(role) {
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments'];
   } else if (role === 'OPERARIO') {
     return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel'];
   } else {
@@ -267,6 +275,9 @@ const navigateTo = (view, role = currentUserRole) => {
       break;
     case 'frigorifico':
       frigorificoPresenter.loadData();
+      break;
+    case 'establishments':
+      establishmentPresenter.loadData();
       break;
     case 'master-data':
       logisticsPresenter.loadTrucks(); // By default load trucks, UI will have tabs
