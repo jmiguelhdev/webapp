@@ -87,6 +87,51 @@ export function renderChecks(container, options) {
 
   container.appendChild(statsGrid);
 
+  // ── Warning banner: checks PRÓXIMO A VENCER ──
+  const today0 = new Date(); today0.setHours(0,0,0,0);
+  const parseDL = (str) => {
+    if (!str) return null;
+    const p = String(str).split('T')[0].split('-');
+    return p.length === 3 ? new Date(Number(p[0]), Number(p[1])-1, Number(p[2])) : null;
+  };
+  const expiringChecks = portfolioChecks.filter(c => {
+    const pay = parseDL(c.dueDate); if (!pay) return false;
+    const exp = new Date(pay); exp.setDate(pay.getDate() + 30);
+    const dPay = Math.ceil((pay - today0) / 86400000);
+    const dExp = Math.ceil((exp - today0) / 86400000);
+    return dPay <= 0 && dExp >= 0 && dExp <= 10;
+  });
+
+  if (expiringChecks.length > 0) {
+    const banner = el('div', {
+      style: 'position:relative; margin-bottom:1.25rem; padding:1rem 3rem 1rem 1.25rem; background:rgba(239,68,68,0.1); border:1.5px solid rgba(239,68,68,0.5); border-radius:14px; display:flex; align-items:flex-start; gap:0.75rem;'
+    });
+
+    const icon = el('span', { text: '⚠️', style: 'font-size:1.3rem; flex-shrink:0; margin-top:0.05rem;' });
+
+    const textBlock = el('div', { style: 'flex:1;' });
+    textBlock.appendChild(el('div', {
+      html: `<strong style="color:#ef4444;">Tenés ${expiringChecks.length} cheque${expiringChecks.length > 1 ? 's' : ''} que está${expiringChecks.length > 1 ? 'n' : ''} por vencer.</strong>`,
+      style: 'margin-bottom:0.3rem;'
+    }));
+    textBlock.appendChild(el('div', {
+      text: 'Por decisión del Banco Central, podés hacer ese tipo de operaciones hasta 30 días después de su fecha de pago.',
+      style: 'font-size:0.875rem; color:#ef4444; opacity:0.9; line-height:1.45;'
+    }));
+
+    const closeBtn = el('button', {
+      attrs: { type: 'button', title: 'Cerrar aviso' },
+      style: 'position:absolute; top:0.75rem; right:0.9rem; background:none; border:none; cursor:pointer; font-size:1.1rem; color:#ef4444; opacity:0.7; line-height:1;',
+      text: '✕'
+    });
+    closeBtn.onclick = () => banner.remove();
+
+    banner.appendChild(icon);
+    banner.appendChild(textBlock);
+    banner.appendChild(closeBtn);
+    container.appendChild(banner);
+  }
+
   // Filters Bar
   const filtersBar = el('div', { 
     classes: ['glass-card'], 
@@ -315,14 +360,17 @@ function getCheckStatusBadge(op) {
     const diffToExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
 
     if (diffToExpiry < 0) {
-      // pasaron los 30 días desde la fecha de pago
-      badgeHtml += ' <span class="status-badge badge-danger">VENCIDO</span>';
-    } else if (diffToPayDate <= 0 && diffToExpiry <= 7) {
-      // fecha de pago ya pasó y faltan 7 días o menos para el vencimiento
-      badgeHtml += ' <span class="status-badge badge-warning">PRÓXIMO A VENCER</span>';
+      // Pasaron los 30 días de gracia → cheque vencido, no cobrable
+      badgeHtml += ' <span class="status-badge badge-danger">⛔ VENCIDO</span>';
+    } else if (diffToPayDate <= 0 && diffToExpiry <= 10) {
+      // Quedan 10 días o menos para el vencimiento → urgente
+      badgeHtml += ' <span class="status-badge" style="background:rgba(249,115,22,0.18);color:#f97316;border:1px solid rgba(249,115,22,0.4);font-weight:700;">⏳ PRÓXIMO A VENCER</span>';
     } else if (diffToPayDate <= 0) {
-      // fecha de pago ya pasó, disponible para cobrar
-      badgeHtml += ' <span class="status-badge badge-disponible">DISPONIBLE</span>';
+      // Fecha de pago pasó, aún dentro del período de gracia → disponible para cobrar
+      badgeHtml += ' <span class="status-badge badge-disponible">✅ DISPONIBLE</span>';
+    } else if (diffToPayDate <= 10) {
+      // Fecha de pago en los próximos 10 días → avisar que se acerca
+      badgeHtml += ` <span class="status-badge" style="background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.35);">🔔 PAGO EN ${diffToPayDate}d</span>`;
     }
   }
 

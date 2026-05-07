@@ -7,9 +7,12 @@ export class CheckPresenter {
     this.checks = [];
     this.contacts = [];
     this.currentUserUid = null;
+    const _today = new Date();
+    const _toISO = (d) => d.toISOString().split('T')[0];
+    const _plus30 = new Date(_today); _plus30.setDate(_plus30.getDate() + 30);
     this.filters = {
-      startDate: null,
-      endDate: null,
+      startDate: _toISO(_today),
+      endDate: _toISO(_plus30),
       searchTerm: '',
       sortPortfolioAsc: true
     };
