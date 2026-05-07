@@ -9,32 +9,27 @@ export class CheckRepository {
   }
 
   async fetchChecks(uid) {
-    const cacheKey = `checks_${uid}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      this.checksCache = JSON.parse(cached);
+    // Use only in-memory cache (per session). localStorage cache had no TTL
+    // and caused stale data when checks were added from another device/deployment.
+    if (this.checksCache) {
       return this.checksCache;
     }
+    // Clear any stale localStorage entries from previous versions
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('checks_')) localStorage.removeItem(key);
+    }
     this.checksCache = await api.fetchCheckOperations(db, uid);
-    localStorage.setItem(cacheKey, JSON.stringify(this.checksCache));
     return this.checksCache;
   }
 
   async saveCheck(uid, operation) {
     const res = await api.saveCheckOperation(db, uid, operation);
-    localStorage.removeItem(`checks_${uid}`);
     this.checksCache = null;
     return res;
   }
 
   async deleteCheck(operationId) {
-    // try to clear cache
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('checks_')) {
-            localStorage.removeItem(key);
-        }
-    }
     const res = await api.deleteCheckOperation(db, operationId);
     this.checksCache = null;
     return res;
@@ -52,5 +47,9 @@ export class CheckRepository {
     this.contactsCache = await api.fetchClients(db);
     localStorage.setItem(cacheKey, JSON.stringify(this.contactsCache));
     return this.contactsCache;
+  }
+
+  async getTravels(uid) {
+    return await api.fetchTravels(db, uid);
   }
 }

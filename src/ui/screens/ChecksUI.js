@@ -120,11 +120,35 @@ export function renderChecks(container, options) {
   // Apply filters before splitting sections
   const currentList = filteredChecks || checks;
 
-  // Section 1: CHEQUES EN CARTERA
-  const currentPortfolio = currentList.filter(isPortfolio);
+  // Section 1: CHEQUES EN CARTERA — always show ALL portfolio checks (no date filter)
+  // Only the text search filter applies here so the user can still search within portfolio.
+  const searchTerm = (filters?.searchTerm || '').toLowerCase();
+  const allPortfolio = checks.filter(isPortfolio);
+  const currentPortfolio = searchTerm
+    ? allPortfolio.filter(c =>
+        (c.bank || '').toLowerCase().includes(searchTerm) ||
+        (c.checkNumber || '').toLowerCase().includes(searchTerm) ||
+        String(c.nominalValue || '').includes(searchTerm) ||
+        (c.issuerName || '').toLowerCase().includes(searchTerm) ||
+        (c.issuerCuit || '').toLowerCase().includes(searchTerm) ||
+        (contacts.find(con => con.id === c.buySide?.contactId)?.name || '').toLowerCase().includes(searchTerm) ||
+        (contacts.find(con => con.id === c.sellSide?.contactId)?.name || '').toLowerCase().includes(searchTerm)
+      )
+    : allPortfolio;
   
-  const portfolioHeader = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;' });
+  const portfolioHeader = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;' });
   portfolioHeader.appendChild(el('h2', { text: '📂 Cheques en Cartera', style: 'margin:0; font-size: 1.25rem;' }));
+  
+  const portfolioActions = el('div', { style: 'display: flex; gap: 0.5rem; align-items: center;' });
+  
+  const isAsc = filters?.sortPortfolioAsc !== false; // default true
+  const sortBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.9rem;',
+    html: `<span>${isAsc ? '⬆️ Más próximos' : '⬇️ Más lejanos'}</span>`
+  });
+  sortBtn.onclick = () => onFilterChange({ sortPortfolioAsc: !isAsc });
+  
   const printPortfolioBtn = el('button', {
     classes: ['btn-secondary'],
     style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.9rem;',
@@ -133,9 +157,13 @@ export function renderChecks(container, options) {
   printPortfolioBtn.onclick = () => {
     if (typeof onPrint === 'function') onPrint(currentPortfolio);
   };
-  portfolioHeader.appendChild(printPortfolioBtn);
+  
+  portfolioActions.appendChild(sortBtn);
+  portfolioActions.appendChild(printPortfolioBtn);
+  portfolioHeader.appendChild(portfolioActions);
+
   container.appendChild(portfolioHeader);
-  container.appendChild(renderCheckTable(currentPortfolio, contacts, onSave, onDelete));
+  container.appendChild(renderCheckTable(currentPortfolio, contacts, onSave, onDelete, 'dueDate', isAsc));
 
   // Section 2: OPERACIONES REALIZADAS
   const currentHistory = currentList.filter(isHistory);
@@ -207,7 +235,7 @@ function getCheckStatusBadge(op) {
 }
 
 
-function renderCheckTable(checksList, contacts, onSave, onDelete) {
+function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false) {
   const tableWrapper = el('div', { classes: ['glass-card', 'table-responsive'], style: 'padding: 0; margin-bottom: 2rem;' });
   const table = el('table', { style: 'width: 100%; min-width: 800px; border-collapse: collapse;' });
   
@@ -227,12 +255,16 @@ function renderCheckTable(checksList, contacts, onSave, onDelete) {
   if (checksList.length === 0) {
     tbody.innerHTML = '<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">Sin registros en esta sección</td></tr>';
   } else {
-    checksList.sort((a,b) => new Date(b.receptionDate) - new Date(a.receptionDate)).forEach(op => {
+    checksList.sort((a,b) => {
+      const dateA = new Date(a[sortBy]).getTime();
+      const dateB = new Date(b[sortBy]).getTime();
+      return sortAsc ? dateA - dateB : dateB - dateA;
+    }).forEach(op => {
       const tr = el('tr', { style: 'border-top: 1px solid var(--border); transition: background 0.2s;' });
       
       const isSold = op.sellSide && op.sellSide.status === 'SOLD';
-      const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || 'Desconocido';
-      const buyer = contacts.find(c => c.id === op.sellSide?.contactId)?.name || '-';
+      const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Desconocido';
+      const buyer = contacts.find(c => c.id === op.sellSide?.contactId)?.name || op.sellSide?.contactId || '-';
       
       tr.innerHTML = `
         <td style="padding: 1rem;">
@@ -379,10 +411,10 @@ function showOperationModal(existingOp, contacts, onSave) {
           <h3 style="margin: 0 0 1.25rem; color: var(--primary); font-size: 0.95rem;">📥 Compra (Origen)</h3>
           <div class="form-group">
             <label>Vendedor</label>
-            <select name="buySide_contactId" required style="${getSelectStyle('var(--primary)', '#6366f1')}">
-              <option value="">Seleccionar Vendedor</option>
-              ${contacts.map(c => `<option value="${c.id}" ${existingOp?.buySide?.contactId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
-            </select>
+            <input type="text" id="buyside-contact-input" list="contacts-datalist" required placeholder="🔎 Buscar cliente o productor..." autocomplete="off" value="${existingOp?.buySide?.contactId ? (contacts.find(c => c.id === existingOp.buySide.contactId)?.name || existingOp.buySide.contactId) : ''}">
+            <datalist id="contacts-datalist">
+              ${contacts.map(c => `<option value="${c.name}"></option>`).join('')}
+            </datalist>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group" style="margin:0;">
@@ -410,10 +442,7 @@ function showOperationModal(existingOp, contacts, onSave) {
           </div>
           <div class="form-group">
             <label>Comprador / Destinatario</label>
-            <select name="sellSide_contactId" style="${getSelectStyle('var(--success)', '#10b981')}">
-              <option value="">Seleccionar Comprador</option>
-              ${contacts.map(c => `<option value="${c.id}" ${existingOp?.sellSide?.contactId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
-            </select>
+            <input type="text" id="sellside-contact-input" list="contacts-datalist" placeholder="🔎 Buscar cliente o productor..." autocomplete="off" value="${existingOp?.sellSide?.contactId ? (contacts.find(c => c.id === existingOp.sellSide.contactId)?.name || existingOp.sellSide.contactId) : ''}">
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group" style="margin:0;">
@@ -475,6 +504,15 @@ function showOperationModal(existingOp, contacts, onSave) {
   form.onsubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(form);
+    
+    const buySideNameInput = content.querySelector('#buyside-contact-input').value.trim();
+    const matchedBuySide = contacts.find(c => c.name.toLowerCase().trim() === buySideNameInput.toLowerCase());
+    const buySideContactId = matchedBuySide ? matchedBuySide.id : buySideNameInput;
+
+    const sellSideNameInput = content.querySelector('#sellside-contact-input').value.trim();
+    const matchedSellSide = contacts.find(c => c.name.toLowerCase().trim() === sellSideNameInput.toLowerCase());
+    const sellSideContactId = matchedSellSide ? matchedSellSide.id : (sellSideNameInput || null);
+
     const data = {
       id: existingOp?.id,
       bank: formData.get('bank'),
@@ -488,13 +526,13 @@ function showOperationModal(existingOp, contacts, onSave) {
       issuerCuit: formData.get('issuerCuit'),
       notes: formData.get('notes'),
       buySide: {
-        contactId: formData.get('buySide_contactId'),
+        contactId: buySideContactId,
         pesificacionRate: formData.get('buySide_pesificacionRate'),
         monthlyInterest: formData.get('buySide_monthlyInterest')
       },
       sellSide: {
         status: formData.get('sellSide_status') || 'PENDING',
-        contactId: formData.get('sellSide_contactId'),
+        contactId: sellSideContactId,
         pesificacionRate: formData.get('sellSide_pesificacionRate'),
         monthlyInterest: formData.get('sellSide_monthlyInterest'),
         backReason: formData.get('sellSide_backReason') || ''

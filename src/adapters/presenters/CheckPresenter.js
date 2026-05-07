@@ -10,7 +10,8 @@ export class CheckPresenter {
     this.filters = {
       startDate: null,
       endDate: null,
-      searchTerm: ''
+      searchTerm: '',
+      sortPortfolioAsc: true
     };
   }
 
@@ -26,7 +27,20 @@ export class CheckPresenter {
     }
     try {
       this.checks = await this.checkRepository.fetchChecks(this.currentUserUid);
-      this.contacts = await this.checkRepository.getContacts();
+      const clients = await this.checkRepository.getContacts();
+      const travels = await this.checkRepository.getTravels(this.currentUserUid);
+      const producers = this.extractUniqueProducers(travels);
+      
+      const unifiedContactsMap = new Map();
+      clients.forEach(c => unifiedContactsMap.set(c.id || c.name, c));
+      producers.forEach(p => {
+        const key = p.cuit || p.name;
+        if (!unifiedContactsMap.has(key)) {
+           unifiedContactsMap.set(key, { id: p.cuit || p.name, name: p.name, cuit: p.cuit, isProducer: true });
+        }
+      });
+      this.contacts = Array.from(unifiedContactsMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+
       this.render();
     } catch (e) {
       this.ui.showError("Error al cargar cheques: " + e.message);
@@ -38,6 +52,22 @@ export class CheckPresenter {
   applyFilters(newFilters) {
     this.filters = { ...this.filters, ...newFilters };
     this.render();
+  }
+
+  extractUniqueProducers(travels) {
+    const producerMap = new Map();
+    if (!travels) return [];
+    travels.forEach(t => {
+      const producers = t.buy?.listOfProducers || [];
+      producers.forEach(p => {
+        const cuit = String(p.cuit || p.producer?.cuit || '').replace(/\D/g, '');
+        const name = p.name || p.producer?.name || 'Productor';
+        if (cuit && !producerMap.has(cuit)) {
+          producerMap.set(cuit, { cuit, name });
+        }
+      });
+    });
+    return Array.from(producerMap.values());
   }
 
   getFilteredChecks() {
