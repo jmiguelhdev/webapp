@@ -987,7 +987,7 @@ function printSalaryReceipt(entry, type = 'standard', boxTitle = 'Caja General')
         </div>
       </div>
 
-      <div style="display: flex; flex-direction: ${isThermal ? 'column' : 'row'}; gap: 15px; margin-bottom: 20px;">
+      <div style="display: flex; flex-direction: ${isThermal ? 'column' : 'row'}; gap: 15px; margin-bottom: ${isThermal ? '20px' : '10px'};">
         <div class="section" style="flex: 1; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 0;">
           <div class="section-title">Datos del Empleado</div>
           <div class="val" style="margin-bottom: 5px;">${entry.employeeName || 'No especificado'}</div>
@@ -1008,7 +1008,7 @@ function printSalaryReceipt(entry, type = 'standard', boxTitle = 'Caja General')
         <div class="amount-val" style="color: ${isThermal ? '#000' : '#059669'};">${formatCurrency(entry.amount)}</div>
       </div>
 
-      <div style="margin-top: ${isThermal ? '30px' : '50px'}; display: flex; flex-direction: column; align-items: center; gap: 5px;">
+      <div style="margin-top: ${isThermal ? '30px' : '25px'}; display: flex; flex-direction: column; align-items: center; gap: 5px;">
         <div style="width: 200px; border-bottom: 1px solid #000; margin-bottom: 5px;"></div>
         <div style="font-size: 12px; font-weight: 600;">Firma del Empleado</div>
         <div style="font-size: 10px; color: #666;">Aclaración: ${entry.employeeName || '________________________'}</div>
@@ -1024,22 +1024,22 @@ function printSalaryReceipt(entry, type = 'standard', boxTitle = 'Caja General')
       <style>
         body { 
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-          padding: ${isThermal ? '10px' : '40px'}; 
+          padding: ${isThermal ? '10px' : '15px'}; 
           color: #111; 
-          line-height: 1.4; 
+          line-height: 1.3; 
           margin: 0;
           background: #fff;
         }
         .container {
           display: flex;
           flex-direction: column;
-          gap: ${isThermal ? '20px' : '40px'};
+          gap: ${isThermal ? '20px' : '15px'};
         }
         .receipt-card { 
           border: ${isThermal ? 'none' : '1px solid #ddd'}; 
-          padding: ${isThermal ? '0' : '30px'}; 
+          padding: ${isThermal ? '0' : '15px 25px'}; 
           border-radius: ${isThermal ? '0' : '8px'}; 
-          max-width: ${isThermal ? '300px' : '600px'}; 
+          max-width: ${isThermal ? '300px' : '650px'}; 
           margin: ${isThermal ? '0' : '0 auto'}; 
           box-shadow: ${isThermal ? 'none' : '0 4px 10px rgba(0,0,0,0.05)'}; 
           page-break-inside: avoid;
@@ -1049,33 +1049,33 @@ function printSalaryReceipt(entry, type = 'standard', boxTitle = 'Caja General')
           flex-direction: ${isThermal ? 'column' : 'row'};
           justify-content: ${isThermal ? 'center' : 'space-between'}; 
           align-items: ${isThermal ? 'center' : 'flex-start'}; 
-          margin-bottom: 15px; 
+          margin-bottom: 10px; 
           border-bottom: 2px solid ${isThermal ? '#000' : '#10b981'}; 
-          padding-bottom: 15px;
+          padding-bottom: 10px;
           text-align: ${isThermal ? 'center' : 'left'};
         }
         .logo-area { display: flex; flex-direction: ${isThermal ? 'column' : 'row'}; align-items: center; gap: 10px; }
-        .logo { width: ${isThermal ? '80px' : '100px'}; height: auto; max-height: 60px; object-fit: contain; border-radius: 4px; }
-        .company-name { font-size: ${isThermal ? '14px' : '20px'}; font-weight: 800; color: ${isThermal ? '#000' : '#10b981'}; margin: 0; }
+        .logo { width: ${isThermal ? '80px' : '85px'}; height: auto; max-height: 50px; object-fit: contain; border-radius: 4px; }
+        .company-name { font-size: ${isThermal ? '14px' : '18px'}; font-weight: 800; color: ${isThermal ? '#000' : '#10b981'}; margin: 0; }
         .receipt-info { text-align: ${isThermal ? 'center' : 'right'}; margin-top: ${isThermal ? '10px' : '0'}; }
         .receipt-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
-        .receipt-date { font-weight: 600; font-size: ${isThermal ? '12px' : '14px'}; }
-        .section { margin-bottom: 15px; }
+        .receipt-date { font-weight: 600; font-size: ${isThermal ? '12px' : '13px'}; }
+        .section { margin-bottom: 10px; }
         .section-title { font-size: 11px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 4px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
-        .val { font-size: ${isThermal ? '14px' : '16px'}; font-weight: 600; }
+        .val { font-size: ${isThermal ? '14px' : '15px'}; font-weight: 600; }
         .amount-box { 
           background: #fff; 
-          padding: 15px; 
+          padding: 10px; 
           border-radius: 8px; 
           text-align: center; 
           border: ${isThermal ? '2px solid #000' : '2px dashed #10b981'}; 
-          margin-top: 20px; 
+          margin-top: 15px; 
         }
-        .amount-val { font-size: ${isThermal ? '22px' : '28px'}; font-weight: 800; }
+        .amount-val { font-size: ${isThermal ? '22px' : '24px'}; font-weight: 800; }
         @media print {
           body { padding: 0; margin: 0; width: ${isThermal ? '80mm' : 'auto'}; }
           .receipt-card { border: none; box-shadow: none; max-width: 100%; margin: 0; border-bottom: ${isThermal ? '1px dashed #ccc' : 'none'}; padding-bottom: ${isThermal ? '20px' : '0'}; }
-          .separator { display: ${isThermal ? 'none' : 'block'}; height: 1px; border-top: 1px dashed #ccc; margin: 20px 0; }
+          .separator { display: ${isThermal ? 'none' : 'block'}; height: 1px; border-top: 1px dashed #ccc; margin: 15px 0; }
         }
       </style>
     </head>

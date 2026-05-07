@@ -32,6 +32,7 @@
 }
 
 body.dark {
+  color-scheme: dark;
   --primary: #e0e0e0;
   --on-primary: #000000;
   --primary-container: #2a2a2a;
@@ -61,6 +62,7 @@ body {
   font-family: 'Roboto', sans-serif;
   background-color: var(--bg-main);
   color: var(--text-main);
+  color-scheme: light;
   display: grid;
   grid-template-columns: 240px 1fr;
   grid-template-rows: 70px 1fr;
@@ -396,8 +398,12 @@ body.authenticated .sidebar { display: block; }
 .form-group label { font-size: 0.875rem; color: var(--text-muted); font-weight: 500; }
 
 .form-group input:not([type="checkbox"]), .form-input, select, textarea {
-  background: transparent; border: 1px solid var(--outline); padding: 1rem;
+  background: var(--input-bg); border: 1px solid var(--outline); padding: 1rem;
   border-radius: 4px; color: var(--text-main); outline: none; transition: var(--transition); font-size: 1rem;
+}
+select option {
+  background: var(--bg-main);
+  color: var(--text-main);
 }
 .form-group input:focus, .form-input:focus, select:focus, textarea:focus {
   border-color: var(--primary); border-width: 2px; padding: calc(1rem - 1px);
