@@ -38,14 +38,21 @@ export class CheckRepository {
   async getContacts() {
     // Use the same cache key as ClientRepository so that adding/editing
     // a client in Settings automatically invalidates this list too.
+    // Enforce a 5-minute TTL so changes made by other admin users are
+    // visible within that window without a full page reload.
     const cacheKey = 'client_clients';
+    const metaKey = 'client_clients_ts';
     const cached = localStorage.getItem(cacheKey);
-    if (cached) {
+    const ts = parseInt(localStorage.getItem(metaKey) || '0', 10);
+    const isExpired = !ts || (Date.now() - ts) > 5 * 60 * 1000;
+
+    if (cached && !isExpired) {
       this.contactsCache = JSON.parse(cached);
       return this.contactsCache;
     }
     this.contactsCache = await api.fetchClients(db);
     localStorage.setItem(cacheKey, JSON.stringify(this.contactsCache));
+    localStorage.setItem(metaKey, String(Date.now()));
     return this.contactsCache;
   }
 

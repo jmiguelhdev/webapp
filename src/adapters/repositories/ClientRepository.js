@@ -11,21 +11,32 @@ export class ClientRepository {
     this.priceAnalysesCache = new Map(); // clientId -> analyses array
   }
 
+  // localStorage cache TTL: 5 minutes (shared source of truth is Firestore)
+  static get CACHE_TTL_MS() { return 5 * 60 * 1000; }
+
   async getClients() {
     const cacheKey = 'client_clients';
+    const metaKey = 'client_clients_ts';
     const cached = localStorage.getItem(cacheKey);
-    if (cached) {
+    const ts = parseInt(localStorage.getItem(metaKey) || '0', 10);
+    const isExpired = !ts || (Date.now() - ts) > ClientRepository.CACHE_TTL_MS;
+
+    if (cached && !isExpired) {
       this.clientsCache = JSON.parse(cached);
       return this.clientsCache;
     }
+    // Stale or missing — fetch fresh from Firestore
     this.clientsCache = await api.fetchClients(db);
     localStorage.setItem(cacheKey, JSON.stringify(this.clientsCache));
+    localStorage.setItem(metaKey, String(Date.now()));
     return this.clientsCache;
   }
 
   async saveClient(clientData) {
     const res = await api.saveClient(db, clientData);
+    // Bust cache so this user (and any subsequent read on this browser) gets fresh data immediately
     localStorage.removeItem('client_clients');
+    localStorage.removeItem('client_clients_ts');
     this.clientsCache = null;
     return res;
   }

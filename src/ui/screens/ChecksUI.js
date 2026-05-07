@@ -121,27 +121,47 @@ export function renderChecks(container, options) {
   searchGroup.appendChild(searchInput);
 
 
-  const dateStartGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
-  dateStartGroup.appendChild(el('label', { text: 'Desde' }));
-  const startInput = el('input', { 
-    attrs: { type: 'date', value: filters?.startDate || '' },
-    style: 'width: 100%;'
-  });
-  startInput.onchange = (e) => onFilterChange({ startDate: e.target.value });
-  dateStartGroup.appendChild(startInput);
+  // ── Date field helper ──
+  // Identical input[type="date"] to the operation modal.
+  // An 800ms debounce prevents the re-render from destroying the field while the
+  // user is still typing each segment (day / month / year).
+  function makeDateField(labelText, isoValue, onChangeISO) {
+    const group = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
+    group.appendChild(el('label', { text: labelText }));
 
-  const dateEndGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
-  dateEndGroup.appendChild(el('label', { text: 'Hasta' }));
-  const endInput = el('input', { 
-    attrs: { type: 'date', value: filters?.endDate || '' },
-    style: 'width: 100%;'
-  });
-  endInput.onchange = (e) => onFilterChange({ endDate: e.target.value });
-  dateEndGroup.appendChild(endInput);
+    const wrapper = el('div', { style: 'display:flex; gap:0.4rem; align-items:center;' });
+
+    const dateInput = el('input', {
+      attrs: { type: 'date', value: isoValue || '' },
+      style: 'flex:1; min-width:0;'
+    });
+
+    let debounceTimer = null;
+    dateInput.addEventListener('change', (e) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => onChangeISO(e.target.value || ''), 800);
+    });
+
+    const calBtn = el('button', {
+      attrs: { type: 'button', title: 'Abrir calendario' },
+      style: 'flex-shrink:0; padding:0 0.6rem; height:38px; border-radius:8px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.4); color:var(--primary); cursor:pointer; font-size:1rem; display:flex; align-items:center;',
+      text: '📅'
+    });
+    calBtn.onclick = () => { if (dateInput.showPicker) dateInput.showPicker(); else dateInput.click(); };
+
+    wrapper.appendChild(dateInput);
+    wrapper.appendChild(calBtn);
+    group.appendChild(wrapper);
+    return group;
+  }
+
+  const dateStartGroup = makeDateField('Desde', filters?.startDate || '', (iso) => onFilterChange({ startDate: iso }));
+  const dateEndGroup   = makeDateField('Hasta',  filters?.endDate  || '', (iso) => onFilterChange({ endDate: iso  }));
 
   filtersBar.appendChild(searchGroup);
   filtersBar.appendChild(dateStartGroup);
   filtersBar.appendChild(dateEndGroup);
+
   container.appendChild(filtersBar);
 
   // Apply filters before splitting sections
@@ -712,7 +732,7 @@ function showBatchBuyModal(contacts, onBatchBuy) {
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width:100%;max-width:1050px;margin:auto;padding:0;overflow:hidden;border-radius:20px;'
+    style: 'width:100%;max-width:1400px;margin:auto;padding:0;overflow:hidden;border-radius:20px;'
   });
 
   content.innerHTML = `
@@ -755,7 +775,7 @@ function showBatchBuyModal(contacts, onBatchBuy) {
       <!-- Lista de cheques -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
         <h3 style="margin:0;font-size:0.9rem;font-weight:700;">📄 Cheques del Lote</h3>
-        <button type="button" id="batch-add-row" style="padding:0.5rem 1.2rem;border-radius:8px;background:var(--primary);color:#fff;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;">+ Agregar cheque</button>
+        <button type="button" id="batch-add-row" style="padding:0.55rem 1.4rem;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;cursor:pointer;font-weight:700;font-size:0.875rem;box-shadow:0 3px 10px rgba(99,102,241,0.4);letter-spacing:0.02em;transition:opacity 0.2s;">+ Agregar cheque</button>
       </div>
       <div id="batch-rows-container" style="display:flex;flex-direction:column;gap:0.75rem;max-height:380px;overflow-y:auto;padding-right:4px;"></div>
 
@@ -942,7 +962,7 @@ function showBatchSellModal(contacts, checkIds, onBatchSell, onDone) {
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width:100%;max-width:520px;padding:0;overflow:hidden;border-radius:20px;'
+    style: 'width:100%;max-width:700px;padding:0;overflow:hidden;border-radius:20px;'
   });
 
   content.innerHTML = `
