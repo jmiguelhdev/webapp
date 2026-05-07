@@ -60,7 +60,7 @@ export function renderChecks(container, options) {
 
   container.appendChild(header);
 
-  // Summary Cards (Based on unfiltered checks for totality, or filtered? Usually total portfolio)
+  // Realized profit: only SOLD checks have profit > 0
   const totalProfit = checks.reduce((sum, c) => sum + (c.profit || 0), 0);
   
   const isPortfolio = (c) => {
@@ -76,12 +76,20 @@ export function renderChecks(container, options) {
   const portfolioChecks = checks.filter(isPortfolio);
   const totalInPortfolio = portfolioChecks.reduce((sum, c) => sum + (parseFloat(c.nominalValue) || 0), 0);
 
+  // Unrealized gain = purchase discounts locked in but not yet sold
+  const totalPortfolioDiscount = portfolioChecks.reduce((sum, c) => {
+    const nominal = parseFloat(c.nominalValue) || 0;
+    const netPaid = parseFloat(c.buySide?.netAmount);
+    return sum + (isNaN(netPaid) ? 0 : nominal - netPaid);
+  }, 0);
+
   const statsGrid = el('div', { 
     classes: ['stats-grid'],
     style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;'
   });
 
-  statsGrid.appendChild(createStatCard('Ganancia Total Realizada', formatCurrency(totalProfit), 'var(--success)'));
+  statsGrid.appendChild(createStatCard('Ganancia Vendida', formatCurrency(totalProfit), 'var(--success)'));
+  statsGrid.appendChild(createStatCard('Desc. en Cartera', formatCurrency(totalPortfolioDiscount), 'var(--success)'));
   statsGrid.appendChild(createStatCard('Capital en Cartera', formatCurrency(totalInPortfolio), 'var(--primary)'));
   statsGrid.appendChild(createStatCard('Cheques en Cartera', portfolioChecks.length, 'var(--primary)'));
 
@@ -389,7 +397,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       <th style="padding: 1rem;">F. Pago / Vencimiento</th>
       <th style="padding: 1rem;">Valor Nominal</th>
       <th style="padding: 1rem;">Origen / Destino</th>
-      <th style="padding: 1rem;">Ganancia</th>
+      <th style="padding: 1rem;">${selectable ? 'Desc. Compra' : 'Ganancia'}</th>
       <th style="padding: 1rem; text-align: right;">Acciones</th>
     </tr>
   `});
@@ -431,7 +439,22 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
           ${op.sellSide?.status === 'BACK' && op.sellSide?.backReason ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; font-style: italic;">📝 ${op.sellSide.backReason}</div>` : ''}
           <div style="margin-top: 0.5rem;">${getCheckStatusBadge(op)}</div>
         </td>
-        <td style="padding: 1rem; color: var(--success); font-weight: 600;">${isSold ? formatCurrency(op.profit) : '-'}</td>
+        <td style="padding: 1rem; font-weight: 600;">
+          ${(() => {
+            if (isSold) {
+              // Realized profit on sold check
+              return `<span style="color:var(--success);">${formatCurrency(op.profit)}</span>`;
+            }
+            const nominal = parseFloat(op.nominalValue) || 0;
+            const netPaid  = parseFloat(op.buySide?.netAmount);
+            if (!isNaN(netPaid) && nominal > 0) {
+              const disc = nominal - netPaid;
+              const pct  = ((disc / nominal) * 100).toFixed(2);
+              return `<span style="color:var(--success);">${formatCurrency(disc)}</span><div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.1rem;">${pct}% desc.</div>`;
+            }
+            return '<span style="color:var(--text-muted);">-</span>';
+          })()}
+        </td>
         <td style="padding: 1rem; text-align: right; white-space: nowrap;">
           <button class="icon-btn edit-btn" title="Editar">✏️</button>
           <button class="icon-btn delete-btn" style="color: var(--danger);" title="Eliminar">

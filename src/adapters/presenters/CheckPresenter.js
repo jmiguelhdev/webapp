@@ -178,10 +178,13 @@ export class CheckPresenter {
     op.clearing = parseInt(op.clearing) || 0;
     const clearing = op.clearing;
     
-    // Calcular TTL (210 días después de recepción)
-    const ttlDate = new Date(reception);
-    ttlDate.setDate(ttlDate.getDate() + 210);
-    op.ttlTimestamp = ttlDate.toISOString();
+    // TTL: 3 years from reception date.
+    // Stored as a native Date so Firestore serializes it as a Timestamp.
+    // To enable auto-deletion, configure a TTL policy on the 'check_operations'
+    // collection using the field name "expireAt" in the Firestore console.
+    const expireAt = new Date(reception);
+    expireAt.setFullYear(expireAt.getFullYear() + 3);
+    op.expireAt = expireAt;
     
     // Calculate days: (Due - Reception) + Clearing
     const diffTime = due.getTime() - reception.getTime();

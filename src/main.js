@@ -482,14 +482,58 @@ const navigateTo = (view, role = currentUserRole) => {
               </div>
             </div>
 
-            <!-- NUEVA SECCIÓN: Gestión de Cheques -->
+            <!-- SECCIÓN: Gestión de Cheques – Documentación completa -->
             <div class="accordion-item">
-              <div class="accordion-header"><span>💸 Gestión Integral de Cheques</span><i>▼</i></div>
+              <div class="accordion-header"><span>💸 Gestión Integral de Cheques – Proceso y Cálculos</span><i>▼</i></div>
               <div class="accordion-content">
-                <p>Módulo específico para la administración de cheques físicos y eCheqs, con registro completo del ciclo de vida.</p>
-                <div class="formula-card"><span class="tech-tag">Estados</span> Pendiente → Cobrado, Depositado, Entregado a Tercero, Rechazado, o Destruido.</div>
-                <div class="formula-card"><span class="tech-tag">Validación Vto</span> Alerta visual inteligente basada en los días faltantes para la acreditación real en banco.</div>
-                <p>Los cheques operan como valores que, al liquidarse, pueden impactar dinámicamente de forma trazable en las cajas de contabilidad.</p>
+
+                <p>El módulo de cheques permite administrar el ciclo de vida completo de cheques de pago diferido (físicos o eCheqs): desde la compra a un vendedor hasta la venta o acreditación, registrando automáticamente todos los cálculos financieros.</p>
+
+                <h4 style="margin: 1.25rem 0 0.5rem; color: var(--primary);">📥 Proceso de Compra (Ingreso al Sistema)</h4>
+                <p>Al registrar una compra se cargan los siguientes datos:</p>
+                <div class="formula-card"><span class="tech-tag">Datos del Cheque</span> Banco · Número de cheque · Valor Nominal · Fecha de Emisión · Fecha de Recepción · Fecha de Pago · Días de Clearing</div>
+                <div class="formula-card"><span class="tech-tag">Datos del Librador</span> Nombre / Razón Social · CUIT del librador. El botón <strong>BCRA</strong> copia el CUIT y abre la Central de Deudores del BCRA para verificar la situación crediticia del firmante.</div>
+                <div class="formula-card"><span class="tech-tag">Compra (Origen)</span> Vendedor (contacto del sistema) · Pesificación (%) · Interés Mensual (%)</div>
+
+                <p>Con esos datos el sistema calcula automáticamente:</p>
+                <div class="formula-card"><span class="tech-tag">Días Totales</span> Días = (Fecha de Pago − Fecha de Recepción) + Clearing</div>
+                <div class="formula-card"><span class="tech-tag">Neto Compra</span> Neto Compra = Nominal − (Nominal × Pesif.%) − (Nominal × InterésMensual% / 30 × Días)</div>
+                <div class="formula-card"><span class="tech-tag">Descuento Compra</span> Descuento = Nominal − Neto Compra → es la ganancia capturada en el momento de comprar, independientemente de si luego se vende o cobra directamente.</div>
+
+                <h4 style="margin: 1.25rem 0 0.5rem; color: var(--success);">📤 Proceso de Venta (Salida del Sistema)</h4>
+                <p>Cuando el cheque se vende a un tercero se registra el lado de venta con:</p>
+                <div class="formula-card"><span class="tech-tag">Venta (Destino)</span> Comprador · Pesificación (%) · Interés Mensual (%) · Estado · Motivo de retorno (si aplica)</div>
+                <div class="formula-card"><span class="tech-tag">Neto Venta</span> Neto Venta = Nominal − (Nominal × Pesif.%) − (Nominal × InterésMensual% / 30 × Días)</div>
+                <div class="formula-card"><span class="tech-tag">Ganancia Realizada</span> Ganancia = Neto Venta − Neto Compra → el spread entre lo que se pagó y lo que se cobró por el cheque.</div>
+
+                <p><strong>Ejemplo numérico:</strong> Cheque de $100.000 a 60 días.</p>
+                <div class="formula-card"><span class="tech-tag">Compra</span> Pesif. 1% + Interés 2%/mes → Neto Compra = $100.000 − $1.000 − $4.000 = <strong>$95.000</strong></div>
+                <div class="formula-card"><span class="tech-tag">Venta</span> Pesif. 0.5% + Interés 1.5%/mes → Neto Venta = $100.000 − $500 − $3.000 = <strong>$96.500</strong></div>
+                <div class="formula-card"><span class="tech-tag">Ganancia</span> $96.500 − $95.000 = <strong>$1.500 (spread)</strong></div>
+
+                <h4 style="margin: 1.25rem 0 0.5rem; color: var(--primary);">🔄 Ciclo de Vida y Estados</h4>
+                <div class="formula-card"><span class="tech-tag">EN CARTERA</span> Cheque comprado, sin venta activa. Período de espera hasta la fecha de pago.</div>
+                <div class="formula-card"><span class="tech-tag">🔔 PAGO EN Xd</span> La fecha de pago se acerca en los próximos 10 días. Aviso preventivo.</div>
+                <div class="formula-card"><span class="tech-tag">✅ DISPONIBLE</span> La fecha de pago ya pasó y el cheque está dentro del período de gracia de 30 días del BCRA. Se puede cobrar o seguir negociando.</div>
+                <div class="formula-card"><span class="tech-tag">⏳ PRÓXIMO A VENCER</span> Quedan 10 días o menos del período de gracia de 30 días. <strong>Urgente:</strong> gestionar antes del vencimiento definitivo.</div>
+                <div class="formula-card"><span class="tech-tag">⛔ VENCIDO</span> Pasaron los 30 días de gracia desde la fecha de pago. El cheque ya no es cobrable de forma ordinaria.</div>
+                <div class="formula-card"><span class="tech-tag">DEVUELTO</span> El cheque fue rechazado por el comprador y regresó a Cartera. Puede ser renegociado o gestionado con el librador.</div>
+                <div class="formula-card"><span class="tech-tag">VENDIDO</span> Operación completa. La ganancia realizada se acumula en el total de la sección.</div>
+                <div class="formula-card"><span class="tech-tag">RECHAZADO</span> Cheque sin fondos o con problema bancario. Queda en Operaciones Realizadas sin ganancia.</div>
+
+                <h4 style="margin: 1.25rem 0 0.5rem; color: var(--success);">📊 Indicadores del Panel</h4>
+                <div class="formula-card"><span class="tech-tag">Ganancia Vendida</span> Suma de <code>profit</code> de todos los cheques con estado VENDIDO. Solo incluye ganancias ya realizadas.</div>
+                <div class="formula-card"><span class="tech-tag">Desc. en Cartera</span> Suma de los descuentos de compra (Nominal − Neto Compra) de todos los cheques aún en cartera. Representa la ganancia potencial ya capturada pero no realizada.</div>
+                <div class="formula-card"><span class="tech-tag">Capital en Cartera</span> Suma del Valor Nominal de todos los cheques en cartera. Indica la exposición nominal total.</div>
+
+                <h4 style="margin: 1.25rem 0 0.5rem; color: var(--primary);">⚡ Operaciones Masivas</h4>
+                <div class="formula-card"><span class="tech-tag">Compra Masiva</span> Permite cargar múltiples cheques en una sola sesión con datos comunes compartidos (vendedor, pesificación, intereses) y datos individuales por cheque (banco, número, nominal, fechas, librador, CUIT).</div>
+                <div class="formula-card"><span class="tech-tag">Venta Masiva</span> Seleccionar múltiples cheques de la tabla de Cartera con los checkboxes y aplicar condiciones de venta unificadas a todo el lote simultáneamente.</div>
+
+                <h4 style="margin: 1.25rem 0 0.5rem; color: var(--primary);">⚖️ Marco Regulatorio BCRA</h4>
+                <div class="formula-card"><span class="tech-tag">Período de Gracia</span> El BCRA establece un período de 30 días corridos después de la fecha de pago para presentar el cheque al cobro. Pasado ese plazo, el cheque prescribe.</div>
+                <div class="formula-card"><span class="tech-tag">Central de Deudores</span> Disponible en <strong>bcra.gob.ar/situacion-crediticia</strong>. Permite verificar el historial crediticio del firmante (librador) antes de aceptar un cheque. El sistema facilita el acceso con un solo clic desde el formulario.</div>
+
               </div>
             </div>
 
