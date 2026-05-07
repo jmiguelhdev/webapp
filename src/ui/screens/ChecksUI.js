@@ -2,7 +2,7 @@ import { el } from '../../utils/dom.js';
 import { renderDateModal } from '../components/Modals.js';
 
 export function renderChecks(container, options) {
-  const { checks, filteredChecks, filters, contacts, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell } = options;
+  const { checks, filteredChecks, filters, contacts, pagination, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell, onPortfolioPageChange, onHistoryPageChange } = options;
   container.innerHTML = '';
 
   const header = el('div', { 
@@ -314,8 +314,19 @@ export function renderChecks(container, options) {
     });
   };
 
-  const portfolioTable = renderCheckTable(currentPortfolio, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar);
+  const portTotal = currentPortfolio.length;
+  const portTotalPages = Math.ceil(portTotal / (pagination?.itemsPerPage || 15));
+  let portCurrentPage = pagination?.portfolioPage || 1;
+  if (portCurrentPage > portTotalPages && portTotalPages > 0) portCurrentPage = portTotalPages;
+  const portStart = (portCurrentPage - 1) * (pagination?.itemsPerPage || 15);
+  const portPaginated = currentPortfolio.slice(portStart, portStart + (pagination?.itemsPerPage || 15));
+
+  const portfolioTable = renderCheckTable(portPaginated, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar);
   container.appendChild(portfolioTable);
+  
+  if (portTotalPages > 1) {
+    container.appendChild(renderPaginationControls(portCurrentPage, portTotalPages, portTotal, onPortfolioPageChange));
+  }
 
   // Section 2: OPERACIONES REALIZADAS
   const currentHistory = currentList.filter(isHistory);
@@ -332,7 +343,58 @@ export function renderChecks(container, options) {
   };
   historyHeader.appendChild(printHistoryBtn);
   container.appendChild(historyHeader);
-  container.appendChild(renderCheckTable(currentHistory, contacts, onSave, onDelete));
+  const histTotal = currentHistory.length;
+  const histTotalPages = Math.ceil(histTotal / (pagination?.itemsPerPage || 15));
+  let histCurrentPage = pagination?.historyPage || 1;
+  if (histCurrentPage > histTotalPages && histTotalPages > 0) histCurrentPage = histTotalPages;
+  const histStart = (histCurrentPage - 1) * (pagination?.itemsPerPage || 15);
+  const histPaginated = currentHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
+
+  container.appendChild(renderCheckTable(histPaginated, contacts, onSave, onDelete));
+  if (histTotalPages > 1) {
+    container.appendChild(renderPaginationControls(histCurrentPage, histTotalPages, histTotal, onHistoryPageChange));
+  }
+}
+
+function renderPaginationControls(currentPage, totalPages, totalItems, onPageChange) {
+  const pagContainer = el('div', { 
+    style: 'display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 2rem;'
+  });
+
+  const info = el('div', { 
+    text: `Mostrando página ${currentPage} de ${totalPages} (${totalItems} registros)`,
+    style: 'font-size: 0.85rem; color: var(--text-muted);'
+  });
+  pagContainer.appendChild(info);
+
+  const btnGroup = el('div', { style: 'display: flex; gap: 0.5rem; align-items: center;' });
+  
+  const prevBtn = el('button', { 
+    classes: ['btn-secondary'], 
+    text: 'Anterior',
+    style: 'padding: 0.5rem 1rem; font-size: 0.85rem;'
+  });
+  prevBtn.disabled = currentPage === 1;
+  prevBtn.onclick = () => onPageChange(currentPage - 1);
+  btnGroup.appendChild(prevBtn);
+
+  const pageInfo = el('span', { 
+    text: `Pág. ${currentPage} / ${totalPages}`,
+    style: 'font-size: 0.85rem; font-weight: 600; margin: 0 1rem;'
+  });
+  btnGroup.appendChild(pageInfo);
+
+  const nextBtn = el('button', { 
+    classes: ['btn-secondary'], 
+    text: 'Siguiente',
+    style: 'padding: 0.5rem 1rem; font-size: 0.85rem;'
+  });
+  nextBtn.disabled = currentPage === totalPages;
+  nextBtn.onclick = () => onPageChange(currentPage + 1);
+  btnGroup.appendChild(nextBtn);
+
+  pagContainer.appendChild(btnGroup);
+  return pagContainer;
 }
 
 function getCheckStatusBadge(op) {

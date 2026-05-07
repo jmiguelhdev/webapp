@@ -16,6 +16,11 @@ export class CheckPresenter {
       searchTerm: '',
       sortPortfolioAsc: true
     };
+    this.pagination = {
+      portfolioPage: 1,
+      historyPage: 1,
+      itemsPerPage: 15
+    };
   }
 
   setUid(uid) {
@@ -54,6 +59,18 @@ export class CheckPresenter {
 
   applyFilters(newFilters) {
     this.filters = { ...this.filters, ...newFilters };
+    this.pagination.portfolioPage = 1;
+    this.pagination.historyPage = 1;
+    this.render();
+  }
+
+  setPortfolioPage(page) {
+    this.pagination.portfolioPage = page;
+    this.render();
+  }
+
+  setHistoryPage(page) {
+    this.pagination.historyPage = page;
     this.render();
   }
 
@@ -267,6 +284,7 @@ export class CheckPresenter {
       checks: this.checks,
       filteredChecks: this.getFilteredChecks(),
       filters: this.filters,
+      pagination: this.pagination,
       contacts: this.contacts,
       onFilterChange: this.applyFilters.bind(this),
       onSave: this.saveOperation.bind(this),
@@ -274,8 +292,9 @@ export class CheckPresenter {
       onRefresh: this.loadData.bind(this),
       onExport: this.exportData.bind(this),
       onPrint: this.printList.bind(this),
-      onBatchBuy: this.saveBatchBuy.bind(this),
-      onBatchSell: this.saveBatchSell.bind(this)
+      onBatchSell: this.saveBatchSell.bind(this),
+      onPortfolioPageChange: this.setPortfolioPage.bind(this),
+      onHistoryPageChange: this.setHistoryPage.bind(this)
     });
   }
 }
