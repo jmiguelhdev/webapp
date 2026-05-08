@@ -545,6 +545,15 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
           });
         }
       }
+
+      if (op.notes && op.notes.trim()) {
+        tr.title = `Observaciones: ${op.notes.trim()}`;
+        // Optionally add an icon to the first cell to indicate there are notes
+        const firstCell = tr.querySelector('td:nth-child(' + (selectable ? '2' : '1') + ')');
+        if (firstCell) {
+          firstCell.innerHTML += `<div style="display:inline-block; margin-left:0.5rem; color:var(--primary); font-size:0.8rem;" title="Tiene observaciones">📝</div>`;
+        }
+      }
       
       tbody.appendChild(tr);
     });
@@ -665,63 +674,34 @@ function showOperationModal(existingOp, contacts, onSave) {
         </div>
       </div>
 
-      <!-- ═══ SECCIÓN 3: Compra / Venta (side by side) ═══ -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
-
-        <!-- BUY SIDE -->
-        <div style="padding: 1.25rem 1.5rem; border: 2px solid var(--primary); border-radius: 14px; background: rgba(99,102,241,0.06);">
-          <h3 style="margin: 0 0 1.25rem; color: var(--primary); font-size: 0.95rem;">📥 Compra (Origen)</h3>
-          <div class="form-group">
+      <!-- ═══ SECCIÓN 3: Compra (Origen) ═══ -->
+      <div style="background: rgba(99,102,241,0.06); border: 1px solid var(--primary); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+        <h3 style="margin: 0 0 1.25rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--primary); font-weight: 600;">📥 Compra (Origen)</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem 1.5rem; align-items: end;">
+          <div class="form-group" style="margin:0;">
             <label>Vendedor</label>
             <input type="text" id="buyside-contact-input" list="contacts-datalist" required placeholder="🔎 Buscar cliente o productor..." autocomplete="off" value="${existingOp?.buySide?.contactId ? (contacts.find(c => c.id === existingOp.buySide.contactId)?.name || existingOp.buySide.contactId) : ''}">
             <datalist id="contacts-datalist">
               ${contacts.map(c => `<option value="${c.name}"></option>`).join('')}
             </datalist>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-            <div class="form-group" style="margin:0;">
-              <label>Pesificación (%)</label>
-              <input type="number" step="0.01" name="buySide_pesificacionRate" value="${existingOp?.buySide?.pesificacionRate || ''}" required>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label>Interés Mensual (%)</label>
-              <input type="number" step="0.01" name="buySide_monthlyInterest" value="${existingOp?.buySide?.monthlyInterest || ''}" required>
+          <div class="form-group" style="margin:0;">
+            <label>Pesificación (%)</label>
+            <input type="number" step="0.01" name="buySide_pesificacionRate" value="${existingOp?.buySide?.pesificacionRate || ''}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Interés Mensual (%)</label>
+            <input type="number" step="0.01" name="buySide_monthlyInterest" value="${existingOp?.buySide?.monthlyInterest || ''}" required>
+          </div>
+          
+          <div style="grid-column: 1 / -1; margin-top: 0.5rem; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4); border-radius: 10px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Neto a Pagar</span>
+            <div style="text-align: right;">
+              <strong id="single-net-amount" style="font-size: 1.5rem; color: var(--primary); font-weight: 800;">$0,00</strong>
+              <div id="single-net-days" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; font-weight: 600;">0 días</div>
             </div>
           </div>
         </div>
-
-        <!-- SELL SIDE -->
-        <div style="padding: 1.25rem 1.5rem; border: 2px solid var(--success); border-radius: 14px; background: rgba(16,185,129,0.06);">
-          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.25rem;">
-            <h3 style="margin: 0; color: var(--success); font-size: 0.95rem;">📤 Venta (Destino / Estado)</h3>
-            <select name="sellSide_status" style="${getSelectStyle('var(--success)', '#10b981')} padding: 0.55rem 0.75rem; flex-shrink: 0; min-width: 140px;">
-              <option value="PENDING" ${!existingOp?.sellSide || existingOp?.sellSide?.status === 'PENDING' ? 'selected' : ''}>En Cartera</option>
-              <option value="SOLD" ${existingOp?.sellSide?.status === 'SOLD' ? 'selected' : ''}>Vendido</option>
-              <option value="RETURNED" ${existingOp?.sellSide?.status === 'RETURNED' ? 'selected' : ''}>Devuelto</option>
-              <option value="BACK" ${existingOp?.sellSide?.status === 'BACK' ? 'selected' : ''}>Volvió</option>
-              <option value="REJECTED" ${existingOp?.sellSide?.status === 'REJECTED' ? 'selected' : ''}>Rechazado</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Comprador / Destinatario</label>
-            <input type="text" id="sellside-contact-input" list="contacts-datalist" placeholder="🔎 Buscar cliente o productor..." autocomplete="off" value="${existingOp?.sellSide?.contactId ? (contacts.find(c => c.id === existingOp.sellSide.contactId)?.name || existingOp.sellSide.contactId) : ''}">
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-            <div class="form-group" style="margin:0;">
-              <label>Pesificación (%)</label>
-              <input type="number" step="0.01" name="sellSide_pesificacionRate" value="${existingOp?.sellSide?.pesificacionRate || ''}">
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label>Interés Mensual (%)</label>
-              <input type="number" step="0.01" name="sellSide_monthlyInterest" value="${existingOp?.sellSide?.monthlyInterest || ''}">
-            </div>
-          </div>
-          <div class="form-group" id="back-reason-group" style="margin-top: 1rem; display: ${existingOp?.sellSide?.status === 'BACK' ? 'flex' : 'none'}; flex-direction: column; gap: 0.5rem;">
-            <label>⚠️ Motivo de Retorno (Volvió)</label>
-            <textarea name="sellSide_backReason" rows="2" placeholder="Ej: El cliente no tenía fondos suficientes..." style="resize: vertical;">${existingOp?.sellSide?.backReason || ''}</textarea>
-          </div>
-        </div>
-
       </div>
 
       <!-- ═══ SECCIÓN 4: Notas ═══ -->
@@ -763,6 +743,36 @@ function showOperationModal(existingOp, contacts, onSave) {
   };
 
   const form = content.querySelector('#check-form');
+  
+  const updateSingleNetPreview = () => {
+    const nv = parseFloat(form.querySelector('[name="nominalValue"]').value) || 0;
+    const p = parseFloat(form.querySelector('[name="buySide_pesificacionRate"]').value) || 0;
+    const ir = parseFloat(form.querySelector('[name="buySide_monthlyInterest"]').value) || 0;
+    const cl = parseInt(form.querySelector('[name="clearing"]').value) || 0;
+    const recDate = form.querySelector('[name="receptionDate"]').value;
+    const dueDate = form.querySelector('[name="dueDate"]').value;
+
+    if (!recDate || !dueDate || nv === 0) {
+      content.querySelector('#single-net-amount').textContent = '$0,00';
+      content.querySelector('#single-net-days').textContent = '0 días';
+      return;
+    }
+    
+    const rec = new Date(recDate + 'T00:00:00');
+    const due = new Date(dueDate + 'T00:00:00');
+    const days = Math.max(0, Math.ceil((due - rec) / 86400000) + cl);
+    
+    const pesifAmt = nv * (p / 100);
+    const intAmt = nv * (ir / 100 / 30) * days;
+    const net = nv - pesifAmt - intAmt;
+    
+    content.querySelector('#single-net-amount').textContent = formatCurrency(net);
+    content.querySelector('#single-net-days').textContent = `${days} días`;
+  };
+
+  form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateSingleNetPreview));
+  updateSingleNetPreview(); // Initial calc
+
   form.onsubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(form);
@@ -770,10 +780,6 @@ function showOperationModal(existingOp, contacts, onSave) {
     const buySideNameInput = content.querySelector('#buyside-contact-input').value.trim();
     const matchedBuySide = contacts.find(c => c.name.toLowerCase().trim() === buySideNameInput.toLowerCase());
     const buySideContactId = matchedBuySide ? matchedBuySide.id : buySideNameInput;
-
-    const sellSideNameInput = content.querySelector('#sellside-contact-input').value.trim();
-    const matchedSellSide = contacts.find(c => c.name.toLowerCase().trim() === sellSideNameInput.toLowerCase());
-    const sellSideContactId = matchedSellSide ? matchedSellSide.id : (sellSideNameInput || null);
 
     const data = {
       id: existingOp?.id,
@@ -792,12 +798,12 @@ function showOperationModal(existingOp, contacts, onSave) {
         pesificacionRate: formData.get('buySide_pesificacionRate'),
         monthlyInterest: formData.get('buySide_monthlyInterest')
       },
-      sellSide: {
-        status: formData.get('sellSide_status') || 'PENDING',
-        contactId: sellSideContactId,
-        pesificacionRate: formData.get('sellSide_pesificacionRate'),
-        monthlyInterest: formData.get('sellSide_monthlyInterest'),
-        backReason: formData.get('sellSide_backReason') || ''
+      sellSide: existingOp?.sellSide || {
+        status: 'PENDING',
+        contactId: null,
+        pesificacionRate: '',
+        monthlyInterest: '',
+        backReason: ''
       }
     };
     onSave(data);
@@ -809,13 +815,6 @@ function showOperationModal(existingOp, contacts, onSave) {
   content.querySelector('.btn-close-modal').onclick = closeModal;
   // Click outside the card closes the modal
   modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-
-  // Show/hide backReason field dynamically
-  const statusSelect = content.querySelector('[name="sellSide_status"]');
-  const backReasonGroup = content.querySelector('#back-reason-group');
-  statusSelect.addEventListener('change', () => {
-    backReasonGroup.style.display = statusSelect.value === 'BACK' ? 'flex' : 'none';
-  });
 }
 
 
@@ -907,6 +906,10 @@ function showBatchBuyModal(contacts, onBatchBuy) {
             <label>Clearing (Días)</label>
             <input type="number" id="batch-clearing" value="0">
           </div>
+          <div class="form-group" style="margin:0; grid-column: 1 / -1; margin-top: 0.5rem;">
+            <label>Notas / Observaciones</label>
+            <textarea id="batch-notes" rows="2" placeholder="Observaciones adicionales (se aplicará a todos los cheques del lote)..." style="resize: vertical;"></textarea>
+          </div>
         </div>
       </div>
 
@@ -918,10 +921,15 @@ function showBatchBuyModal(contacts, onBatchBuy) {
       <div id="batch-rows-container" style="display:flex;flex-direction:column;gap:0.75rem;max-height:380px;overflow-y:auto;padding-right:4px;"></div>
 
       <!-- Resumen -->
-      <div id="batch-summary" style="margin-top:1.25rem;padding:1rem 1.5rem;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;display:flex;gap:2rem;flex-wrap:wrap;">
-        <div><span style="color:var(--text-muted);font-size:0.82rem;">Cant. cheques</span><br><strong id="sum-count">0</strong></div>
-        <div><span style="color:var(--text-muted);font-size:0.82rem;">Nominal total</span><br><strong id="sum-nominal">$0</strong></div>
-        <div><span style="color:var(--text-muted);font-size:0.82rem;">Neto a pagar (total)</span><br><strong id="sum-net" style="color:var(--primary);">$0</strong></div>
+      <div id="batch-summary" style="margin-top: 1.5rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(99,102,241,0.05), rgba(99,102,241,0.12)); border: 2px solid rgba(99,102,241,0.4); border-radius: 16px; display: flex; gap: 2rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 2.5rem;">
+          <div><span style="color:var(--text-muted);font-size:0.85rem;font-weight:700;text-transform:uppercase;">Cant. Cheques</span><br><strong id="sum-count" style="font-size:1.4rem;">0</strong></div>
+          <div><span style="color:var(--text-muted);font-size:0.85rem;font-weight:700;text-transform:uppercase;">Nominal Total</span><br><strong id="sum-nominal" style="font-size:1.4rem;">$0,00</strong></div>
+        </div>
+        <div style="text-align: right; background: rgba(0,0,0,0.15); padding: 1rem 1.5rem; border-radius: 12px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+          <span style="color:var(--text-muted);font-size:0.9rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Neto a Pagar (Total)</span><br>
+          <strong id="sum-net" style="color:var(--primary);font-size:2.2rem;font-weight:800;text-shadow:0 2px 10px rgba(99,102,241,0.2);line-height:1.2;">$0,00</strong>
+        </div>
       </div>
 
       <div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;">
@@ -1003,7 +1011,7 @@ function showBatchBuyModal(contacts, onBatchBuy) {
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">
           <button type="button" class="row-remove-btn" style="background:rgba(239,68,68,0.15);border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:0.3rem 0.6rem;cursor:pointer;font-size:0.8rem;font-weight:700;">✕</button>
-          <span class="row-net-preview" style="font-size:0.75rem;color:var(--primary);white-space:nowrap;"></span>
+          <span class="row-net-preview" style="font-size:0.85rem;font-weight:700;color:var(--primary);background:rgba(99,102,241,0.15);padding:0.4rem 0.8rem;border-radius:6px;border:1px solid rgba(99,102,241,0.3);white-space:nowrap;display:inline-block;min-width:120px;text-align:center;">Neto: $0,00</span>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;align-items:end;padding-top:0.15rem;border-top:1px solid rgba(255,255,255,0.06);">
@@ -1051,6 +1059,7 @@ function showBatchBuyModal(contacts, onBatchBuy) {
     const interest = content.querySelector('#batch-buy-interest').value;
     const recDate = content.querySelector('#batch-reception-date').value;
     const clearing = content.querySelector('#batch-clearing').value;
+    const batchNotes = content.querySelector('#batch-notes').value.trim();
 
     const rows = rowsContainer.querySelectorAll('.batch-check-row');
     const ops = [];
@@ -1072,7 +1081,7 @@ function showBatchBuyModal(contacts, onBatchBuy) {
         issueDate: '',
         issuerName,
         issuerCuit,
-        notes: '',
+        notes: batchNotes,
         buySide: { contactId: sellerId, pesificacionRate: pesif, monthlyInterest: interest },
         sellSide: { status: 'PENDING', contactId: null, pesificacionRate: '', monthlyInterest: '', backReason: '' }
       });
