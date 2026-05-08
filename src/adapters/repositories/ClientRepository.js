@@ -33,12 +33,20 @@ export class ClientRepository {
     return api.fetchTransactions(db, clientId);
   }
 
+  async getAllTransactions() {
+    return api.fetchAllTransactions(db);
+  }
+
   async addTransaction(transaction) {
     return api.addTransaction(db, transaction);
   }
 
   async syncAccountingToTransaction(accountingId, data) {
     return api.syncAccountingToTransaction(db, accountingId, data);
+  }
+
+  async syncCheckTransaction(checkId, side, transactionData) {
+    return api.syncTransactionByCheck(db, 'transactions', checkId, side, transactionData);
   }
 
   async getDispatchedFaenas(clientName, startDate, endDate) {

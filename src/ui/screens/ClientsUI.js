@@ -1,7 +1,7 @@
 import { el } from '../../utils/dom.js';
 
 export function renderClientAccounts(options) {
-  const { clients, selectedClient, transactions, onSelectClient, onAddPayment, onBack, onAnalyzePrice } = options;
+  const { clients, operators, selectedClient, selectedType, activeTab, transactions, onSelectClient, onAddPayment, onBack, onAnalyzePrice, onTabChange, onSaveClient } = options;
   const container = document.getElementById('content');
   container.innerHTML = '';
   const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
@@ -152,37 +152,48 @@ export function renderClientAccounts(options) {
 
   } else {
     // --- LIST VIEW ---
-    const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;' });
+    const isOperatorsTab = activeTab === 'OPERATORS';
+    
+    const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;' });
     header.innerHTML = `
       <div style="display: flex; align-items: center; gap: 0.5rem;">
         <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
           <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
         </button>
         <div>
-          <h2 style="margin: 0;">👥 Cuentas de Clientes</h2>
-          <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Administración de saldos y cobranzas.</p>
+          <h2 style="margin: 0;">👥 Cuentas y Saldos</h2>
+          <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Administración de cuentas corrientes.</p>
         </div>
       </div>
-      <button id="new-client-btn" class="btn-primary" style="margin: 0; width: auto; padding: 0.6rem 1.5rem;">➕ Nuevo Cliente</button>
+      <button id="new-client-btn" class="btn-primary" style="margin: 0; width: auto; padding: 0.6rem 1.5rem;">➕ Nuevo ${isOperatorsTab ? 'Operador' : 'Cliente'}</button>
     `;
     wrapper.appendChild(header);
-    header.querySelector('#back-to-dash').onclick = options.onBackToDashboard;
-    header.querySelector('#new-client-btn').onclick = () => showClientModal(null, options.onSaveClient);
 
-    // Extract onSaveClient from options
-    const onSaveClient = options.onSaveClient;
+    const tabsContainer = el('div', { style: 'display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;' });
+    tabsContainer.innerHTML = `
+      <button id="tab-clients" style="background: none; border: none; font-size: 1.1rem; font-weight: 600; cursor: pointer; padding: 0.5rem 1rem; color: ${!isOperatorsTab ? 'var(--primary)' : 'var(--text-muted)'}; border-bottom: ${!isOperatorsTab ? '3px solid var(--primary)' : '3px solid transparent'};">Clientes y Deudores</button>
+      <button id="tab-operators" style="background: none; border: none; font-size: 1.1rem; font-weight: 600; cursor: pointer; padding: 0.5rem 1rem; color: ${isOperatorsTab ? 'var(--primary)' : 'var(--text-muted)'}; border-bottom: ${isOperatorsTab ? '3px solid var(--primary)' : '3px solid transparent'};">Operadores de Cheques</button>
+    `;
+    wrapper.appendChild(tabsContainer);
+
+    header.querySelector('#back-to-dash').onclick = options.onBackToDashboard;
+    header.querySelector('#new-client-btn').onclick = () => showClientModal(null, onSaveClient, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
+    tabsContainer.querySelector('#tab-clients').onclick = () => onTabChange('CLIENTS');
+    tabsContainer.querySelector('#tab-operators').onclick = () => onTabChange('OPERATORS');
+
+    const listData = isOperatorsTab ? (operators || []) : clients;
 
     const clientGrid = el('div', { classes: ['card-list'] });
 
-    if (clients.length === 0) {
+    if (listData.length === 0) {
       const emptyMsg = el('div', { classes: ['glass-card'], style: 'padding: 3rem; text-align: center;' });
       emptyMsg.innerHTML = `
         <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
-        <p style="color: var(--text-muted); margin-bottom: 1rem;">No hay clientes registrados.</p>
+        <p style="color: var(--text-muted); margin-bottom: 1rem;">No hay ${isOperatorsTab ? 'operadores' : 'clientes'} registrados.</p>
       `;
       clientGrid.appendChild(emptyMsg);
     } else {
-      clients.forEach(c => {
+      listData.forEach(c => {
         const card = el('div', { classes: ['card', 'glass-card'], style: 'cursor: pointer; transition: transform 0.2s;' });
         const balanceColor = (c.balance || 0) > 0 ? '#ef4444' : '#10b981';
         card.innerHTML = `
@@ -202,10 +213,10 @@ export function renderClientAccounts(options) {
         
         card.querySelector('.edit-client-btn').onclick = (e) => {
           e.stopPropagation();
-          showClientModal(c, onSaveClient);
+          showClientModal(c, onSaveClient, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
         };
 
-        card.onclick = () => onSelectClient(c);
+        card.onclick = () => onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
         clientGrid.appendChild(card);
       });
     }
@@ -581,15 +592,16 @@ function printAccountStatement(client, txs, saldoAnterior, options) {
   printWindow.document.close();
 }
 
-function showClientModal(client, onSave) {
+function showClientModal(client, onSave, type = 'CLIENT') {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
   const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 500px; width: 100%; padding: 2rem; border-radius: 16px;' });
   
   const isEdit = !!client;
+  const typeLabel = type === 'OPERATOR' ? 'Operador' : 'Cliente';
   
   modal.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; color: var(--primary);">${isEdit ? 'Editar Cliente' : 'Añadir Nuevo Cliente'}</h3>
+      <h3 style="margin: 0; color: var(--primary);">${isEdit ? 'Editar ' + typeLabel : 'Añadir Nuevo ' + typeLabel}</h3>
       <button class="close-btn" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;">&times;</button>
     </div>
     <div class="form-group"><label>Nombre o Razón Social</label><input type="text" id="m-client-name" class="form-input" value="${client?.name || ''}"></div>
@@ -634,7 +646,7 @@ function showClientModal(client, onSave) {
     btn.disabled = true;
 
     if (onSave) {
-      await onSave(clientData);
+      await onSave(clientData, type);
     }
     close();
   };

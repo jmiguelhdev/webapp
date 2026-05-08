@@ -1,11 +1,15 @@
 // src/adapters/presenters/CheckPresenter.js
 
 export class CheckPresenter {
-  constructor(checkRepository, ui) {
+  constructor(checkRepository, ui, operatorRepository, clientRepository) {
     this.checkRepository = checkRepository;
     this.ui = ui;
+    this.operatorRepository = operatorRepository;
+    this.clientRepository = clientRepository;
     this.checks = [];
     this.contacts = [];
+    this.buyContacts = [];
+    this.operators = [];
     this.currentUserUid = null;
     const _today = new Date();
     const _toISO = (d) => d.toISOString().split('T')[0];
@@ -40,6 +44,13 @@ export class CheckPresenter {
       const travels = await this.checkRepository.getTravels(this.currentUserUid);
       const producers = this.extractUniqueProducers(travels);
       
+      let operators = [];
+      if (this.operatorRepository) {
+        operators = await this.operatorRepository.getOperators();
+      }
+      this.operators = operators.map(o => ({ ...o, isOperator: true }));
+      this.buyContacts = [...this.operators].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+
       const unifiedContactsMap = new Map();
       clients.forEach(c => unifiedContactsMap.set(c.id || c.name, c));
       producers.forEach(p => {
@@ -48,7 +59,13 @@ export class CheckPresenter {
            unifiedContactsMap.set(key, { id: p.cuit || p.name, name: p.name, cuit: p.cuit, isProducer: true });
         }
       });
-      this.contacts = Array.from(unifiedContactsMap.values()).sort((a,b) => a.name.localeCompare(b.name));
+      operators.forEach(o => {
+        const key = o.cuit || o.name || o.id;
+        if (!unifiedContactsMap.has(key)) {
+           unifiedContactsMap.set(key, { id: o.id || o.name, name: o.name, cuit: o.cuit, isOperator: true });
+        }
+      });
+      this.contacts = Array.from(unifiedContactsMap.values()).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
 
       this.render();
     } catch (e) {
@@ -165,9 +182,10 @@ export class CheckPresenter {
   async saveOperation(operationData) {
     this.ui.showLoading();
     try {
-      // Calculate derived fields before saving if not already done by UI
       const processed = this.calculateOperation(operationData);
-      await this.checkRepository.saveCheck(this.currentUserUid, processed);
+      const checkId = await this.checkRepository.saveCheck(this.currentUserUid, processed);
+      processed.id = processed.id || checkId;
+      await this.syncTransactions(processed);
       await this.loadData();
     } catch (e) {
       this.ui.showError("Error al guardar operación: " + e.message);
@@ -181,12 +199,66 @@ export class CheckPresenter {
     this.ui.showLoading();
     try {
       await this.checkRepository.deleteCheck(id);
+      await this.deleteTransactions(id);
       await this.loadData();
     } catch (e) {
       this.ui.showError("Error al eliminar: " + e.message);
     } finally {
       this.ui.hideLoading();
     }
+  }
+
+  async syncTransactions(check) {
+    if (!this.operatorRepository || !this.clientRepository) return;
+
+    // BUY SIDE (Origen): El Operador nos da un cheque. Funciona como un PAGO (Haber) a su favor.
+    if (check.buySide && check.buySide.contactId) {
+      const isOperator = this.operators.some(o => o.id === check.buySide.contactId || o.name === check.buySide.contactId);
+      if (isOperator) {
+        const txDate = check.receptionDate ? new Date(check.receptionDate + 'T00:00:00').getTime() : Date.now();
+        const txData = {
+          operatorId: check.buySide.contactId,
+          type: 'PAYMENT',
+          amount: check.buySide.netAmount || 0,
+          description: `Ingreso Cheque N°${check.checkNumber} (${check.bank})`,
+          date: txDate
+        };
+        await this.operatorRepository.syncCheckTransaction(check.id, 'BUY', txData);
+      }
+    } else {
+      await this.operatorRepository.syncCheckTransaction(check.id, 'BUY', null);
+    }
+
+    // SELL SIDE (Destino): Nosotros le damos un cheque. Funciona como DEUDA (Debe).
+    if (check.sellSide && check.sellSide.status === 'SOLD' && check.sellSide.contactId) {
+      const txData = {
+        type: 'DEBT',
+        amount: check.sellSide.netAmount || 0,
+        description: `Salida Cheque N°${check.checkNumber} (${check.bank})`,
+        date: Date.now()
+      };
+      
+      const isOperator = this.operators.some(o => o.id === check.sellSide.contactId || o.name === check.sellSide.contactId);
+      if (isOperator) {
+        txData.operatorId = check.sellSide.contactId;
+        await this.operatorRepository.syncCheckTransaction(check.id, 'SELL', txData);
+        await this.clientRepository.syncCheckTransaction(check.id, 'SELL', null);
+      } else {
+        txData.clientId = check.sellSide.contactId;
+        await this.clientRepository.syncCheckTransaction(check.id, 'SELL', txData);
+        await this.operatorRepository.syncCheckTransaction(check.id, 'SELL', null);
+      }
+    } else {
+      await this.clientRepository.syncCheckTransaction(check.id, 'SELL', null);
+      await this.operatorRepository.syncCheckTransaction(check.id, 'SELL', null);
+    }
+  }
+
+  async deleteTransactions(checkId) {
+    if (!this.operatorRepository || !this.clientRepository) return;
+    await this.operatorRepository.syncCheckTransaction(checkId, 'BUY', null);
+    await this.operatorRepository.syncCheckTransaction(checkId, 'SELL', null);
+    await this.clientRepository.syncCheckTransaction(checkId, 'SELL', null);
   }
 
   calculateOperation(op) {
@@ -253,7 +325,9 @@ export class CheckPresenter {
     try {
       for (const op of operationsArray) {
         const processed = this.calculateOperation(op);
-        await this.checkRepository.saveCheck(this.currentUserUid, processed);
+        const checkId = await this.checkRepository.saveCheck(this.currentUserUid, processed);
+        processed.id = processed.id || checkId;
+        await this.syncTransactions(processed);
       }
       await this.loadData();
     } catch (e) {
@@ -271,7 +345,9 @@ export class CheckPresenter {
         if (!check) continue;
         const updated = { ...check, sellSide: { ...check.sellSide, ...sellData } };
         const processed = this.calculateOperation(updated);
-        await this.checkRepository.saveCheck(this.currentUserUid, processed);
+        const checkId = await this.checkRepository.saveCheck(this.currentUserUid, processed);
+        processed.id = processed.id || checkId;
+        await this.syncTransactions(processed);
       }
       await this.loadData();
     } catch (e) {
@@ -288,6 +364,7 @@ export class CheckPresenter {
       filters: this.filters,
       pagination: this.pagination,
       contacts: this.contacts,
+      buyContacts: this.buyContacts,
       onFilterChange: this.applyFilters.bind(this),
       onSave: this.saveOperation.bind(this),
       onDelete: this.deleteOperation.bind(this),

@@ -370,8 +370,73 @@ export async function fetchTransactions(db, clientId) {
   return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
 }
 
+export async function fetchAllTransactions(db) {
+  const collRef = collection(db, 'transactions');
+  const snapshot = await getDocs(collRef);
+  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
 export async function addTransaction(db, transactionRecord) {
   const collRef = collection(db, 'transactions');
+  await addDoc(collRef, { ...transactionRecord, createdAt: Date.now() });
+}
+
+export async function syncTransactionByCheck(db, collectionName, checkId, side, transactionData) {
+  const collRef = collection(db, collectionName);
+  const q = query(collRef, where("checkId", "==", checkId), where("checkSide", "==", side));
+  const snapshot = await getDocs(q);
+  
+  if (!transactionData) {
+    for (const docSnap of snapshot.docs) {
+      await deleteDoc(doc(db, collectionName, docSnap.id));
+    }
+    return;
+  }
+  
+  if (!snapshot.empty) {
+    const docRef = doc(db, collectionName, snapshot.docs[0].id);
+    await updateDoc(docRef, { ...transactionData, updatedAt: Date.now() });
+  } else {
+    await addDoc(collRef, { ...transactionData, checkId, checkSide: side, createdAt: Date.now() });
+  }
+}
+
+/**
+ * CHECK OPERATORS API
+ */
+export async function fetchOperators(db) {
+  const collRef = collection(db, 'check_operators');
+  const snapshot = await getDocs(collRef);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export async function saveOperator(db, operatorData) {
+  if (operatorData.id) {
+    const docRef = doc(db, 'check_operators', operatorData.id);
+    await updateDoc(docRef, { ...operatorData, updatedAt: Date.now() });
+    return operatorData.id;
+  } else {
+    const collRef = collection(db, 'check_operators');
+    const docRef = await addDoc(collRef, { ...operatorData, createdAt: Date.now() });
+    return docRef.id;
+  }
+}
+
+export async function fetchOperatorTransactions(db, operatorId) {
+  const collRef = collection(db, 'operator_transactions');
+  const q = query(collRef, where("operatorId", "==", operatorId));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+export async function fetchAllOperatorTransactions(db) {
+  const collRef = collection(db, 'operator_transactions');
+  const snapshot = await getDocs(collRef);
+  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+export async function addOperatorTransaction(db, transactionRecord) {
+  const collRef = collection(db, 'operator_transactions');
   await addDoc(collRef, { ...transactionRecord, createdAt: Date.now() });
 }
 

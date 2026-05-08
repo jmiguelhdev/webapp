@@ -1,11 +1,15 @@
 // src/adapters/presenters/ClientPresenter.js
 
 export class ClientPresenter {
-  constructor(clientRepository, ui) {
+  constructor(clientRepository, operatorRepository, ui) {
     this.clientRepository = clientRepository;
+    this.operatorRepository = operatorRepository;
     this.ui = ui;
     this.clients = [];
+    this.operators = [];
     this.selectedClient = null;
+    this.selectedType = 'CLIENT'; // 'CLIENT' or 'OPERATOR'
+    this.activeTab = 'CLIENTS'; // 'CLIENTS' or 'OPERATORS'
     this.transactions = [];
     this.analysisResults = null;
     this.analysisHistory = [];
@@ -17,13 +21,27 @@ export class ClientPresenter {
     this.ui.showLoading();
     try {
       this.clients = await this.clientRepository.getClients();
-      // Calculate balances (this could also be done on the server/API side)
+      const allClientTxs = await this.clientRepository.getAllTransactions();
+      
       for (const client of this.clients) {
-        const txs = await this.clientRepository.getTransactions(client.id);
+        const txs = allClientTxs.filter(t => t.clientId === client.id);
         const debt = txs.filter(t => t.type === 'DEBT').reduce((sum, t) => sum + (t.amount || 0), 0);
         const payments = txs.filter(t => t.type === 'PAYMENT').reduce((sum, t) => sum + (t.amount || 0), 0);
         client.balance = debt - payments;
       }
+      
+      if (this.operatorRepository) {
+        this.operators = await this.operatorRepository.getOperators();
+        const allOpTxs = await this.operatorRepository.getAllTransactions();
+        
+        for (const op of this.operators) {
+          const txs = allOpTxs.filter(t => t.operatorId === op.id);
+          const debt = txs.filter(t => t.type === 'DEBT').reduce((sum, t) => sum + (t.amount || 0), 0);
+          const payments = txs.filter(t => t.type === 'PAYMENT').reduce((sum, t) => sum + (t.amount || 0), 0);
+          op.balance = debt - payments;
+        }
+      }
+
       this.render();
     } catch (e) {
       this.ui.showError("Error al cargar clientes: " + e.message);
@@ -32,11 +50,16 @@ export class ClientPresenter {
     }
   }
 
-  async selectClient(client) {
+  async selectClient(client, type = 'CLIENT') {
     this.selectedClient = client;
+    this.selectedType = type;
     this.ui.showLoading();
     try {
-      this.transactions = await this.clientRepository.getTransactions(client.id);
+      if (type === 'CLIENT') {
+        this.transactions = await this.clientRepository.getTransactions(client.id);
+      } else {
+        this.transactions = await this.operatorRepository.getTransactions(client.id);
+      }
       this.transactions.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
       this.render();
     } catch (e) {
@@ -52,14 +75,21 @@ export class ClientPresenter {
     try {
       const transaction = {
         clientId: this.selectedClient.id,
+        operatorId: this.selectedClient.id, // we save both to not break schemas
         type: 'PAYMENT',
         amount: parseFloat(amount),
         description: description,
         receivedBy: receivedBy,
         date: Date.now()
       };
-      await this.clientRepository.addTransaction(transaction);
-      await this.selectClient(this.selectedClient);
+      
+      if (this.selectedType === 'CLIENT') {
+        await this.clientRepository.addTransaction(transaction);
+      } else {
+        await this.operatorRepository.addTransaction(transaction);
+      }
+      
+      await this.selectClient(this.selectedClient, this.selectedType);
       await this.loadClients(); // Update balance in list
     } catch (e) {
       this.ui.showError("Error al registrar pago: " + e.message);
@@ -74,13 +104,20 @@ export class ClientPresenter {
     try {
       const transaction = {
         clientId: this.selectedClient.id,
+        operatorId: this.selectedClient.id,
         type: 'DEBT',
         amount: parseFloat(amount),
         description: description,
         date: Date.now()
       };
-      await this.clientRepository.addTransaction(transaction);
-      await this.selectClient(this.selectedClient);
+      
+      if (this.selectedType === 'CLIENT') {
+        await this.clientRepository.addTransaction(transaction);
+      } else {
+        await this.operatorRepository.addTransaction(transaction);
+      }
+
+      await this.selectClient(this.selectedClient, this.selectedType);
       await this.loadClients(); // Update balance in list
     } catch (e) {
       this.ui.showError("Error al registrar venta: " + e.message);
@@ -89,10 +126,14 @@ export class ClientPresenter {
     }
   }
 
-  async saveClient(clientData) {
+  async saveClient(clientData, type = 'CLIENT') {
     this.ui.showLoading();
     try {
-      await this.clientRepository.saveClient(clientData);
+      if (type === 'CLIENT') {
+        await this.clientRepository.saveClient(clientData);
+      } else {
+        await this.operatorRepository.saveOperator(clientData);
+      }
       await this.loadClients();
       // Optional: alert or message
     } catch (e) {
@@ -105,13 +146,17 @@ export class ClientPresenter {
   render() {
     this.ui.renderClientAccounts({
       clients: this.clients,
+      operators: this.operators,
       selectedClient: this.selectedClient,
+      selectedType: this.selectedType,
+      activeTab: this.activeTab,
       transactions: this.transactions,
       onSelectClient: this.selectClient.bind(this),
       onAddPayment: this.addPayment.bind(this),
       onAddSale: this.addSale.bind(this),
       onAnalyzePrice: this.openPriceAnalysis.bind(this),
       onSaveClient: this.saveClient.bind(this),
+      onTabChange: (tab) => { this.activeTab = tab; this.render(); },
       onBack: () => { 
         if (this.viewMode === 'analysis') {
           this.viewMode = 'accounts';

@@ -18,6 +18,7 @@ import { LogisticsRepository } from './adapters/repositories/LogisticsRepository
 import { LogisticsPresenter } from './adapters/presenters/LogisticsPresenter.js';
 import { EstablishmentRepository } from './adapters/repositories/EstablishmentRepository.js';
 import { EstablishmentPresenter } from './adapters/presenters/EstablishmentPresenter.js';
+import { OperatorRepository } from './adapters/repositories/OperatorRepository.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
 
 // Dependencies
@@ -28,6 +29,7 @@ const accountingRepository = new AccountingRepository('accounting_entries');
 const frigorificoRepository = new AccountingRepository('frigorifico_entries');
 const logisticsRepository = new LogisticsRepository();
 const establishmentRepository = new EstablishmentRepository();
+const operatorRepository = new OperatorRepository();
 
 // State
 let currentUser = null;
@@ -115,8 +117,8 @@ const uiInterface = {
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface, logisticsRepository, clientRepository);
 const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterface, clientRepository);
-const clientPresenter = new ClientPresenter(clientRepository, uiInterface);
-const checkPresenter = new CheckPresenter(checkRepository, uiInterface);
+const clientPresenter = new ClientPresenter(clientRepository, operatorRepository, uiInterface);
+const checkPresenter = new CheckPresenter(checkRepository, uiInterface, operatorRepository, clientRepository);
 const accountingPresenter = new AccountingPresenter(accountingRepository, clientRepository, uiInterface, { 
   title: 'Caja General', 
   syncLabel: 'Pago Caja General' 

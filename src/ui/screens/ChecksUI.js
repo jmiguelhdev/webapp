@@ -44,14 +44,14 @@ export function renderChecks(container, options) {
     style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; cursor: pointer; font-weight: 600; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(99,102,241,0.35); transition: opacity 0.2s;',
     html: '<svg viewBox="0 0 24 24" width="16" height="16" style="fill:currentColor;flex-shrink:0;"><path d="M17,12H14V8H10V12H7L12,17L17,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg> Compra Masiva'
   });
-  batchBuyBtn.onclick = () => showBatchBuyModal(contacts, onBatchBuy);
+  batchBuyBtn.onclick = () => showBatchBuyModal(options.buyContacts, onBatchBuy);
 
   const addBtn = el('button', { 
     classes: ['btn-nueva-operacion'],
     style: 'margin: 0;',
     html: '<svg viewBox="0 0 24 24" width="18" height="18" style="fill:currentColor;flex-shrink:0;"><path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg> Nueva Operación'
   });
-  addBtn.onclick = () => showOperationModal(null, contacts, onSave);
+  addBtn.onclick = () => showOperationModal(null, contacts, options.buyContacts, onSave);
   
   actionGroup.appendChild(exportBtn);
   actionGroup.appendChild(batchBuyBtn);
@@ -576,7 +576,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       `;
       
       tr.addEventListener('click', (e) => {
-        if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, onSave); return; }
+        if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, contacts, onSave); return; }
         if (e.target.closest('.delete-btn')) { onDelete(op.id); return; }
         if (e.target.closest('.portfolio-check-cb')) return; // handled by change
       });
@@ -594,7 +594,6 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
 
       if (op.notes && op.notes.trim()) {
         tr.title = `Observaciones: ${op.notes.trim()}`;
-        // Optionally add an icon to the first cell to indicate there are notes
         const firstCell = tr.querySelector('td:nth-child(' + (selectable ? '2' : '1') + ')');
         if (firstCell) {
           firstCell.innerHTML += `<div style="display:inline-block; margin-left:0.5rem; color:var(--primary); font-size:0.8rem;" title="Tiene observaciones">📝</div>`;
@@ -604,7 +603,6 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       tbody.appendChild(tr);
     });
 
-    // "Select all" header checkbox wiring
     if (selectable) {
       const allCb = table.querySelector('#check-all-cb');
       if (allCb) {
@@ -634,8 +632,6 @@ function createStatCard(label, value, color) {
   return card;
 }
 
-// Returns a CSS string for select elements with solid backgrounds for legibility.
-// We read the current theme from body.classList and emit explicit color-scheme + bg.
 function getSelectStyle(accentColor, bgHex) {
   const isDark = document.body.classList.contains('dark');
   const bg = isDark ? '#1e1e1e' : '#ffffff';
@@ -643,7 +639,7 @@ function getSelectStyle(accentColor, bgHex) {
   return `border: 1.5px solid ${accentColor}; background-color: ${bg}; color: ${fg}; border-radius: 10px; color-scheme: ${isDark ? 'dark' : 'light'};`;
 }
 
-function showOperationModal(existingOp, contacts, onSave) {
+function showOperationModal(existingOp, contacts, buyContacts, onSave) {
   const isEditing = !!existingOp;
   const modal = el('div', { 
     classes: ['modal-overlay'],
@@ -656,7 +652,6 @@ function showOperationModal(existingOp, contacts, onSave) {
   });
 
   content.innerHTML = `
-    <!-- Modal sticky header -->
     <div style="position: sticky; top: 0; z-index: 10; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; border-radius: 20px 20px 0 0;">
       <h2 style="margin: 0; font-size: clamp(1.1rem, 3vw, 1.4rem); font-weight: 700;">${isEditing ? '✏️ Editar' : '💸 Nueva'} Operación de Cheque</h2>
       <button type="button" class="btn-close-modal" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--text-main); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s;">✕</button>
@@ -665,7 +660,6 @@ function showOperationModal(existingOp, contacts, onSave) {
     <div style="padding: clamp(1rem, 3vw, 2rem);">
     <form id="check-form">
 
-      <!-- ═══ SECCIÓN 1: Info del cheque ═══ -->
       <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
         <h3 style="margin: 0 0 1.25rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 600;">📄 Datos del Cheque</h3>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem 1.5rem;">
@@ -700,7 +694,6 @@ function showOperationModal(existingOp, contacts, onSave) {
         </div>
       </div>
 
-      <!-- ═══ SECCIÓN 2: Librador ═══ -->
       <div style="background: rgba(99,102,241,0.04); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
         <h3 style="margin: 0 0 1.25rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--primary); font-weight: 600;">👤 Datos del Librador</h3>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem 1.5rem;">
@@ -720,15 +713,14 @@ function showOperationModal(existingOp, contacts, onSave) {
         </div>
       </div>
 
-      <!-- ═══ SECCIÓN 3: Compra (Origen) ═══ -->
       <div style="background: rgba(99,102,241,0.06); border: 1px solid var(--primary); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
         <h3 style="margin: 0 0 1.25rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--primary); font-weight: 600;">📥 Compra (Origen)</h3>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem 1.5rem; align-items: end;">
           <div class="form-group" style="margin:0;">
-            <label>Vendedor</label>
-            <input type="text" id="buyside-contact-input" list="contacts-datalist" required placeholder="🔎 Buscar cliente o productor..." autocomplete="off" value="${existingOp?.buySide?.contactId ? (contacts.find(c => c.id === existingOp.buySide.contactId)?.name || existingOp.buySide.contactId) : ''}">
-            <datalist id="contacts-datalist">
-              ${contacts.map(c => `<option value="${c.name}"></option>`).join('')}
+            <label>Operador / Vendedor</label>
+            <input type="text" id="buyside-contact-input" list="buyside-contacts-datalist" required placeholder="🔎 Buscar Operador..." autocomplete="off" value="${existingOp?.buySide?.contactId ? (buyContacts.find(c => c.id === existingOp.buySide.contactId)?.name || existingOp.buySide.contactId) : ''}">
+            <datalist id="buyside-contacts-datalist">
+              ${buyContacts.map(c => `<option value="${c.name}"></option>`).join('')}
             </datalist>
           </div>
           <div class="form-group" style="margin:0;">
@@ -750,13 +742,11 @@ function showOperationModal(existingOp, contacts, onSave) {
         </div>
       </div>
 
-      <!-- ═══ SECCIÓN 4: Notas ═══ -->
       <div class="form-group">
         <label>Notas / Observaciones</label>
         <textarea name="notes" rows="2" placeholder="Observaciones adicionales..." style="resize: vertical;">${existingOp?.notes || ''}</textarea>
       </div>
 
-      <!-- ACTIONS -->
       <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
         <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.06); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer; min-width: 120px;">Cancelar</button>
         <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(99,102,241,0.4); letter-spacing: 0.03em; min-width: 180px;">Guardar Operación</button>
@@ -769,7 +759,6 @@ function showOperationModal(existingOp, contacts, onSave) {
   modal.appendChild(content);
   document.body.appendChild(modal);
 
-  // BCRA Helper
   content.querySelector('#btn-bcra').onclick = () => {
     const cuitInput = content.querySelector('#issuer-cuit');
     const cuit = cuitInput.value.replace(/\D/g, '');
@@ -778,7 +767,6 @@ function showOperationModal(existingOp, contacts, onSave) {
       return;
     }
     
-    // Copy to clipboard
     navigator.clipboard.writeText(cuit).then(() => {
       alert(`CUIT ${cuit} copiado al portapapeles.\n\nSe abrirá la web del BCRA. Pega el CUIT allí para consultar.`);
       window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
@@ -817,14 +805,14 @@ function showOperationModal(existingOp, contacts, onSave) {
   };
 
   form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateSingleNetPreview));
-  updateSingleNetPreview(); // Initial calc
+  updateSingleNetPreview();
 
   form.onsubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(form);
     
     const buySideNameInput = content.querySelector('#buyside-contact-input').value.trim();
-    const matchedBuySide = contacts.find(c => c.name.toLowerCase().trim() === buySideNameInput.toLowerCase());
+    const matchedBuySide = buyContacts.find(c => c.name.toLowerCase().trim() === buySideNameInput.toLowerCase());
     const buySideContactId = matchedBuySide ? matchedBuySide.id : buySideNameInput;
 
     const data = {
@@ -859,7 +847,6 @@ function showOperationModal(existingOp, contacts, onSave) {
   const closeModal = () => modal.remove();
   content.querySelector('.btn-cancel').onclick = closeModal;
   content.querySelector('.btn-close-modal').onclick = closeModal;
-  // Click outside the card closes the modal
   modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 }
 
@@ -873,12 +860,9 @@ function formatDate(date) {
   return new Date(date).toLocaleDateString('es-AR');
 }
 
-// Parses YYYY-MM-DD as local date (avoids UTC offset day-shift bug)
 function formatDateLocal(dateStr) {
   if (!dateStr) return '-';
-  // If it's already a Date object or has time component, fall back to locale string
   if (dateStr instanceof Date) return dateStr.toLocaleDateString('es-AR');
-  // Handle YYYY-MM-DD format safely (no timezone shift)
   const parts = String(dateStr).split('T')[0].split('-');
   if (parts.length === 3) {
     const [y, m, d] = parts.map(Number);
@@ -889,7 +873,6 @@ function formatDateLocal(dateStr) {
 
 function addDays(dateStr, days) {
   if (!dateStr) return null;
-  // Parse as local date to avoid UTC shift
   const parts = String(dateStr).split('T')[0].split('-');
   let d;
   if (parts.length === 3) {
@@ -902,10 +885,7 @@ function addDays(dateStr, days) {
   return d.toISOString().split('T')[0];
 }
 
-// ─────────────────────────────────────────────────────────────────
-// COMPRA MASIVA
-// ─────────────────────────────────────────────────────────────────
-function showBatchBuyModal(contacts, onBatchBuy) {
+function showBatchBuyModal(buyContacts, onBatchBuy) {
   const today = new Date().toISOString().split('T')[0];
 
   const modal = el('div', {
@@ -925,7 +905,6 @@ function showBatchBuyModal(contacts, onBatchBuy) {
     </div>
     <div style="padding:clamp(1rem,3vw,1.75rem);">
 
-      <!-- Datos compartidos -->
       <div style="background:rgba(99,102,241,0.06);border:2px solid var(--primary);border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
         <h3 style="margin:0 0 1rem;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--primary);font-weight:600;">🔗 Datos Comunes del Lote</h3>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
@@ -933,7 +912,7 @@ function showBatchBuyModal(contacts, onBatchBuy) {
             <label>Vendedor (Origen)</label>
             <input type="text" id="batch-seller-input" list="batch-contacts-dl" placeholder="🔎 Buscar..." autocomplete="off">
             <datalist id="batch-contacts-dl">
-              ${contacts.map(c => `<option value="${c.name}"></option>`).join('')}
+              ${buyContacts.map(c => `<option value="${c.name}"></option>`).join('')}
             </datalist>
           </div>
           <div class="form-group" style="margin:0;">
@@ -959,14 +938,12 @@ function showBatchBuyModal(contacts, onBatchBuy) {
         </div>
       </div>
 
-      <!-- Lista de cheques -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
         <h3 style="margin:0;font-size:0.9rem;font-weight:700;">📄 Cheques del Lote</h3>
         <button type="button" id="batch-add-row" style="padding:0.55rem 1.4rem;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;cursor:pointer;font-weight:700;font-size:0.875rem;box-shadow:0 3px 10px rgba(99,102,241,0.4);letter-spacing:0.02em;transition:opacity 0.2s;">+ Agregar cheque</button>
       </div>
       <div id="batch-rows-container" style="display:flex;flex-direction:column;gap:0.75rem;max-height:380px;overflow-y:auto;padding-right:4px;"></div>
 
-      <!-- Resumen -->
       <div id="batch-summary" style="margin-top: 1.5rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(99,102,241,0.05), rgba(99,102,241,0.12)); border: 2px solid rgba(99,102,241,0.4); border-radius: 16px; display: flex; gap: 2rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
         <div style="display: flex; gap: 2.5rem;">
           <div><span style="color:var(--text-muted);font-size:0.85rem;font-weight:700;text-transform:uppercase;">Cant. Cheques</span><br><strong id="sum-count" style="font-size:1.4rem;">0</strong></div>
@@ -989,7 +966,6 @@ function showBatchBuyModal(contacts, onBatchBuy) {
   document.body.appendChild(modal);
 
   const rowsContainer = content.querySelector('#batch-rows-container');
-  let rowCount = 0;
 
   function calcRowNet(nomVal, pesif, interest, receptionDate, dueDate, clearing) {
     const nv = parseFloat(nomVal) || 0;
@@ -1032,7 +1008,6 @@ function showBatchBuyModal(contacts, onBatchBuy) {
   }
 
   function addRow() {
-    rowCount++;
     const row = el('div', {
       classes: ['batch-check-row'],
       style: 'background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.65rem;'
@@ -1088,18 +1063,16 @@ function showBatchBuyModal(contacts, onBatchBuy) {
     updateSummary();
   }
 
-  // Start with 3 empty rows
   addRow(); addRow(); addRow();
 
   content.querySelector('#batch-add-row').onclick = addRow;
 
-  // Re-calculate when shared fields change
   content.querySelectorAll('#batch-buy-pesif, #batch-buy-interest, #batch-reception-date, #batch-clearing')
     .forEach(inp => inp.addEventListener('input', updateSummary));
 
   content.querySelector('#batch-save-btn').onclick = () => {
     const sellerName = content.querySelector('#batch-seller-input').value.trim();
-    const matchedSeller = contacts.find(c => c.name.toLowerCase() === sellerName.toLowerCase());
+    const matchedSeller = buyContacts.find(c => c.name.toLowerCase() === sellerName.toLowerCase());
     const sellerId = matchedSeller ? matchedSeller.id : (sellerName || null);
     const pesif = content.querySelector('#batch-buy-pesif').value;
     const interest = content.querySelector('#batch-buy-interest').value;
