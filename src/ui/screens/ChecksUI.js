@@ -140,10 +140,19 @@ export function renderChecks(container, options) {
     container.appendChild(banner);
   }
 
+  // Apply filters before splitting sections to compute counts
+  const currentList = filteredChecks || checks;
+  const currentHistory = currentList.filter(isHistory);
+  const currentPortfolio = currentList.filter(isPortfolio);
+
   // Filters Bar
   const filtersBar = el('div', { 
     classes: ['glass-card'], 
-    style: 'margin-bottom: 2rem; padding: 1.25rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; align-items: end;' 
+    style: 'margin-bottom: 2rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;' 
+  });
+
+  const filtersGrid = el('div', {
+    style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; align-items: end;'
   });
 
   const searchGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
@@ -180,10 +189,7 @@ export function renderChecks(container, options) {
 
 
   // ── Date field helper ──
-  // Identical input[type="date"] to the operation modal.
-  // An 800ms debounce prevents the re-render from destroying the field while the
-  // user is still typing each segment (day / month / year).
-  function makeDateField(labelText, isoValue, onChangeISO) {
+  function makeDateField(labelText, isoValue) {
     const group = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
     group.appendChild(el('label', { text: labelText }));
 
@@ -192,12 +198,6 @@ export function renderChecks(container, options) {
     const dateInput = el('input', {
       attrs: { type: 'date', value: isoValue || '' },
       style: 'flex:1; min-width:0;'
-    });
-
-    let debounceTimer = null;
-    dateInput.addEventListener('change', (e) => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => onChangeISO(e.target.value || ''), 800);
     });
 
     const calBtn = el('button', {
@@ -210,39 +210,73 @@ export function renderChecks(container, options) {
     wrapper.appendChild(dateInput);
     wrapper.appendChild(calBtn);
     group.appendChild(wrapper);
-    return group;
+    return { group, input: dateInput };
   }
 
-  const dateStartGroup = makeDateField('Desde', filters?.startDate || '', (iso) => onFilterChange({ startDate: iso }));
-  const dateEndGroup   = makeDateField('Hasta',  filters?.endDate  || '', (iso) => onFilterChange({ endDate: iso  }));
+  const dateTypeGroup = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
+  dateTypeGroup.appendChild(el('label', { text: 'Tipo de Fecha' }));
+  const dateTypeSelect = el('select', { style: 'width: 100%; height: 38px; padding: 0 0.5rem; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main); outline: none; font-family: inherit;' });
+  dateTypeSelect.innerHTML = `
+    <option value="DUE" ${filters?.dateFilterType === 'DUE' ? 'selected' : ''}>Fecha de Pago</option>
+    <option value="RECEPTION" ${filters?.dateFilterType === 'RECEPTION' ? 'selected' : ''}>Fecha de Recepción</option>
+  `;
+  dateTypeGroup.appendChild(dateTypeSelect);
 
-  filtersBar.appendChild(searchGroup);
-  filtersBar.appendChild(dateStartGroup);
-  filtersBar.appendChild(dateEndGroup);
+  const startField = makeDateField('Desde', filters?.startDate || '');
+  const endField   = makeDateField('Hasta',  filters?.endDate  || '');
 
+  const applyBtnGroup = el('div', { style: 'display: flex; gap: 0.5rem; align-items: flex-end; padding-bottom: 2px;' });
+  
+  const applyBtn = el('button', {
+    style: 'height: 38px; border-radius: 8px; padding: 0 1.25rem; font-weight: 600; display: flex; align-items: center; justify-content: center; background: var(--primary); color: var(--on-primary); border: none; flex-shrink: 0; cursor: pointer; transition: var(--transition);',
+    text: 'Aplicar'
+  });
+  applyBtn.onclick = () => {
+    onFilterChange({ 
+      startDate: startField.input.value || '', 
+      endDate: endField.input.value || '',
+      dateFilterType: dateTypeSelect.value
+    });
+  };
+
+  const clearBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'height: 38px; border-radius: 8px; padding: 0 0.75rem; font-weight: 600; display: flex; align-items: center; justify-content: center;',
+    attrs: { title: 'Limpiar fechas' },
+    text: '✕'
+  });
+  clearBtn.onclick = () => {
+    onFilterChange({ startDate: '', endDate: '' });
+  };
+
+  applyBtnGroup.appendChild(applyBtn);
+  applyBtnGroup.appendChild(clearBtn);
+
+  filtersGrid.appendChild(searchGroup);
+  filtersGrid.appendChild(dateTypeGroup);
+  filtersGrid.appendChild(startField.group);
+  filtersGrid.appendChild(endField.group);
+  filtersGrid.appendChild(applyBtnGroup);
+  filtersBar.appendChild(filtersGrid);
+
+  const filterCountBar = el('div', {
+    style: 'padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between;'
+  });
+  
+  const isFiltered = filters?.searchTerm || filters?.startDate || filters?.endDate;
+  const filterLabel = isFiltered ? 'Resultados de los filtros aplicados' : 'Total sin filtros adicionales';
+  
+  filterCountBar.innerHTML = `
+    <span style="font-size: 0.9rem; color: var(--text-muted);">
+      ${filterLabel}: <strong style="color: var(--primary);">${currentPortfolio.length}</strong> cheques en cartera y <strong style="color: var(--success);">${currentHistory.length}</strong> operaciones históricas
+    </span>
+  `;
+
+  filtersBar.appendChild(filterCountBar);
   container.appendChild(filtersBar);
 
-  // Apply filters before splitting sections
-  const currentList = filteredChecks || checks;
-
-  // Section 1: CHEQUES EN CARTERA — always show ALL portfolio checks (no date filter)
-  // Only the text search filter applies here so the user can still search within portfolio.
-  const searchTerm = (filters?.searchTerm || '').toLowerCase();
-  const allPortfolio = checks.filter(isPortfolio);
-  const currentPortfolio = searchTerm
-    ? allPortfolio.filter(c =>
-        (c.bank || '').toLowerCase().includes(searchTerm) ||
-        (c.checkNumber || '').toLowerCase().includes(searchTerm) ||
-        String(c.nominalValue || '').includes(searchTerm) ||
-        (c.issuerName || '').toLowerCase().includes(searchTerm) ||
-        (c.issuerCuit || '').toLowerCase().includes(searchTerm) ||
-        (contacts.find(con => con.id === c.buySide?.contactId)?.name || '').toLowerCase().includes(searchTerm) ||
-        (contacts.find(con => con.id === c.sellSide?.contactId)?.name || '').toLowerCase().includes(searchTerm)
-      )
-    : allPortfolio;
-  
   const portfolioHeader = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;' });
-  portfolioHeader.appendChild(el('h2', { text: '📂 Cheques en Cartera', style: 'margin:0; font-size: 1.25rem;' }));
+  portfolioHeader.appendChild(el('h2', { text: `📂 Cheques en Cartera (${currentPortfolio.length})`, style: 'margin:0; font-size: 1.25rem;' }));
   
   const portfolioActions = el('div', { style: 'display: flex; gap: 0.5rem; align-items: center;' });
   
@@ -314,12 +348,19 @@ export function renderChecks(container, options) {
     });
   };
 
-  const portTotal = currentPortfolio.length;
+  // Sort portfolio BEFORE pagination
+  const sortedPortfolio = [...currentPortfolio].sort((a,b) => {
+    const dateA = new Date(a.dueDate).getTime();
+    const dateB = new Date(b.dueDate).getTime();
+    return isAsc ? dateA - dateB : dateB - dateA;
+  });
+
+  const portTotal = sortedPortfolio.length;
   const portTotalPages = Math.ceil(portTotal / (pagination?.itemsPerPage || 15));
   let portCurrentPage = pagination?.portfolioPage || 1;
   if (portCurrentPage > portTotalPages && portTotalPages > 0) portCurrentPage = portTotalPages;
   const portStart = (portCurrentPage - 1) * (pagination?.itemsPerPage || 15);
-  const portPaginated = currentPortfolio.slice(portStart, portStart + (pagination?.itemsPerPage || 15));
+  const portPaginated = sortedPortfolio.slice(portStart, portStart + (pagination?.itemsPerPage || 15));
 
   const portfolioTable = renderCheckTable(portPaginated, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar);
   container.appendChild(portfolioTable);
@@ -329,10 +370,8 @@ export function renderChecks(container, options) {
   }
 
   // Section 2: OPERACIONES REALIZADAS
-  const currentHistory = currentList.filter(isHistory);
-  
   const historyHeader = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-top: 3rem; margin-bottom: 1rem;' });
-  historyHeader.appendChild(el('h2', { text: '📜 Operaciones Realizadas', style: 'margin:0; font-size: 1.25rem;' }));
+  historyHeader.appendChild(el('h2', { text: `📜 Operaciones Realizadas (${currentHistory.length})`, style: 'margin:0; font-size: 1.25rem;' }));
   const printHistoryBtn = el('button', {
     classes: ['btn-secondary'],
     style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.9rem;',
@@ -343,12 +382,19 @@ export function renderChecks(container, options) {
   };
   historyHeader.appendChild(printHistoryBtn);
   container.appendChild(historyHeader);
-  const histTotal = currentHistory.length;
+  // Sort history BEFORE pagination
+  const sortedHistory = [...currentHistory].sort((a,b) => {
+    const dateA = new Date(a.dueDate).getTime();
+    const dateB = new Date(b.dueDate).getTime();
+    return dateB - dateA; // history defaults to descending
+  });
+
+  const histTotal = sortedHistory.length;
   const histTotalPages = Math.ceil(histTotal / (pagination?.itemsPerPage || 15));
   let histCurrentPage = pagination?.historyPage || 1;
   if (histCurrentPage > histTotalPages && histTotalPages > 0) histCurrentPage = histTotalPages;
   const histStart = (histCurrentPage - 1) * (pagination?.itemsPerPage || 15);
-  const histPaginated = currentHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
+  const histPaginated = sortedHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
 
   container.appendChild(renderCheckTable(histPaginated, contacts, onSave, onDelete));
   if (histTotalPages > 1) {

@@ -89,6 +89,19 @@ export class ClientPresenter {
     }
   }
 
+  async saveClient(clientData) {
+    this.ui.showLoading();
+    try {
+      await this.clientRepository.saveClient(clientData);
+      await this.loadClients();
+      // Optional: alert or message
+    } catch (e) {
+      this.ui.showError("Error al guardar cliente: " + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
   render() {
     this.ui.renderClientAccounts({
       clients: this.clients,
@@ -98,6 +111,7 @@ export class ClientPresenter {
       onAddPayment: this.addPayment.bind(this),
       onAddSale: this.addSale.bind(this),
       onAnalyzePrice: this.openPriceAnalysis.bind(this),
+      onSaveClient: this.saveClient.bind(this),
       onBack: () => { 
         if (this.viewMode === 'analysis') {
           this.viewMode = 'accounts';

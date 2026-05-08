@@ -13,6 +13,7 @@ export class CheckPresenter {
     this.filters = {
       startDate: _toISO(_today),
       endDate: _toISO(_plus30),
+      dateFilterType: 'DUE',
       searchTerm: '',
       sortPortfolioAsc: true
     };
@@ -96,14 +97,14 @@ export class CheckPresenter {
       
       // Date Filter
       if (this.filters.startDate && this.filters.endDate) {
-        const from = new Date(this.filters.startDate + 'T00:00:00').getTime();
-        const to = new Date(this.filters.endDate + 'T23:59:59').getTime();
-        const dRec = new Date(c.receptionDate).getTime();
-        const dDue = new Date(c.dueDate).getTime();
-        
-        // Match if either reception or due date falls in range
-        if ((dRec < from || dRec > to) && (dDue < from || dDue > to)) {
+        const targetDateStr = this.filters.dateFilterType === 'RECEPTION' ? c.receptionDate : c.dueDate;
+        if (!targetDateStr) {
           match = false;
+        } else {
+          const dateStr = targetDateStr.split('T')[0];
+          if (dateStr < this.filters.startDate || dateStr > this.filters.endDate) {
+            match = false;
+          }
         }
       }
       
@@ -129,13 +130,14 @@ export class CheckPresenter {
   }
 
   async exportData(startDate, endDate) {
-    const fromTime = new Date(startDate + 'T00:00:00').getTime();
-    const toTime = new Date(endDate + 'T23:59:59').getTime();
-    
     const filtered = this.checks.filter(c => {
-      const dRec = new Date(c.receptionDate).getTime();
-      const dDue = new Date(c.dueDate).getTime();
-      return (dRec >= fromTime && dRec <= toTime) || (dDue >= fromTime && dDue <= toTime);
+      const dRec = c.receptionDate ? c.receptionDate.split('T')[0] : '';
+      const dDue = c.dueDate ? c.dueDate.split('T')[0] : '';
+      
+      const recMatch = dRec >= startDate && dRec <= endDate;
+      const dueMatch = dDue >= startDate && dDue <= endDate;
+      
+      return recMatch || dueMatch;
     });
 
     if (filtered.length === 0) {

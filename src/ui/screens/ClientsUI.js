@@ -152,54 +152,64 @@ export function renderClientAccounts(options) {
 
   } else {
     // --- LIST VIEW ---
-    const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; gap: 0.5rem;' });
+    const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;' });
     header.innerHTML = `
-      <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
-        <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
-      </button>
-      <div>
-        <h2 style="margin: 0;">👥 Cuentas de Clientes</h2>
-        <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Administración de saldos y cobranzas.</p>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
+          <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+        </button>
+        <div>
+          <h2 style="margin: 0;">👥 Cuentas de Clientes</h2>
+          <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Administración de saldos y cobranzas.</p>
+        </div>
       </div>
+      <button id="new-client-btn" class="btn-primary" style="margin: 0; width: auto; padding: 0.6rem 1.5rem;">➕ Nuevo Cliente</button>
     `;
     wrapper.appendChild(header);
     header.querySelector('#back-to-dash').onclick = options.onBackToDashboard;
+    header.querySelector('#new-client-btn').onclick = () => showClientModal(null, options.onSaveClient);
+
+    // Extract onSaveClient from options
+    const onSaveClient = options.onSaveClient;
 
     const clientGrid = el('div', { classes: ['card-list'] });
+
     if (clients.length === 0) {
-      const emptyMsg = el('div', { classes: ['glass-card'], style: 'padding: 3rem; text-align: center; grid-column: 1 / -1;' });
+      const emptyMsg = el('div', { classes: ['glass-card'], style: 'padding: 3rem; text-align: center;' });
       emptyMsg.innerHTML = `
         <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
-        <h3>No hay clientes registrados</h3>
-        <p style="color: var(--text-muted);">Puedes agregar clientes desde la configuración del sistema.</p>
-        <button id="go-to-settings" class="btn-primary" style="margin-top: 1.5rem;">Ir a Configuración</button>
+        <p style="color: var(--text-muted); margin-bottom: 1rem;">No hay clientes registrados.</p>
       `;
-      emptyMsg.querySelector('#go-to-settings').onclick = () => {
-        const settingsLi = document.querySelector('li[data-view="settings"]');
-        if (settingsLi) settingsLi.click();
-      };
       clientGrid.appendChild(emptyMsg);
     } else {
       clients.forEach(c => {
-      const card = el('div', { classes: ['card', 'glass-card'], style: 'cursor: pointer; transition: transform 0.2s;' });
-      const balanceColor = (c.balance || 0) > 0 ? '#ef4444' : '#10b981';
-      card.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-          <div>
-            <h3 style="margin: 0 0 0.5rem 0;">${c.name}</h3>
-            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">${c.address || 'Sin dirección'}</p>
-            <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">CUIT: ${c.cuit || 'N/A'}</p>
+        const card = el('div', { classes: ['card', 'glass-card'], style: 'cursor: pointer; transition: transform 0.2s;' });
+        const balanceColor = (c.balance || 0) > 0 ? '#ef4444' : '#10b981';
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h3 style="margin: 0 0 0.5rem 0;">${c.name}</h3>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">${c.address || 'Sin dirección'}</p>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">CUIT: ${c.cuit || 'N/A'}</p>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">Saldo</div>
+              <div style="font-size: 1.25rem; font-weight: bold; color: ${balanceColor};">$${(c.balance || 0).toLocaleString()}</div>
+              <button class="btn-outline edit-client-btn" style="margin-top: 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.75rem;">Editar</button>
+            </div>
           </div>
-          <div style="text-align: right;">
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">Saldo</div>
-            <div style="font-size: 1.25rem; font-weight: bold; color: ${balanceColor};">$${(c.balance || 0).toLocaleString()}</div>
-          </div>
-        </div>
-      `;
-      card.onclick = () => onSelectClient(c);
-      clientGrid.appendChild(card);
+        `;
+        
+        card.querySelector('.edit-client-btn').onclick = (e) => {
+          e.stopPropagation();
+          showClientModal(c, onSaveClient);
+        };
+
+        card.onclick = () => onSelectClient(c);
+        clientGrid.appendChild(card);
       });
     }
+
     wrapper.appendChild(clientGrid);
   }
 
@@ -569,4 +579,63 @@ function printAccountStatement(client, txs, saldoAnterior, options) {
 
   printWindow.document.write(html);
   printWindow.document.close();
+}
+
+function showClientModal(client, onSave) {
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 500px; width: 100%; padding: 2rem; border-radius: 16px;' });
+  
+  const isEdit = !!client;
+  
+  modal.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0; color: var(--primary);">${isEdit ? 'Editar Cliente' : 'Añadir Nuevo Cliente'}</h3>
+      <button class="close-btn" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;">&times;</button>
+    </div>
+    <div class="form-group"><label>Nombre o Razón Social</label><input type="text" id="m-client-name" class="form-input" value="${client?.name || ''}"></div>
+    <div class="form-group"><label>CUIT</label><input type="text" id="m-client-cuit" class="form-input" value="${client?.cuit || ''}"></div>
+    <div class="form-group"><label>Dirección</label><input type="text" id="m-client-address" class="form-input" value="${client?.address || ''}"></div>
+    <div class="form-group"><label>Teléfono</label><input type="text" id="m-client-phone" class="form-input" value="${client?.phone || ''}"></div>
+    <div class="form-group"><label>CBU (Opcional)</label><input type="text" id="m-client-cbu" class="form-input" value="${client?.cbu || ''}"></div>
+    <div class="form-group"><label>Cuenta Contable / Alias</label><input type="text" id="m-client-account" class="form-input" value="${client?.account || ''}"></div>
+    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+       <button class="btn-cancel btn-outline" style="flex: 1;">Cancelar</button>
+       <button class="btn-save btn-primary" style="flex: 1; margin: 0; background: var(--primary);">Guardar</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  modal.querySelector('.close-btn').onclick = close;
+  modal.querySelector('.btn-cancel').onclick = close;
+  
+  // Focus the first input after a slight delay
+  setTimeout(() => modal.querySelector('#m-client-name').focus(), 100);
+
+  modal.querySelector('.btn-save').onclick = async () => {
+    const name = modal.querySelector('#m-client-name').value.trim();
+    if (!name) return alert('El nombre o razón social es obligatorio');
+    
+    const clientData = {
+      id: client?.id || null,
+      name,
+      cuit: modal.querySelector('#m-client-cuit').value,
+      address: modal.querySelector('#m-client-address').value,
+      phone: modal.querySelector('#m-client-phone').value,
+      cbu: modal.querySelector('#m-client-cbu').value,
+      account: modal.querySelector('#m-client-account').value,
+    };
+    if (!clientData.id) delete clientData.id;
+
+    const btn = modal.querySelector('.btn-save');
+    btn.textContent = 'Guardando...';
+    btn.disabled = true;
+
+    if (onSave) {
+      await onSave(clientData);
+    }
+    close();
+  };
 }

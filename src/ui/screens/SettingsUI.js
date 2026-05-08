@@ -100,36 +100,7 @@ export function renderSettings(container, options) {
       </div>
     </div>
 
-    <!-- Card 6: Gestión de Clientes -->
-    <div class="glass-card card" style="grid-column: 1 / -1;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
-        <div style="flex: 1;">
-          <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">👥 Clientes y Deudores</h3>
-          <p style="color: var(--text-muted); font-size: 0.85rem;">Administra los datos de tus clientes para el módulo de facturación.</p>
-        </div>
-      </div>
-      
-      <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem;">
-         <div id="settings-clients-form" style="border-right: 1px solid var(--border); padding-right: 2rem;">
-            <h4 id="client-form-title" style="margin-bottom: 1.5rem; font-size: 1rem; color: var(--accent-main);">Añadir Nuevo Cliente</h4>
-            <input type="hidden" id="client-id">
-            <div class="form-group"><label>Nombre o Razón Social</label><input type="text" id="client-name" class="form-input"></div>
-            <div class="form-group"><label>CUIT</label><input type="text" id="client-cuit" class="form-input"></div>
-            <div class="form-group"><label>Dirección</label><input type="text" id="client-address" class="form-input"></div>
-            <div class="form-group"><label>Teléfono</label><input type="text" id="client-phone" class="form-input"></div>
-            <div class="form-group"><label>CBU (Opcional)</label><input type="text" id="client-cbu" class="form-input"></div>
-            <div class="form-group"><label>Cuenta Contable / Alias</label><input type="text" id="client-account" class="form-input"></div>
-            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
-               <button id="clear-client-btn" class="btn-outline" style="flex: 1;">Limpiar</button>
-               <button id="save-client-btn" class="btn-primary" style="flex: 2; margin: 0; background: #059669;">Guardar Cliente</button>
-            </div>
-         </div>
-         <div id="settings-clients-list-container">
-            <h4 style="margin-bottom: 1.5rem; font-size: 1rem;">Clientes Registrados</h4>
-            <div id="settings-clients-list" class="card-list" style="max-height: 500px; overflow-y: auto;"></div>
-         </div>
-      </div>
-    </div>
+    <!-- Card 6: Gestión de Clientes removed (moved to ClientsUI) -->
 
     <!-- Card 7: RBAC (Admin Only) -->
     <div id="settings-rbac-section" style="grid-column: 1 / -1;"></div>
@@ -219,41 +190,7 @@ export function renderSettings(container, options) {
     wrapper.querySelector('#camara-form-title').textContent = 'Añadir Nueva Cámara';
   };
 
-  const renderClientsList = (clientsList = []) => {
-    const listEl = wrapper.querySelector('#settings-clients-list');
-    if (!listEl) return;
-    listEl.innerHTML = '';
-    clientsList.forEach(c => {
-      const card = el('div', { classes: ['card', 'glass-card'], style: 'padding: 1rem; display: flex; justify-content: space-between; align-items: center;' });
-      card.innerHTML = `
-        <div>
-          <h4 style="margin: 0 0 0.3rem 0;">${c.name}</h4>
-          <span style="font-size: 0.8rem; color: var(--text-muted);">CUIT: ${c.cuit || '-'} | Tel: ${c.phone || '-'}</span>
-        </div>
-        <button class="btn-outline edit-client-btn" data-id="${c.id}" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Editar</button>
-      `;
-      listEl.appendChild(card);
-    });
-
-    listEl.querySelectorAll('.edit-client-btn').forEach(btn => {
-      btn.onclick = () => {
-        const c = clientsList.find(x => x.id === btn.dataset.id);
-        if (c) {
-          wrapper.querySelector('#client-id').value = c.id || '';
-          wrapper.querySelector('#client-name').value = c.name || '';
-          wrapper.querySelector('#client-cuit').value = c.cuit || '';
-          wrapper.querySelector('#client-address').value = c.address || '';
-          wrapper.querySelector('#client-phone').value = c.phone || '';
-          wrapper.querySelector('#client-cbu').value = c.cbu || '';
-          wrapper.querySelector('#client-account').value = c.account || '';
-          wrapper.querySelector('#client-form-title').textContent = 'Editar Cliente: ' + c.name;
-          wrapper.querySelector('#client-name').focus();
-          window.scrollTo({ top: wrapper.querySelector('#client-form-title').offsetTop - 20, behavior: 'smooth' });
-        }
-      };
-    });
-  };
-
+    // renderClientsList moved to ClientsUI
   // Initial Data population
   if (options && options.categoryPrices) {
     renderPriceInputs(options.categoryPrices);
@@ -264,7 +201,7 @@ export function renderSettings(container, options) {
   renderCamarasList();
 
   if (options && options.clients) {
-    renderClientsList(options.clients);
+    // legacy support placeholder if needed
   }
 
   // --- RBAC SECTION ---
@@ -431,48 +368,5 @@ export function renderSettings(container, options) {
     showMsg('¡Restaurado a los valores originales!');
   };
 
-  const clearClientForm = () => {
-    wrapper.querySelector('#client-id').value = '';
-    wrapper.querySelector('#client-name').value = '';
-    wrapper.querySelector('#client-cuit').value = '';
-    wrapper.querySelector('#client-address').value = '';
-    wrapper.querySelector('#client-phone').value = '';
-    wrapper.querySelector('#client-cbu').value = '';
-    wrapper.querySelector('#client-account').value = '';
-    wrapper.querySelector('#client-form-title').textContent = 'Añadir Nuevo Cliente';
-  };
-
-  wrapper.querySelector('#clear-client-btn').onclick = clearClientForm;
-
-  wrapper.querySelector('#save-client-btn').onclick = async () => {
-    const name = wrapper.querySelector('#client-name').value.trim();
-    if (!name) return alert('El nombre o razón social es obligatorio');
-    
-    const clientData = {
-      id: wrapper.querySelector('#client-id').value || null,
-      name,
-      cuit: wrapper.querySelector('#client-cuit').value,
-      address: wrapper.querySelector('#client-address').value,
-      phone: wrapper.querySelector('#client-phone').value,
-      cbu: wrapper.querySelector('#client-cbu').value,
-      account: wrapper.querySelector('#client-account').value,
-    };
-    if (!clientData.id) delete clientData.id;
-
-    const btn = wrapper.querySelector('#save-client-btn');
-    btn.textContent = 'Guardando...';
-    btn.disabled = true;
-
-    if (options && options.onSaveClient) {
-       await options.onSaveClient(clientData);
-       showMsg('Cliente guardado exitosamente.');
-       clearClientForm();
-       if (options.onReloadClients) {
-         options.onReloadClients();
-       }
-    } else {
-      btn.textContent = 'Guardar Cliente';
-      btn.disabled = false;
-    }
-  };
+  // client handlers moved to ClientsUI
 }
