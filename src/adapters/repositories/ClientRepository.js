@@ -3,102 +3,42 @@ import { db } from '../../firebase.js';
 import * as api from '../../api.js';
 
 export class ClientRepository {
-  constructor() {
-    this.clientsCache = null;
-    this.categoryPricesCache = null;
-    this.camarasCache = null;
-    this.transactionsCache = new Map(); // clientId -> transactions array
-    this.priceAnalysesCache = new Map(); // clientId -> analyses array
-  }
-
-  // localStorage cache TTL: 5 minutes (shared source of truth is Firestore)
-  static get CACHE_TTL_MS() { return 5 * 60 * 1000; }
+  constructor() {}
 
   async getClients() {
-    const cacheKey = 'client_clients';
-    const metaKey = 'client_clients_ts';
-    const cached = localStorage.getItem(cacheKey);
-    const ts = parseInt(localStorage.getItem(metaKey) || '0', 10);
-    const isExpired = !ts || (Date.now() - ts) > ClientRepository.CACHE_TTL_MS;
-
-    if (cached && !isExpired) {
-      this.clientsCache = JSON.parse(cached);
-      return this.clientsCache;
-    }
-    // Stale or missing — fetch fresh from Firestore
-    this.clientsCache = await api.fetchClients(db);
-    localStorage.setItem(cacheKey, JSON.stringify(this.clientsCache));
-    localStorage.setItem(metaKey, String(Date.now()));
-    return this.clientsCache;
+    return api.fetchClients(db);
   }
 
   async saveClient(clientData) {
-    const res = await api.saveClient(db, clientData);
-    // Bust cache so this user (and any subsequent read on this browser) gets fresh data immediately
-    localStorage.removeItem('client_clients');
-    localStorage.removeItem('client_clients_ts');
-    this.clientsCache = null;
-    return res;
+    return api.saveClient(db, clientData);
   }
 
   async getCategoryPrices() {
-    const cacheKey = 'client_category_prices';
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      this.categoryPricesCache = JSON.parse(cached);
-      return this.categoryPricesCache;
-    }
-    this.categoryPricesCache = await api.fetchCategoryPrices(db);
-    localStorage.setItem(cacheKey, JSON.stringify(this.categoryPricesCache));
-    return this.categoryPricesCache;
+    return api.fetchCategoryPrices(db);
   }
 
   async saveCategoryPrices(prices) {
-    const res = await api.saveCategoryPrices(db, prices);
-    localStorage.removeItem('client_category_prices');
-    this.categoryPricesCache = null;
-    return res;
+    return api.saveCategoryPrices(db, prices);
   }
 
   async getCamaras() {
-    const cacheKey = 'client_camaras';
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      this.camarasCache = JSON.parse(cached);
-      return this.camarasCache;
-    }
-    this.camarasCache = await api.fetchCamaras(db);
-    localStorage.setItem(cacheKey, JSON.stringify(this.camarasCache));
-    return this.camarasCache;
+    return api.fetchCamaras(db);
   }
 
   async saveCamaras(camarasList) {
-    const res = await api.saveCamaras(db, camarasList);
-    localStorage.removeItem('client_camaras');
-    this.camarasCache = null;
-    return res;
+    return api.saveCamaras(db, camarasList);
   }
 
   async getTransactions(clientId) {
-    if (this.transactionsCache.has(clientId)) return this.transactionsCache.get(clientId);
-    const txs = await api.fetchTransactions(db, clientId);
-    this.transactionsCache.set(clientId, txs);
-    return txs;
+    return api.fetchTransactions(db, clientId);
   }
 
   async addTransaction(transaction) {
-    const res = await api.addTransaction(db, transaction);
-    if (transaction.clientId) {
-      this.transactionsCache.delete(transaction.clientId);
-    }
-    return res;
+    return api.addTransaction(db, transaction);
   }
 
   async syncAccountingToTransaction(accountingId, data) {
-    const res = await api.syncAccountingToTransaction(db, accountingId, data);
-    // Transacciones globales cambiaron, limpiamos el caché de transacciones
-    this.transactionsCache.clear();
-    return res;
+    return api.syncAccountingToTransaction(db, accountingId, data);
   }
 
   async getDispatchedFaenas(clientName, startDate, endDate) {
@@ -110,17 +50,10 @@ export class ClientRepository {
   }
 
   async savePriceAnalysis(analysisData) {
-    const res = await api.savePriceAnalysis(db, analysisData);
-    if (analysisData.clientId) {
-      this.priceAnalysesCache.delete(analysisData.clientId);
-    }
-    return res;
+    return api.savePriceAnalysis(db, analysisData);
   }
 
   async getPriceAnalyses(clientId) {
-    if (this.priceAnalysesCache.has(clientId)) return this.priceAnalysesCache.get(clientId);
-    const analyses = await api.fetchPriceAnalyses(db, clientId);
-    this.priceAnalysesCache.set(clientId, analyses);
-    return analyses;
+    return api.fetchPriceAnalyses(db, clientId);
   }
 }
