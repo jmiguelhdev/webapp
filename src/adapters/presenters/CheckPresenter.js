@@ -292,6 +292,7 @@ export class CheckPresenter {
       onRefresh: this.loadData.bind(this),
       onExport: this.exportData.bind(this),
       onPrint: this.printList.bind(this),
+      onBatchBuy: this.saveBatchBuy.bind(this),
       onBatchSell: this.saveBatchSell.bind(this),
       onPortfolioPageChange: this.setPortfolioPage.bind(this),
       onHistoryPageChange: this.setHistoryPage.bind(this)
