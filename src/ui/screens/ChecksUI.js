@@ -277,9 +277,12 @@ export function renderChecks(container, options) {
   const isFiltered = filters?.searchTerm || filters?.startDate || filters?.endDate;
   const filterLabel = isFiltered ? 'Resultados de los filtros aplicados' : 'Total sin filtros adicionales';
   
+  const totalPortfolioFiltered = currentPortfolio.reduce((acc, c) => acc + (parseFloat(c.nominalValue) || 0), 0);
+  const totalHistoryFiltered = currentHistory.reduce((acc, c) => acc + (parseFloat(c.nominalValue) || 0), 0);
+  
   filterCountBar.innerHTML = `
     <span style="font-size: 0.9rem; color: var(--text-muted);">
-      ${filterLabel}: <strong style="color: var(--primary);">${currentPortfolio.length}</strong> cheques en cartera y <strong style="color: var(--success);">${currentHistory.length}</strong> operaciones históricas
+      ${filterLabel}: <strong style="color: var(--primary);">${currentPortfolio.length}</strong> cheques en cartera (${formatCurrency(totalPortfolioFiltered)}) y <strong style="color: var(--success);">${currentHistory.length}</strong> operaciones históricas (${formatCurrency(totalHistoryFiltered)})
     </span>
   `;
 
