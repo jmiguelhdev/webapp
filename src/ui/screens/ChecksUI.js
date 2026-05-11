@@ -1,6 +1,17 @@
 import { el } from '../../utils/dom.js';
 import { renderDateModal } from '../components/Modals.js';
 
+function getSortDate(str) {
+  if (!str) return 0;
+  const parts = String(str).split('T')[0].split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts.map(Number);
+    return new Date(y, m - 1, d).getTime();
+  }
+  const dt = new Date(str).getTime();
+  return isNaN(dt) ? 0 : dt;
+}
+
 export function renderChecks(container, options) {
   const { checks, filteredChecks, filters, contacts, pagination, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell, onPortfolioPageChange, onHistoryPageChange } = options;
   container.innerHTML = '';
@@ -350,11 +361,9 @@ export function renderChecks(container, options) {
 
   // Sort portfolio BEFORE pagination
   const sortedPortfolio = [...currentPortfolio].sort((a,b) => {
-    const valA = a.dueDate || '';
-    const valB = b.dueDate || '';
-    if (valA === valB) return 0;
-    const comp = valA > valB ? 1 : -1;
-    return isAsc ? comp : -comp;
+    const tA = getSortDate(a.dueDate);
+    const tB = getSortDate(b.dueDate);
+    return isAsc ? tA - tB : tB - tA;
   });
 
   const portTotal = sortedPortfolio.length;
@@ -386,11 +395,9 @@ export function renderChecks(container, options) {
   container.appendChild(historyHeader);
   // Sort history BEFORE pagination
   const sortedHistory = [...currentHistory].sort((a,b) => {
-    const valA = a.dueDate || '';
-    const valB = b.dueDate || '';
-    if (valA === valB) return 0;
-    const comp = valA > valB ? 1 : -1;
-    return -comp; // history defaults to descending
+    const tA = getSortDate(a.dueDate);
+    const tB = getSortDate(b.dueDate);
+    return tB - tA; // history defaults to descending
   });
 
   const histTotal = sortedHistory.length;
@@ -524,11 +531,9 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
     tbody.innerHTML = '<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">Sin registros en esta sección</td></tr>';
   } else {
     checksList.sort((a,b) => {
-      const valA = a[sortBy] || '';
-      const valB = b[sortBy] || '';
-      if (valA === valB) return 0;
-      const comp = valA > valB ? 1 : -1;
-      return sortAsc ? comp : -comp;
+      const tA = getSortDate(a[sortBy]);
+      const tB = getSortDate(b[sortBy]);
+      return sortAsc ? tA - tB : tB - tA;
     }).forEach(op => {
       const tr = el('tr', { style: 'border-top: 1px solid var(--border); transition: background 0.2s;' });
       
