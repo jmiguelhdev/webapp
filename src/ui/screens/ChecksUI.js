@@ -350,9 +350,11 @@ export function renderChecks(container, options) {
 
   // Sort portfolio BEFORE pagination
   const sortedPortfolio = [...currentPortfolio].sort((a,b) => {
-    const dateA = new Date(a.dueDate).getTime();
-    const dateB = new Date(b.dueDate).getTime();
-    return isAsc ? dateA - dateB : dateB - dateA;
+    const valA = a.dueDate || '';
+    const valB = b.dueDate || '';
+    if (valA === valB) return 0;
+    const comp = valA > valB ? 1 : -1;
+    return isAsc ? comp : -comp;
   });
 
   const portTotal = sortedPortfolio.length;
@@ -384,9 +386,11 @@ export function renderChecks(container, options) {
   container.appendChild(historyHeader);
   // Sort history BEFORE pagination
   const sortedHistory = [...currentHistory].sort((a,b) => {
-    const dateA = new Date(a.dueDate).getTime();
-    const dateB = new Date(b.dueDate).getTime();
-    return dateB - dateA; // history defaults to descending
+    const valA = a.dueDate || '';
+    const valB = b.dueDate || '';
+    if (valA === valB) return 0;
+    const comp = valA > valB ? 1 : -1;
+    return -comp; // history defaults to descending
   });
 
   const histTotal = sortedHistory.length;
@@ -396,7 +400,7 @@ export function renderChecks(container, options) {
   const histStart = (histCurrentPage - 1) * (pagination?.itemsPerPage || 15);
   const histPaginated = sortedHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
 
-  container.appendChild(renderCheckTable(histPaginated, contacts, onSave, onDelete));
+  container.appendChild(renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false));
   if (histTotalPages > 1) {
     container.appendChild(renderPaginationControls(histCurrentPage, histTotalPages, histTotal, onHistoryPageChange));
   }
@@ -520,9 +524,11 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
     tbody.innerHTML = '<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">Sin registros en esta sección</td></tr>';
   } else {
     checksList.sort((a,b) => {
-      const dateA = new Date(a[sortBy]).getTime();
-      const dateB = new Date(b[sortBy]).getTime();
-      return sortAsc ? dateA - dateB : dateB - dateA;
+      const valA = a[sortBy] || '';
+      const valB = b[sortBy] || '';
+      if (valA === valB) return 0;
+      const comp = valA > valB ? 1 : -1;
+      return sortAsc ? comp : -comp;
     }).forEach(op => {
       const tr = el('tr', { style: 'border-top: 1px solid var(--border); transition: background 0.2s;' });
       
