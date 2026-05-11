@@ -305,7 +305,7 @@ export function renderChecks(container, options) {
     html: '<span>🖨️ Imprimir</span>'
   });
   printPortfolioBtn.onclick = () => {
-    if (typeof onPrint === 'function') onPrint(currentPortfolio);
+    if (typeof onPrint === 'function') onPrint(sortedPortfolio);
   };
   
   portfolioActions.appendChild(sortBtn);
@@ -389,7 +389,7 @@ export function renderChecks(container, options) {
     html: '<span>🖨️ Imprimir</span>'
   });
   printHistoryBtn.onclick = () => {
-    if (typeof onPrint === 'function') onPrint(currentHistory);
+    if (typeof onPrint === 'function') onPrint(sortedHistory);
   };
   historyHeader.appendChild(printHistoryBtn);
   container.appendChild(historyHeader);
