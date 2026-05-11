@@ -342,7 +342,13 @@ export function renderChecks(container, options) {
   const updateBatchBar = () => {
     if (selectedIds.size > 0) {
       batchSellBar.style.display = 'flex';
-      batchSellLabel.textContent = `${selectedIds.size} cheque${selectedIds.size > 1 ? 's' : ''} seleccionado${selectedIds.size > 1 ? 's' : ''}`;
+      let totalNominal = 0;
+      currentPortfolio.forEach(c => {
+        if (selectedIds.has(c.id)) {
+          totalNominal += parseFloat(c.nominalValue) || 0;
+        }
+      });
+      batchSellLabel.textContent = `${selectedIds.size} cheque${selectedIds.size > 1 ? 's' : ''} seleccionado${selectedIds.size > 1 ? 's' : ''} (${formatCurrency(totalNominal)})`;
     } else {
       batchSellBar.style.display = 'none';
     }
