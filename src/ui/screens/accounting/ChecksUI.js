@@ -116,8 +116,8 @@ export function renderChecks(container, options) {
   const expiringChecks = portfolioChecks.filter(c => {
     const pay = parseDL(c.dueDate); if (!pay) return false;
     const exp = new Date(pay); exp.setDate(pay.getDate() + 30);
-    const dPay = Math.ceil((pay - today0) / 86400000);
-    const dExp = Math.ceil((exp - today0) / 86400000);
+    const dPay = Math.round((pay - today0) / 86400000);
+    const dExp = Math.round((exp - today0) / 86400000);
     return dPay <= 0 && dExp >= 0 && dExp <= 10;
   });
 
@@ -496,8 +496,8 @@ function getCheckStatusBadge(op) {
     const expiryDate = new Date(payDate);
     expiryDate.setDate(payDate.getDate() + 30);
 
-    const diffToPayDate = Math.ceil((payDate - today) / (1000 * 60 * 60 * 24));
-    const diffToExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+    const diffToPayDate = Math.round((payDate - today) / 86400000);
+    const diffToExpiry = Math.round((expiryDate - today) / 86400000);
 
     if (diffToExpiry < 0) {
       // Pasaron los 30 días de gracia → cheque vencido, no cobrable
@@ -563,7 +563,28 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
         <td style="padding: 1rem;">
           <div style="font-weight: 500; color: var(--primary);">💳 ${formatDateLocal(op.dueDate)}</div>
           <div style="font-size: 0.75rem; color: var(--text-muted);">Venc: ${formatDateLocal(addDays(op.dueDate, 30))}</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">${op.days} días</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Plazo: ${op.days} días</div>
+          ${(() => {
+            if (isSold || op.sellSide?.status === 'REJECTED') return '';
+            const todayTs = new Date().setHours(0,0,0,0);
+            const payTs = getSortDate(op.dueDate);
+            if (!payTs) return '';
+            
+            const expDt = new Date(payTs);
+            expDt.setDate(expDt.getDate() + 30);
+            const expTs = expDt.getTime();
+            
+            const diffPay = Math.round((payTs - todayTs) / 86400000);
+            const diffExp = Math.round((expTs - todayTs) / 86400000);
+            
+            if (diffExp < 0) {
+               return `<div style="font-size: 0.75rem; color: var(--danger); font-weight: 700; margin-top: 0.3rem; background: rgba(239,68,68,0.1); display: inline-block; padding: 2px 6px; border-radius: 4px;">Vencido hace ${Math.abs(diffExp)}d</div>`;
+            } else if (diffPay <= 0) {
+               return `<div style="font-size: 0.75rem; color: #f97316; font-weight: 700; margin-top: 0.3rem; background: rgba(249,115,22,0.1); display: inline-block; padding: 2px 6px; border-radius: 4px;">Faltan ${diffExp}d p/ vencer</div>`;
+            } else {
+               return `<div style="font-size: 0.75rem; color: var(--success); font-weight: 600; margin-top: 0.3rem;">Faltan ${diffPay}d p/ pago</div>`;
+            }
+          })()}
         </td>
         <td style="padding: 1rem; font-weight: 600;">${formatCurrency(op.nominalValue)}</td>
         <td style="padding: 1rem;">
@@ -724,15 +745,15 @@ function showOperationModal(existingOp, contacts, buyContacts, onSave) {
           </div>
           <div class="form-group" style="margin:0;">
             <label>Fecha Emisión</label>
-            <input type="date" name="issueDate" value="${existingOp?.issueDate || ''}">
+            <input type="date" name="issueDate" value="${existingOp?.issueDate || ''}" min="2010-01-01" max="2035-12-31">
           </div>
           <div class="form-group" style="margin:0;">
             <label>Fecha Recepción</label>
-            <input type="date" name="receptionDate" value="${existingOp?.receptionDate || new Date().toISOString().split('T')[0]}" required>
+            <input type="date" name="receptionDate" value="${existingOp?.receptionDate || new Date().toISOString().split('T')[0]}" required min="2010-01-01" max="2035-12-31">
           </div>
           <div class="form-group" style="margin:0;">
             <label>Fecha de Pago</label>
-            <input type="date" name="dueDate" value="${existingOp?.dueDate || ''}" required>
+            <input type="date" name="dueDate" value="${existingOp?.dueDate || ''}" required min="2010-01-01" max="2035-12-31">
           </div>
         </div>
       </div>
@@ -854,6 +875,19 @@ function showOperationModal(existingOp, contacts, buyContacts, onSave) {
     e.preventDefault();
     const formData = new FormData(form);
     
+    const validateYear = (dateStr) => {
+      if (!dateStr) return true;
+      const y = parseInt(dateStr.split('-')[0], 10);
+      return y >= 2010 && y <= 2035;
+    };
+    
+    if (!validateYear(formData.get('issueDate')) || 
+        !validateYear(formData.get('receptionDate')) || 
+        !validateYear(formData.get('dueDate'))) {
+      alert('Por favor ingrese un año válido (entre 2010 y 2035) para las fechas.');
+      return;
+    }
+    
     const buySideNameInput = content.querySelector('#buyside-contact-input').value.trim();
     const matchedBuySide = buyContacts.find(c => c.name.toLowerCase().trim() === buySideNameInput.toLowerCase());
     const buySideContactId = matchedBuySide ? matchedBuySide.id : buySideNameInput;
@@ -925,7 +959,10 @@ function addDays(dateStr, days) {
     d = new Date(dateStr);
   }
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  const Y = d.getFullYear();
+  const M = String(d.getMonth() + 1).padStart(2, '0');
+  const D = String(d.getDate()).padStart(2, '0');
+  return `${Y}-${M}-${D}`;
 }
 
 function showBatchBuyModal(buyContacts, onBatchBuy) {
@@ -968,7 +1005,7 @@ function showBatchBuyModal(buyContacts, onBatchBuy) {
           </div>
           <div class="form-group" style="margin:0;">
             <label>F. Recepción</label>
-            <input type="date" id="batch-reception-date" value="${today}">
+            <input type="date" id="batch-reception-date" value="${today}" min="2010-01-01" max="2035-12-31">
           </div>
           <div class="form-group" style="margin:0;">
             <label>Clearing (Días)</label>
@@ -1071,7 +1108,7 @@ function showBatchBuyModal(buyContacts, onBatchBuy) {
         </div>
         <div class="form-group" style="margin:0;">
           <label style="font-size:0.78rem;">F. Pago</label>
-          <input type="date" class="row-duedate" style="font-size:0.9rem;">
+          <input type="date" class="row-duedate" style="font-size:0.9rem;" min="2010-01-01" max="2035-12-31">
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.4rem;">
           <button type="button" class="row-remove-btn" style="background:rgba(239,68,68,0.15);border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:0.3rem 0.6rem;cursor:pointer;font-size:0.8rem;font-weight:700;">✕</button>
@@ -1123,8 +1160,20 @@ function showBatchBuyModal(buyContacts, onBatchBuy) {
     const clearing = content.querySelector('#batch-clearing').value;
     const batchNotes = content.querySelector('#batch-notes').value.trim();
 
+    const validateYear = (dateStr) => {
+      if (!dateStr) return true;
+      const y = parseInt(dateStr.split('-')[0], 10);
+      return y >= 2010 && y <= 2035;
+    };
+    
+    if (!validateYear(recDate)) {
+      alert('Por favor ingrese un año válido (entre 2010 y 2035) para la fecha de recepción.');
+      return;
+    }
+
     const rows = rowsContainer.querySelectorAll('.batch-check-row');
     const ops = [];
+    let datesValid = true;
     rows.forEach(row => {
       const bank = row.querySelector('.row-bank').value.trim();
       const num = row.querySelector('.row-number').value.trim();
@@ -1133,6 +1182,9 @@ function showBatchBuyModal(buyContacts, onBatchBuy) {
       const issuerName = row.querySelector('.row-issuer-name').value.trim();
       const issuerCuit = row.querySelector('.row-issuer-cuit').value.trim();
       if (!nv || !dueDate) return; // skip empty rows
+      
+      if (!validateYear(dueDate)) datesValid = false;
+
       ops.push({
         bank,
         checkNumber: num,
@@ -1148,6 +1200,11 @@ function showBatchBuyModal(buyContacts, onBatchBuy) {
         sellSide: { status: 'PENDING', contactId: null, pesificacionRate: '', monthlyInterest: '', backReason: '' }
       });
     });
+
+    if (!datesValid) {
+      alert('Por favor ingrese años válidos (entre 2010 y 2035) para las fechas de pago en los cheques.');
+      return;
+    }
 
     if (ops.length === 0) { alert('Agregue al menos un cheque con valor nominal y fecha de pago.'); return; }
     onBatchBuy(ops);
