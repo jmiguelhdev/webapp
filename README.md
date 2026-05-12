@@ -71,6 +71,32 @@ npm run build # Producción
 
 ---
 
+## 🏛️ Arquitectura y Estructura del Proyecto (DDD)
+
+El proyecto sigue los principios de **Domain-Driven Design (DDD)** y **Clean Architecture** para garantizar escalabilidad, mantenibilidad y un acoplamiento mínimo. 
+
+### Estructura de Directorios
+
+- `src/domain/`: Contiene el núcleo del negocio independiente de frameworks.
+  - `entities/`: Modelos de datos enriquecidos con lógica de negocio pura (ej. `Travel.js`, `CostSimulator.js`).
+- `src/adapters/`: Interfaces que conectan el dominio con el exterior.
+  - `presenters/`: Preparan datos complejos para la Interfaz de Usuario.
+  - `repositories/`: Capa de abstracción de datos para comunicarse con Firebase.
+- `src/api/`: Servicios especializados para interactuar con Firestore/Auth. El antiguo monolito `api.js` se divide en módulos por dominio (`checksApi.js`, `travelsApi.js`, etc.).
+- `src/ui/`: Capa de Interfaz de Usuario (Vanilla JS + Vite).
+  - `screens/`: Vistas modulares de la aplicación organizadas por dominio:
+    - `core/`: Dashboard, Configuración, Simulador, Clientes.
+    - `logistics/`: Viajes, Datos Maestros, Liquidaciones.
+    - `accounting/`: Cajas, Análisis de Precios, Cheques.
+    - `production/`: Consumo, Establecimientos.
+  - `components/`: Componentes reutilizables (Modales, Filtros, Tablas).
+- `src/utils/`: Funciones transversales de utilidad (Logs centralizados, manipulación del DOM).
+
+### Patrones de Rendimiento en UI
+Para maximizar la eficiencia de la memoria y prevenir caídas de rendimiento (*Memory Leaks*) en listas masivas, la aplicación emplea el patrón **Event Delegation**. En lugar de asignar cientos de *event listeners* fila por fila, las vistas interactúan a través de un único listener centralizado en el nodo superior de la tabla.
+
+---
+
 ## 🔐 Seguridad y Roles (RBAC)
 El sistema implementa un control de acceso basado en roles:
 - **ADMIN**: Control total del sistema, configuración de precios y gestión de usuarios.
