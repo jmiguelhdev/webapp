@@ -1,67 +1,70 @@
 // src/adapters/repositories/ClientRepository.js
 import { db } from '../../firebase.js';
-import * as api from '../../api.js';
+import * as clientsApi from '../../api/clientsApi.js';
+import * as accountingApi from '../../api/accountingApi.js';
+import * as checksApi from '../../api/checksApi.js';
+import * as faenaApi from '../../api/faenaApi.js';
 
 export class ClientRepository {
   constructor() {}
 
   async getClients() {
-    return api.fetchClients(db);
+    return clientsApi.fetchClients(db);
   }
 
   async saveClient(clientData) {
-    return api.saveClient(db, clientData);
+    return clientsApi.saveClient(db, clientData);
   }
 
   async getCategoryPrices() {
-    return api.fetchCategoryPrices(db);
+    return clientsApi.fetchCategoryPrices(db);
   }
 
   async saveCategoryPrices(prices) {
-    return api.saveCategoryPrices(db, prices);
+    return clientsApi.saveCategoryPrices(db, prices);
   }
 
   async getCamaras() {
-    return api.fetchCamaras(db);
+    return clientsApi.fetchCamaras(db);
   }
 
   async saveCamaras(camarasList) {
-    return api.saveCamaras(db, camarasList);
+    return clientsApi.saveCamaras(db, camarasList);
   }
 
   async getTransactions(clientId) {
-    return api.fetchTransactions(db, clientId);
+    return accountingApi.fetchTransactions(db, clientId);
   }
 
   async getAllTransactions() {
-    return api.fetchAllTransactions(db);
+    return accountingApi.fetchAllTransactions(db);
   }
 
   async addTransaction(transaction) {
-    return api.addTransaction(db, transaction);
+    return accountingApi.addTransaction(db, transaction);
   }
 
   async syncAccountingToTransaction(accountingId, data) {
-    return api.syncAccountingToTransaction(db, accountingId, data);
+    return accountingApi.syncAccountingToTransaction(db, accountingId, data);
   }
 
   async syncCheckTransaction(checkId, side, transactionData) {
-    return api.syncTransactionByCheck(db, 'transactions', checkId, side, transactionData);
+    return checksApi.syncTransactionByCheck(db, 'transactions', checkId, side, transactionData);
   }
 
   async getDispatchedFaenas(clientName, startDate, endDate) {
-    return api.fetchDispatchedFaenasInRange(db, clientName, startDate, endDate);
+    return faenaApi.fetchDispatchedFaenasInRange(db, clientName, startDate, endDate);
   }
 
   async getTransactionsInRange(clientId, startDate, endDate) {
-    return api.fetchTransactionsInRange(db, clientId, startDate, endDate);
+    return accountingApi.fetchTransactionsInRange(db, clientId, startDate, endDate);
   }
 
   async savePriceAnalysis(analysisData) {
-    return api.savePriceAnalysis(db, analysisData);
+    return accountingApi.savePriceAnalysis(db, analysisData);
   }
 
   async getPriceAnalyses(clientId) {
-    return api.fetchPriceAnalyses(db, clientId);
+    return accountingApi.fetchPriceAnalyses(db, clientId);
   }
 }

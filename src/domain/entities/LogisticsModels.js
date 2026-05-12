@@ -1,5 +1,8 @@
 // src/domain/entities/LogisticsModels.js
 
+/**
+ * Representa a un Conductor (Driver) de camión.
+ */
 export class Driver {
   constructor(data = {}) {
     this.id = data.id || Date.now();
@@ -9,7 +12,14 @@ export class Driver {
   }
 }
 
+/**
+ * Representa un Acoplado o Jaula (Trailer) enganchado al camión.
+ */
 export class Trailer {
+  /**
+   * @param {Object} data Datos del acoplado.
+   * @param {string} [data.type='SIMPLE'] Tipo de acoplado (SIMPLE o DOUBLE).
+   */
   constructor(data = {}) {
     this.id = data.id || Date.now();
     this.name = data.name || '';
@@ -20,7 +30,13 @@ export class Trailer {
   }
 }
 
+/**
+ * Representa a un Camión (Truck) de transporte logístico.
+ */
 export class Truck {
+  /**
+   * @param {Object} data Datos del camión.
+   */
   constructor(data = {}) {
     this.id = data.id || Date.now();
     this.name = data.name || '';
@@ -36,7 +52,15 @@ export class Truck {
   }
 }
 
+/**
+ * Representa un Gasto (Expense) operativo durante un viaje.
+ */
 export class Expense {
+  /**
+   * @param {Object} data Datos del gasto.
+   * @param {number} [data.amount] Monto del gasto.
+   * @param {boolean} [data.isReimbursable=true] Indica si es reintegrable.
+   */
   constructor(data = {}) {
     this.id = data.id || Date.now();
     this.travelId = data.travelId || 0;
@@ -48,7 +72,14 @@ export class Expense {
   }
 }
 
+/**
+ * Representa un Viaje (Travel) o Carta de Porte logístico completo.
+ */
 export class Travel {
+  /**
+   * @param {Object} data Datos del viaje.
+   * @param {string} [data.status='DRAFT'] Estado actual del viaje.
+   */
   constructor(data = {}) {
     this.id = data.id || Date.now();
     this.status = data.status || 'DRAFT'; // DRAFT, ACTIVE, COMPLETED

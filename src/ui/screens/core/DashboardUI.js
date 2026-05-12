@@ -1,6 +1,6 @@
-import { el } from '../../utils/dom.js';
-import { renderTimeFilterUI } from '../components/Filters.js';
-import { MarketService } from '../../api/MarketService.js';
+import { el } from '../../../utils/dom.js';
+import { renderTimeFilterUI } from '../../components/Filters.js';
+import { MarketService } from '../../../api/MarketService.js';
 import Chart from 'chart.js/auto';
 
 // Scoped chart instances for this module

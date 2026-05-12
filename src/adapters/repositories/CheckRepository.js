@@ -1,27 +1,29 @@
 // src/adapters/repositories/CheckRepository.js
 import { db } from '../../firebase.js';
-import * as api from '../../api.js';
+import * as checksApi from '../../api/checksApi.js';
+import * as clientsApi from '../../api/clientsApi.js';
+import * as travelsApi from '../../api/travelsApi.js';
 
 export class CheckRepository {
   constructor() {}
 
   async fetchChecks(uid) {
-    return api.fetchCheckOperations(db, uid);
+    return checksApi.fetchCheckOperations(db, uid);
   }
 
   async saveCheck(uid, operation) {
-    return api.saveCheckOperation(db, uid, operation);
+    return checksApi.saveCheckOperation(db, uid, operation);
   }
 
   async deleteCheck(operationId) {
-    return api.deleteCheckOperation(db, operationId);
+    return checksApi.deleteCheckOperation(db, operationId);
   }
 
   async getContacts() {
-    return api.fetchClients(db);
+    return clientsApi.fetchClients(db);
   }
 
   async getTravels(uid) {
-    return api.fetchTravels(db, uid);
+    return travelsApi.fetchTravels(db, uid);
   }
 }

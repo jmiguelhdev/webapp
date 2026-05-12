@@ -1,5 +1,5 @@
 // src/ui/screens/LogisticsMastersUI.js
-import { renderScanResultsModal } from '../components/Modals.js'; // reusing modal patterns if needed
+import { renderScanResultsModal } from '../../components/Modals.js'; // reusing modal patterns if needed
 
 export function renderLogisticsMaster(container, type, dataList, dependencies = {}) {
   const tabs = [
@@ -56,57 +56,55 @@ export function renderLogisticsMaster(container, type, dataList, dependencies = 
       <div id="master-modal-container"></div>
     `;
 
-    // Attach tab events (only needed once per full render)
-    container.querySelectorAll('.category-chip').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const action = e.currentTarget.dataset.action;
+    // El evento 'onclick' en el contenedor usa Delegación de Eventos para evitar
+    // agregar múltiples listeners y fugas de memoria, manejando todo desde la raíz.
+    container.onclick = (e) => {
+      // 1. Botón Editar
+      const editBtn = e.target.closest('.btn-edit');
+      if (editBtn) {
+        const id = editBtn.dataset.id;
+        const item = container._currentDataList.find(d => String(d.id) === String(id));
+        if (item) showMasterModal(type, item, dependencies);
+        return;
+      }
+
+      // 2. Botón Eliminar
+      const delBtn = e.target.closest('.btn-delete');
+      if (delBtn) {
+        const id = delBtn.dataset.id;
+        if (confirm('¿Eliminar este registro?')) {
+          window.currentPresenter[`delete${capitalize(getEntityType(type))}`](id);
+        }
+        return;
+      }
+
+      // 3. Pestañas (Tabs)
+      const tabBtn = e.target.closest('.category-chip');
+      if (tabBtn) {
+        const action = tabBtn.dataset.action;
         if (window.currentPresenter && window.currentPresenter[action]) {
           window.currentPresenter[action]();
         }
-      });
-    });
-
-    document.getElementById('btn-add-master').addEventListener('click', () => {
-      showMasterModal(type, null, dependencies);
-    });
-  }
-
-  // Attach Load More Event
-  const loadMoreBtn = container.querySelector('#btn-load-more');
-  if (loadMoreBtn) {
-    // remove old listener if exists by replacing the element
-    const newBtn = loadMoreBtn.cloneNode(true);
-    loadMoreBtn.parentNode.replaceChild(newBtn, loadMoreBtn);
-    newBtn.addEventListener('click', () => {
-      if (window.currentPresenter && window.currentPresenter.loadProducers) {
-        window.currentPresenter.loadProducers(dependencies.lastVisible, true);
+        return;
       }
-    });
-  }
 
-  // Re-attach edit/delete to handle newly appended cards
-  // Safe because we use event delegation or just re-add to all
-  document.querySelectorAll('.btn-edit').forEach(btn => {
-    // remove existing to prevent duplicates
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.addEventListener('click', (e) => {
-      const id = e.currentTarget.dataset.id;
-      const item = container._currentDataList.find(d => String(d.id) === String(id));
-      if (item) showMasterModal(type, item, dependencies);
-    });
-  });
-
-  document.querySelectorAll('.btn-delete').forEach(btn => {
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.addEventListener('click', (e) => {
-      const id = e.currentTarget.dataset.id;
-      if (confirm('¿Eliminar este registro?')) {
-        window.currentPresenter[`delete${capitalize(getEntityType(type))}`](id);
+      // 4. Botón Agregar
+      const addBtn = e.target.closest('#btn-add-master');
+      if (addBtn) {
+        showMasterModal(type, null, dependencies);
+        return;
       }
-    });
-  });
+
+      // 5. Botón Cargar Más
+      const loadBtn = e.target.closest('#btn-load-more');
+      if (loadBtn) {
+        if (window.currentPresenter && window.currentPresenter.loadProducers) {
+          window.currentPresenter.loadProducers(dependencies.lastVisible, true);
+        }
+        return;
+      }
+    };
+  }
 }
 
 function getTitle(type) {

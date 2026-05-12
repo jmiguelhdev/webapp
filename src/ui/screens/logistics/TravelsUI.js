@@ -1,5 +1,5 @@
-import { el } from '../../utils/dom.js';
-import { renderTimeFilterUI } from '../components/Filters.js';
+import { el } from '../../../utils/dom.js';
+import { renderTimeFilterUI } from '../../components/Filters.js';
 
 
 
@@ -190,9 +190,8 @@ export function renderTravels(container, options) {
             <span>Achique Total (Viaje):</span>
             <div style="display: flex; gap: 0.3rem; align-items: center;">
               <span style="font-size: 0.8rem; opacity: 0.7;">$</span>
-              <input type="number" class="compact-input" value="${buy.reduce || 0}" 
-                style="width: 100px; padding: 2px 5px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-main);"
-                onchange="this.dataset.id='${travel.id}'; window._ui_onReduceUpdate && window._ui_onReduceUpdate('${travel.id}', this.value)">
+              <input type="number" class="compact-input reduce-input" data-id="${travel.id}" value="${buy.reduce || 0}" 
+                style="width: 100px; padding: 2px 5px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-main);">
             </div>
           </div>
         </div>
@@ -207,12 +206,8 @@ export function renderTravels(container, options) {
       <hr>
     `;
 
-    window._ui_onReduceUpdate = (id, val) => {
-      if (options.onReduceUpdate) options.onReduceUpdate(id, parseFloat(val));
-    };
-
     const producersList = el('div', { classes: ['producers-list'] });
-    (buy.listOfProducers || []).forEach(p => {
+    (buy.listOfProducers || []).forEach((p, idx) => {
       const pItem = el('div', { classes: ['producer-item'] });
       const iva = p.iva || 0;
       const ganancias = p.retencionGanancias || 0;
@@ -230,15 +225,11 @@ export function renderTravels(container, options) {
       `;
       
       const liqBtn = el('button', { 
-        classes: ['btn-action'], 
+        classes: ['btn-action', 'btn-liq-producer'], 
         text: '📊 Liq.',
+        attrs: { 'data-travel-id': travel.id, 'data-producer-idx': idx },
         style: 'background: #841d1d; color: white; border: none; border-radius: 8px; padding: 3px 10px; font-size: 0.72rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0;'
       });
-      liqBtn.onclick = (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (options.onProducerSettlement) options.onProducerSettlement(travel, p);
-      };
       pHeader.appendChild(liqBtn);
       pItem.appendChild(pHeader);
 
@@ -306,25 +297,51 @@ export function renderTravels(container, options) {
     }
   }
 
-  // Attach event listeners for travel cards
-  container.querySelectorAll('.btn-edit-travel').forEach(btn => {
-    btn.onclick = (e) => {
-      const id = e.currentTarget.dataset.id;
+  // Attach event listeners using Event Delegation on the list container
+  list.onclick = (e) => {
+    // 1. Edit Travel
+    const editBtn = e.target.closest('.btn-edit-travel');
+    if (editBtn) {
+      const id = editBtn.dataset.id;
       const travel = data.find(t => String(t.id) === String(id));
       if (travel && options.onEditTravel) {
         options.onEditTravel(travel);
       }
-    };
-  });
+      return;
+    }
 
-  container.querySelectorAll('.btn-delete-travel').forEach(btn => {
-    btn.onclick = (e) => {
-      const id = e.currentTarget.dataset.id;
+    // 2. Delete Travel
+    const delBtn = e.target.closest('.btn-delete-travel');
+    if (delBtn) {
+      const id = delBtn.dataset.id;
       if (confirm('¿Eliminar este viaje?') && options.onDeleteTravel) {
         options.onDeleteTravel(id);
       }
-    };
-  });
+      return;
+    }
+
+    // 3. Liquidate Producer
+    const liqBtn = e.target.closest('.btn-liq-producer');
+    if (liqBtn) {
+      e.stopPropagation();
+      e.preventDefault();
+      const travelId = liqBtn.dataset.travelId;
+      const prodIdx = liqBtn.dataset.producerIdx;
+      const t = data.find(tr => String(tr.id) === String(travelId));
+      if (t && t.buy && t.buy.listOfProducers && options.onProducerSettlement) {
+        options.onProducerSettlement(t, t.buy.listOfProducers[prodIdx]);
+      }
+      return;
+    }
+  };
+
+  list.onchange = (e) => {
+    if (e.target.matches('.reduce-input')) {
+      const id = e.target.dataset.id;
+      const val = e.target.value;
+      if (options.onReduceUpdate) options.onReduceUpdate(id, parseFloat(val));
+    }
+  };
 }
 
 /** Render Settlement Modal */
@@ -513,8 +530,9 @@ export function renderSettlementModal(travel, producer, options) {
       newInp.value = val;
     };
     
-    modal.querySelectorAll('.product-roughing, .product-price').forEach(input => {
-      input.oninput = (e) => {
+    // Event Delegation for table inputs
+    tableContainer.oninput = (e) => {
+      if (e.target.matches('.product-roughing, .product-price')) {
         const idx = parseInt(e.target.dataset.idx);
         const rough = modal.querySelector(`.product-roughing[data-idx="${idx}"]`).value;
         const price = modal.querySelector(`.product-price[data-idx="${idx}"]`).value;
@@ -525,12 +543,14 @@ export function renderSettlementModal(travel, producer, options) {
         
         const className = e.target.classList.contains('product-roughing') ? '.product-roughing' : '.product-price';
         const newInp = modal.querySelector(`${className}[data-idx="${idx}"]`);
-        newInp.focus();
-        const val = newInp.value;
-        newInp.value = '';
-        newInp.value = val;
-      };
-    });
+        if (newInp) {
+          newInp.focus();
+          const val = newInp.value;
+          newInp.value = '';
+          newInp.value = val;
+        }
+      }
+    };
   };
   
   updateContent();

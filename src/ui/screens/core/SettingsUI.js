@@ -1,5 +1,5 @@
-import { el } from '../../utils/dom.js';
-import { SettingsService } from '../../services/SettingsService.js';
+import { el } from '../../../utils/dom.js';
+import { SettingsService } from '../../../services/SettingsService.js';
 
 export function renderSettings(container, options) {
   if (!container) return;

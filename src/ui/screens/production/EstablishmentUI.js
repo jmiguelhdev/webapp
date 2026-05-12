@@ -1,4 +1,4 @@
-import { el } from '../../utils/dom.js';
+import { el } from '../../../utils/dom.js';
 
 export function renderEstablishmentManager(container, presenter) {
   const { establishments = [], selectedEstablishment = null, employees = [] } = presenter.state || {};

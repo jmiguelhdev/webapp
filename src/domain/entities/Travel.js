@@ -1,7 +1,13 @@
 // src/domain/entities/Travel.js
 import { Buy } from './Buy.js';
 
+/**
+ * Entidad principal que representa un viaje logístico asociado a una compra.
+ */
 export class Travel {
+  /**
+   * @param {Object} data Datos provenientes de la base de datos o API.
+   */
   constructor(data = {}) {
     this._raw = data; // Preserve raw payload to avoid data loss on updates
     // firebaseId = Firestore document ID (string, e.g. "AbCdEf").

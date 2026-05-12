@@ -1,5 +1,6 @@
 import { db } from '../../firebase.js';
-import * as api from '../../api.js';
+import * as productionApi from '../../api/productionApi.js';
+import * as accountingApi from '../../api/accountingApi.js';
 
 export class AccountingPresenter {
   constructor(accountingRepository, clientRepository, ui, options = {}) {
@@ -42,9 +43,9 @@ export class AccountingPresenter {
       this.producers = this.extractUniqueProducers(travels);
       
       // Load Establishments and their employees
-      this.establishments = await api.fetchEstablishments(db);
+      this.establishments = await productionApi.fetchEstablishments(db);
       for (const est of this.establishments) {
-        est.employees = await api.fetchEmployees(db, est.id);
+        est.employees = await productionApi.fetchEmployees(db, est.id);
       }
       
       this.render();
@@ -130,7 +131,7 @@ export class AccountingPresenter {
         await this.clientRepository.syncAccountingToTransaction(entryId, transactionData);
       } else {
         // If it was an IN but changed to OUT, or client was removed, cleanup
-        await api.removeLinkedTransaction(db, entryId);
+        await accountingApi.removeLinkedTransaction(db, entryId);
       }
 
       await this.loadData();

@@ -3,7 +3,7 @@ import './style.css';
 import { auth, db } from './firebase.js';
 import { CostSimulator } from './domain/entities/CostSimulator.js';
 import { onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import * as api from './api.js';
+import * as authApi from './api/authApi.js';
 import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
 import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
@@ -20,6 +20,7 @@ import { EstablishmentRepository } from './adapters/repositories/EstablishmentRe
 import { EstablishmentPresenter } from './adapters/presenters/EstablishmentPresenter.js';
 import { OperatorRepository } from './adapters/repositories/OperatorRepository.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
+import { logger } from './utils/logger.js';
 
 // Dependencies
 const travelRepository = new FirebaseTravelRepository();
@@ -138,9 +139,9 @@ onAuthStateChanged(auth, async (user) => {
     
     try {
       // Ensure we have the user role before proceeding
-      currentUserRole = await api.fetchUserRole(db, user);
+      currentUserRole = await authApi.fetchUserRole(db, user);
     } catch (e) {
-      console.error("Error fetching user role:", e);
+      logger.error("Error fetching user role:", e);
       currentUserRole = 'VISOR'; // Fallback
     }
 
@@ -157,7 +158,7 @@ onAuthStateChanged(auth, async (user) => {
         currentUserRole
       );
     } catch (e) {
-      console.error("Error rendering sidebar:", e);
+      logger.error("Error rendering sidebar:", e);
     }
 
     // Default view: Dashboard for everyone
@@ -249,7 +250,7 @@ const navigateTo = (view, role = currentUserRole) => {
   
   const allowed = getAllowedViews(role);
   if (!allowed.includes(view)) {
-    console.warn(`Access denied to ${view} for role ${role}`);
+    logger.warn(`Access denied to ${view} for role ${role}`);
     alert(`Acceso denegado: No tienes permiso para acceder a esta sección (${view}).`);
     return;
   }
@@ -301,7 +302,7 @@ const navigateTo = (view, role = currentUserRole) => {
         let usersList = [];
         if (currentUserRole === 'ADMIN') {
           if (!window.usersListCache) {
-            window.usersListCache = await api.fetchAllUsersRoles(db);
+            window.usersListCache = await authApi.fetchAllUsersRoles(db);
           }
           usersList = window.usersListCache;
         }
@@ -318,7 +319,7 @@ const navigateTo = (view, role = currentUserRole) => {
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
           onSaveUserRole: async (uid, role) => {
-            await api.saveUserRole(db, uid, role);
+            await authApi.saveUserRole(db, uid, role);
             window.usersListCache = null; // Clear cache on update
           },
           onReloadClients: loadSettingsData,

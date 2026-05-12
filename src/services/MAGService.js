@@ -1,3 +1,8 @@
+import { logger } from '../utils/logger.js';
+
+/**
+ * Servicio para consultar y cachear precios del MAG.
+ */
 export class MAGService {
   constructor() {
     this.cacheKey = 'mag_prices_cache';
@@ -11,17 +16,17 @@ export class MAGService {
       try {
         const { timestamp, data, source } = JSON.parse(cached);
         if (Date.now() - timestamp < this.cacheExpiry) {
-          console.log('Serving MAG prices from localStorage cache');
+          logger.info('Serving MAG prices from localStorage cache');
           return { data, source: source || 'Cache Local' };
         }
       } catch (e) {
-        console.warn('Invalid cache for MAG prices', e);
+        logger.warn('Invalid cache for MAG prices', e);
       }
     }
 
     // 2. Fetch from backend API
     try {
-      console.log('Fetching live MAG prices from backend API...');
+      logger.info('Fetching live MAG prices from backend API...');
       const response = await fetch('/api/mag-prices');
       if (!response.ok) throw new Error('Network response was not ok');
       const result = await response.json();
@@ -39,12 +44,16 @@ export class MAGService {
         throw new Error(result.error || 'Failed to fetch MAG data');
       }
     } catch (error) {
-      console.error('Error fetching MAG prices:', error);
+      logger.error('Error fetching MAG prices:', error);
       return null;
     }
   }
 
-  // Helper function to map a detailed category to a general MAG category
+  /**
+   * Helper function to map a detailed category to a general MAG category.
+   * @param {string} localCategory 
+   * @returns {string|null}
+   */
   mapToMagCategory(localCategory) {
     const cat = localCategory.toLowerCase();
     if (cat.includes('novillito')) return 'Novillitos';

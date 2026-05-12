@@ -1,4 +1,4 @@
-import { el } from '../../utils/dom.js';
+import { el } from '../../../utils/dom.js';
 
 export function renderClientAccounts(options) {
   const { clients, operators, selectedClient, selectedType, activeTab, transactions, onSelectClient, onAddPayment, onBack, onAnalyzePrice, onTabChange, onSaveClient } = options;

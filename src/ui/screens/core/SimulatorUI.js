@@ -1,5 +1,5 @@
-import { el } from '../../utils/dom.js';
-import { CostSimulator } from '../../domain/entities/CostSimulator.js';
+import { el } from '../../../utils/dom.js';
+import { CostSimulator } from '../../../domain/entities/CostSimulator.js';
 
 export function renderSimulator(container, options) {
   const wrapper = el('div', { classes: ['simulator-wrapper'] });

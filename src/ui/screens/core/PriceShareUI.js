@@ -1,4 +1,4 @@
-import { el } from '../../utils/dom.js';
+import { el } from '../../../utils/dom.js';
 
 export function renderPriceShare(container, options) {
   if (!container) return;

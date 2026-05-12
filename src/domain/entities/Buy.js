@@ -1,7 +1,19 @@
 // src/domain/entities/Buy.js
 import { resolveCategoryFromName } from '../utils/categoryResolver.js';
 
+/**
+ * Entidad que representa una Operación de Compra.
+ * Engloba a uno o múltiples productores y un porcentaje de comisión de agencia.
+ */
 export class Buy {
+  /**
+   * @param {Object} data Datos sin procesar de la compra.
+   * @param {string} [data.id] ID interno.
+   * @param {string} [data.firebaseId] ID en Firestore.
+   * @param {Object} [data.agent] Agente interviniente y su comisión.
+   * @param {number} [data.totalReduce] Monto total de achique.
+   * @param {Array<Object>} [data.listOfProducers] Lista de productores asociados.
+   */
   constructor(data = {}) {
     this.id = data.id || data.firebaseId || '';
     this.agent = data.agent || { name: '', percent: 0 };
@@ -66,7 +78,14 @@ export class Buy {
   }
 }
 
+/**
+ * Entidad que representa a un Productor dentro de una Compra.
+ */
 class Producer {
+  /**
+   * @param {Object} data Datos del productor.
+   * @param {Buy} buy Referencia a la compra padre.
+   */
   constructor(data = {}, buy = null) {
     this.buy = buy;
     // KMP app stores producer fields flat (name, cuit, cbu) directly on the object.
@@ -163,7 +182,14 @@ class Producer {
   }
 }
 
+/**
+ * Entidad que representa un Producto o Tropa (Animales de cierta categoría).
+ */
 class Product {
+  /**
+   * @param {Object} data Datos del producto (kilos, precio, desvaste).
+   * @param {Buy} buy Referencia a la compra padre para extraer comisión.
+   */
   constructor(data = {}, buy = null) {
     this.name = data.name || '';
     this.kg = data.kg || 0;

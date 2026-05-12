@@ -1,5 +1,5 @@
-import { el } from '../../utils/dom.js';
-import { renderDateModal } from '../components/Modals.js';
+import { el } from '../../../utils/dom.js';
+import { renderDateModal } from '../../components/Modals.js';
 
 function getSortDate(str) {
   if (!str) return 0;
@@ -545,6 +545,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       return sortAsc ? tA - tB : tB - tA;
     }).forEach(op => {
       const tr = el('tr', { style: 'border-top: 1px solid var(--border); transition: background 0.2s;' });
+      tr.dataset.id = op.id;
       
       const isSold = op.sellSide && op.sellSide.status === 'SOLD';
       const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Desconocido';
@@ -595,20 +596,10 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
         </td>
       `;
       
-      tr.addEventListener('click', (e) => {
-        if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, contacts, onSave); return; }
-        if (e.target.closest('.delete-btn')) { onDelete(op.id); return; }
-        if (e.target.closest('.portfolio-check-cb')) return; // handled by change
-      });
-
       if (selectable && selectedIds !== null) {
         const cb = tr.querySelector('.portfolio-check-cb');
-        if (cb) {
-          if (selectedIds.has(op.id)) cb.checked = true;
-          cb.addEventListener('change', () => {
-            if (cb.checked) selectedIds.add(op.id); else selectedIds.delete(op.id);
-            if (onSelectionChange) onSelectionChange();
-          });
+        if (cb && selectedIds.has(op.id)) {
+          cb.checked = true;
         }
       }
 
@@ -638,6 +629,38 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
     }
   }
   table.appendChild(tbody);
+
+  // Implementación de Delegación de Eventos para clics
+  table.addEventListener('click', (e) => {
+    const tr = e.target.closest('tr');
+    if (!tr || !tr.dataset.id) return;
+    
+    const opId = tr.dataset.id;
+    const op = checksList.find(x => String(x.id) === String(opId));
+    if (!op) return;
+
+    if (e.target.closest('.edit-btn')) { 
+      showOperationModal(op, contacts, contacts, onSave); 
+      return; 
+    }
+    if (e.target.closest('.delete-btn')) { 
+      onDelete(op.id); 
+      return; 
+    }
+  });
+
+  // Implementación de Delegación de Eventos para checkboxes
+  if (selectable) {
+    table.addEventListener('change', (e) => {
+      if (e.target.matches('.portfolio-check-cb')) {
+        const id = e.target.dataset.id;
+        if (e.target.checked) selectedIds.add(id); 
+        else selectedIds.delete(id);
+        if (onSelectionChange) onSelectionChange();
+      }
+    });
+  }
+
   tableWrapper.appendChild(table);
   return tableWrapper;
 }

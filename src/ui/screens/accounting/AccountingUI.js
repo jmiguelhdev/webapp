@@ -1,5 +1,5 @@
-import { el } from '../../utils/dom.js';
-import { renderDateModal, showAuxiliaryCalculator } from '../components/Modals.js';
+import { el } from '../../../utils/dom.js';
+import { renderDateModal, showAuxiliaryCalculator } from '../../components/Modals.js';
 
 const DENOMINATIONS = [20000, 10000, 2000, 1000, 500, 200, 100];
 
@@ -198,6 +198,7 @@ export function renderAccounting(container, options) {
   } else {
     entries.forEach(entry => {
       const tr = el('tr', { style: 'border-top: 1px solid var(--border); transition: background 0.2s;' });
+      tr.dataset.id = entry.id;
       
       const entityName = entry.clientName || entry.producerName || '-';
       const isIncome = entry.type === 'IN';
@@ -241,27 +242,42 @@ export function renderAccounting(container, options) {
         </td>
       `;
       
-      tr.addEventListener('click', (e) => {
-        if (e.target.closest('.print-btn')) {
-          if (entry.isSalary) printSalaryReceipt(entry, 'standard', title);
-          else printReceipt(entry, 'standard');
-        }
-        if (e.target.closest('.thermal-btn')) {
-          if (entry.isSalary) printSalaryReceipt(entry, 'thermal', title);
-          else printReceipt(entry, 'thermal');
-        }
-        if (e.target.closest('.edit-btn')) {
-          if (entry.isSalary) alert("Para editar un pago de sueldo, elimínelo y vuelva a crearlo.");
-          else showEntryModal(entry, { clients, producers, onSave, title });
-        }
-        if (e.target.closest('.delete-btn')) onDelete(entry.id);
-      });
-
-
       tbody.appendChild(tr);
     });
   }
   table.appendChild(tbody);
+
+  // Implementación de Delegación de Eventos para las acciones de la tabla
+  // Esto previene memory leaks al renderizar listas grandes.
+  table.onclick = (e) => {
+    const tr = e.target.closest('tr');
+    if (!tr || !tr.dataset.id) return;
+    
+    const entryId = tr.dataset.id;
+    const entry = entries.find(x => String(x.id) === String(entryId));
+    if (!entry) return;
+
+    if (e.target.closest('.print-btn')) {
+      if (entry.isSalary) printSalaryReceipt(entry, 'standard', title);
+      else printReceipt(entry, 'standard');
+      return;
+    }
+    if (e.target.closest('.thermal-btn')) {
+      if (entry.isSalary) printSalaryReceipt(entry, 'thermal', title);
+      else printReceipt(entry, 'thermal');
+      return;
+    }
+    if (e.target.closest('.edit-btn')) {
+      if (entry.isSalary) alert("Para editar un pago de sueldo, elimínelo y vuelva a crearlo.");
+      else showEntryModal(entry, { clients, producers, onSave, title });
+      return;
+    }
+    if (e.target.closest('.delete-btn')) {
+      onDelete(entry.id);
+      return;
+    }
+  };
+
   tableWrapper.appendChild(table);
   container.appendChild(tableWrapper);
 

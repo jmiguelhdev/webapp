@@ -1,6 +1,8 @@
 // src/adapters/repositories/AccountingRepository.js
 import { db } from '../../firebase.js';
-import * as api from '../../api.js';
+import * as accountingApi from '../../api/accountingApi.js';
+import * as clientsApi from '../../api/clientsApi.js';
+import * as travelsApi from '../../api/travelsApi.js';
 
 export class AccountingRepository {
   constructor(collectionName = 'accounting_entries') {
@@ -8,22 +10,22 @@ export class AccountingRepository {
   }
 
   async fetchEntries(uid) {
-    return api.fetchAccountingEntries(db, uid, this.collectionName);
+    return accountingApi.fetchAccountingEntries(db, uid, this.collectionName);
   }
 
   async saveEntry(uid, entry) {
-    return api.saveAccountingEntry(db, uid, entry, this.collectionName);
+    return accountingApi.saveAccountingEntry(db, uid, entry, this.collectionName);
   }
 
   async deleteEntry(entryId) {
-    return api.deleteAccountingEntry(db, entryId, this.collectionName);
+    return accountingApi.deleteAccountingEntry(db, entryId, this.collectionName);
   }
 
   async getClients() {
-    return api.fetchClients(db);
+    return clientsApi.fetchClients(db);
   }
 
   async getTravels(uid) {
-    return api.fetchTravels(db, uid);
+    return travelsApi.fetchTravels(db, uid);
   }
 }
