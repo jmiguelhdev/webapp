@@ -6,3 +6,15 @@ dist/
 .env.test.local
 .env.production.local
 .DS_Store
+
+# Gradle
+.gradle/
+build/
+
+# Kotlin
+.kotlin/
+kotlin-js-store/
+
+# IDE
+.idea/
+*.iml
