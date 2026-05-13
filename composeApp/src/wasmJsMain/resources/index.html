@@ -20,9 +20,35 @@
         window.env_API_KEY = "AIzaSyBoPbWqksM2RmZTD1x3-ykWUVZzfXlM2d8";
         window.env_APP_ID = "1:672982424982:web:5c819788e0c33ba54f91b7";
         window.env_PROJECT_ID = "kmppampalogs";
+        window.env_AUTH_DOMAIN = "kmppampalogs.firebaseapp.com";
+        window.env_STORAGE_BUCKET = "kmppampalogs.firebasestorage.app";
+        window.env_MESSAGING_SENDER_ID = "672982424982";
+        window.env_MEASUREMENT_ID = "G-NS0X4WSHV4";
+
+        // Polyfill para crypto.randomUUID en contextos no seguros (HTTP)
+        if (!window.crypto.randomUUID) {
+            window.crypto.randomUUID = function() {
+                return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+                    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+                );
+            };
+        }
     </script>
 </head>
 <body>
+    <!-- Helper para Firebase Auth en Wasm -->
+    <script type="module">
+        import { GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+        window.createGoogleAuthProvider = () => new GoogleAuthProvider();
+        window.firebaseSignInWithPopup = (auth, provider) => {
+            console.log('[DEBUG_AUTH] Ejecutando signInWithPopup desde el helper JS...');
+            return signInWithPopup(auth, provider).catch(err => {
+                console.error('[DEBUG_AUTH] Error en el helper JS:', err);
+                throw err;
+            });
+        };
+    </script>
+
     <script src="composeApp.js"></script>
 </body>
 </html>

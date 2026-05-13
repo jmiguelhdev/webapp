@@ -1,5 +1,6 @@
 package com.antigravity.webapp.di
 
+import com.antigravity.webapp.ui.MainViewModel
 import com.antigravity.webapp.ui.home.HomeViewModel
 import com.antigravity.webapp.ui.login.LoginViewModel
 import com.antigravity.webapp.ui.travels.TravelsViewModel
@@ -12,4 +13,5 @@ val appModule = module {
     viewModel { HomeViewModel() }
     viewModel { TravelsViewModel(get()) }
     viewModel { LoginViewModel(get()) }
+    viewModel { MainViewModel(get()) }
 }

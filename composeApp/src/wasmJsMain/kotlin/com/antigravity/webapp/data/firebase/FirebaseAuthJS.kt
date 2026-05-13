@@ -1,5 +1,7 @@
 package com.antigravity.webapp.data.firebase
 
+import com.antigravity.webapp.data.firebase.FirebaseApp
+
 /**
  * Kotlin/Wasm Interop bindings para el SDK Oficial de Firebase Auth (Modular v9/v10).
  */
@@ -17,7 +19,6 @@ external interface FirebaseUser : JsAny {
 @JsModule("firebase/auth")
 external object FirebaseAuthModule {
     fun getAuth(app: FirebaseApp): Auth
-    fun GoogleAuthProvider(): AuthProvider
     
     // Auth State
     fun onAuthStateChanged(
@@ -28,4 +29,8 @@ external object FirebaseAuthModule {
     // Login / Logout
     fun signInWithPopup(auth: Auth, provider: AuthProvider): kotlin.js.Promise<UserCredential>
     fun signOut(auth: Auth): kotlin.js.Promise<JsAny>
+    
+    // Clase GoogleAuthProvider (se accede como propiedad para instanciar con 'new' vía js())
+    @JsName("GoogleAuthProvider")
+    val GoogleAuthProviderClass: JsAny
 }

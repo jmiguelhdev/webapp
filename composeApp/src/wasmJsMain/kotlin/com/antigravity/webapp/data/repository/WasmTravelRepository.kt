@@ -1,8 +1,6 @@
 package com.antigravity.webapp.data.repository
 
-import com.antigravity.webapp.data.firebase.FirestoreModule
-import com.antigravity.webapp.data.firebase.getDocsArray
-import com.antigravity.webapp.data.firebase.callUnsubscribe
+import com.antigravity.webapp.data.firebase.*
 import com.antigravity.webapp.domain.models.Travel
 import com.antigravity.webapp.domain.models.TravelStatus
 import com.antigravity.webapp.FirebaseConfig
@@ -10,10 +8,6 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
-/**
- * Implementación específica para Wasm del repositorio, usando interop JS puro.
- * Aquí implementamos las funciones de la interfaz definida en commonMain.
- */
 class WasmTravelRepository : TravelRepository {
 
     override fun getTravels(): Flow<Result<List<Travel>>> = callbackFlow {
@@ -23,7 +17,8 @@ class WasmTravelRepository : TravelRepository {
             return@callbackFlow
         }
 
-        val collectionRef = FirestoreModule.collection(FirebaseConfig.firestore!!, "viajes")
+        // El nombre de la colección en Firestore es 'travels'
+        val collectionRef = FirestoreModule.collection(FirebaseConfig.firestore!!, "travels")
 
         val unsubscribeJsFn = FirestoreModule.onSnapshot(
             query = collectionRef,
@@ -32,7 +27,6 @@ class WasmTravelRepository : TravelRepository {
                     val docsArray = getDocsArray(snapshot)
                     val travelsList = mutableListOf<Travel>()
                     
-                    // Iteramos el JsArray de forma manual para Wasm
                     for (i in 0 until docsArray.length) {
                         val doc = docsArray[i]
                         val data = doc?.data()
@@ -44,10 +38,12 @@ class WasmTravelRepository : TravelRepository {
                     
                     trySend(Result.success(travelsList))
                 } catch (e: Exception) {
+                    println("Error al procesar snapshot de viajes: ${e.message}")
                     trySend(Result.failure(e))
                 }
             },
             onError = { jsError ->
+                println("Error de Firestore en Wasm: $jsError")
                 trySend(Result.failure(Exception("Firestore snapshot error")))
             }
         )
@@ -59,39 +55,71 @@ class WasmTravelRepository : TravelRepository {
 
     /**
      * Helper nativo Wasm para parsear el JS dinámico al data class estático de Kotlin.
+     * Mantenemos la lógica de la app original: mergear campos de nivel superior con el JSON 'data'.
      */
     private fun parseJsToTravel(docId: String, jsData: JsAny): Travel {
-        val firebaseId = getJsString(jsData, "firebaseId").takeIf { it.isNotEmpty() }
-        val idFallback = getJsString(jsData, "id").takeIf { it.isNotEmpty() }
+        // 1. Obtener el JSON string del campo 'data' (si existe)
+        val rawDataString = getJsString(jsData, "data")
+        val parsedData: JsAny? = if (rawDataString.isNotEmpty()) {
+            try {
+                parseJson(rawDataString)
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+
+        // 2. Función auxiliar para buscar en el objeto parseado y luego en el top-level
+        fun getString(key: String): String {
+            val fromParsed = if (parsedData != null) getJsString(parsedData, key) else ""
+            return if (fromParsed.isNotEmpty()) fromParsed else getJsString(jsData, key)
+        }
+
+        fun getInt(key: String): Int {
+            val fromParsed = if (parsedData != null) getJsInt(parsedData, key) else -1
+            return if (fromParsed != -1) fromParsed else getJsInt(jsData, key)
+        }
+
+        fun getDouble(key: String): Double {
+            val fromParsed = if (parsedData != null) getJsDouble(parsedData, key) else -1.0
+            val topLevel = getJsDouble(jsData, key)
+            return if (fromParsed != -1.0) fromParsed else topLevel
+        }
+
+        val firebaseId = getString("firebaseId").takeIf { it.isNotEmpty() }
+        val idFallback = getString("id").takeIf { it.isNotEmpty() }
         val finalId = firebaseId ?: idFallback ?: docId
 
-        val rawStatus = getJsString(jsData, "status").uppercase()
+        val rawStatus = getString("status").uppercase()
         val mappedStatus = when (rawStatus) {
             "ACTIVE", "ACTIVO" -> TravelStatus.ACTIVE
             "COMPLETED", "FINALIZADO" -> TravelStatus.COMPLETED
             else -> TravelStatus.DRAFT
         }
 
-        val truckObj = getJsObj(jsData, "truck")
+        // Manejo de objeto truck
+        val truckObjFromParsed = if (parsedData != null) getJsObj(parsedData, "truck") else null
+        val truckObj = truckObjFromParsed ?: getJsObj(jsData, "truck")
         val truckName = if (truckObj != null) getJsString(truckObj, "name") else ""
 
         return Travel(
             id = finalId,
-            date = getJsString(jsData, "date"),
-            description = getJsString(jsData, "description"),
+            date = getString("date"),
+            description = getString("description"),
             status = mappedStatus,
             truckName = truckName,
-            kmOnOrigin = getJsInt(jsData, "kmOnOrigin"),
-            kmOnDestination = getJsInt(jsData, "kmOnDestination"),
-            pricePerKm = getJsDouble(jsData, "pricePerKm"),
-            litersOnPump = getJsDouble(jsData, "litersOnPump"),
-            fuelPrice = getJsDouble(jsData, "fuelPrice")
+            kmOnOrigin = getInt("kmOnOrigin").coerceAtLeast(0),
+            kmOnDestination = getInt("kmOnDestination").coerceAtLeast(0),
+            pricePerKm = getDouble("pricePerKm").coerceAtLeast(0.0),
+            litersOnPump = getDouble("litersOnPump").coerceAtLeast(0.0),
+            fuelPrice = getDouble("fuelPrice").coerceAtLeast(0.0)
         )
     }
 }
 
 // === Funciones top-level auxiliares de Wasm JS ===
-// En Wasm, `js("...")` solo está permitido en funciones top-level.
+
+internal fun parseJson(json: String): JsAny =
+    js("JSON.parse(json)")
 
 internal fun getJsString(obj: JsAny, key: String): String =
     js("obj[key] ? String(obj[key]) : ''")

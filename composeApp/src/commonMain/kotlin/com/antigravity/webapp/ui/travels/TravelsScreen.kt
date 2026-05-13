@@ -48,6 +48,7 @@ fun TravelsScreen(
     viewModel: TravelsViewModel,
     modifier: Modifier = Modifier
 ) {
+    println("[DEBUG_TRAVELS] Screen: TravelsScreen recomposing")
     val state by viewModel.state.collectAsState()
 
     TravelsContent(
@@ -63,6 +64,7 @@ private fun TravelsContent(
     onAction: (TravelsAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    println("[DEBUG_TRAVELS] Screen: TravelsContent recomposing with ${state.travels.size} travels")
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -165,6 +167,7 @@ private fun TravelCard(
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    println("[DEBUG_TRAVELS] Screen: Rendering TravelCard for ID: ${travel.id}")
     // Usamos el nuevo componente PiolaCard en lugar del Card genérico de Material3
     PiolaCard(
         modifier = modifier.fillMaxWidth(),

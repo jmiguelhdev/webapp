@@ -37,6 +37,8 @@ external object FirestoreModule {
         onNext: (QuerySnapshot) -> Unit, 
         onError: (JsAny) -> Unit
     ): JsAny // Retorna función de desuscripción. Cambiado de () -> Unit a JsAny para compatibilidad.
+
+    fun enableIndexedDbPersistence(firestore: Firestore): kotlin.js.Promise<JsAny>
 }
 
 // En Kotlin/Wasm, las lambdas que se pasan o devuelven a JS no se traducen

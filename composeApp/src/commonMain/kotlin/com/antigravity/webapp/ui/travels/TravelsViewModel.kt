@@ -23,10 +23,13 @@ class TravelsViewModel(
     // El estado principal se deriva de combinar el repositorio (fuente de verdad),
     // la búsqueda y los filtros de la UI.
     val state: StateFlow<TravelsState> = combine(
-        travelRepository.getTravels().onStart { /* Podríamos emitir carga local si es necesario */ },
+        travelRepository.getTravels().onStart { 
+            println("[DEBUG_TRAVELS] ViewModel: Starting getTravels flow collection")
+        },
         _searchQuery,
         _currentFilter
     ) { result, query, filter ->
+        println("[DEBUG_TRAVELS] ViewModel: State recalculating - query: '$query', filter: $filter")
         result.fold(
             onSuccess = { travels ->
                 val filtered = travels.filter { travel ->
@@ -70,6 +73,7 @@ class TravelsViewModel(
     )
 
     fun onAction(action: TravelsAction) {
+        println("[DEBUG_TRAVELS] ViewModel: Action received: $action")
         when (action) {
             is TravelsAction.OnSearchQueryChanged -> {
                 _searchQuery.value = action.query
