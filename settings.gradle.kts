@@ -1,4 +1,4 @@
-rootProject.name = "kmp-travel-web"
+rootProject.name = "webApp"
 
 pluginManagement {
     repositories {

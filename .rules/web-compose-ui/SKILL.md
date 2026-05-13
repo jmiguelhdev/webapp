@@ -22,7 +22,7 @@ En Compose para Web/Wasm, el rendimiento es crítico debido al overhead de la re
 - Todo el estado vive en el ViewModel.
 - **Diferencia con Android**: Usa `collectAsState()` en lugar de `collectAsStateWithLifecycle()` a menos que uses una biblioteca de ciclo de vida compatible con KMP.
 - No uses `remember` para estado de aplicación; solo para estado interno de la UI (ej. `ScrollState`).
-
+- Para cada estado genera una preview
 ## Recursos (Imágenes y Strings)
 
 Usa el sistema de recursos de Compose Multiplatform:
