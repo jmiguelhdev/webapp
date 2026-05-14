@@ -550,6 +550,23 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Desconocido';
       const buyer = contacts.find(c => c.id === op.sellSide?.contactId)?.name || op.sellSide?.contactId || '-';
 
+      // Dynamic days-to-vencimiento (dueDate + 30) from today
+      const _rowToday = new Date(); _rowToday.setHours(0, 0, 0, 0);
+      const _parseDLRow = (str) => {
+        if (!str) return null;
+        const p = String(str).split('T')[0].split('-');
+        return p.length === 3 ? new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])) : null;
+      };
+      const _vencDt = _parseDLRow(addDays(op.dueDate, 30));
+      const _daysToVenc = _vencDt ? Math.ceil((_vencDt - _rowToday) / 86400000) : null;
+      const _daysColor = _daysToVenc === null ? 'var(--text-muted)'
+        : _daysToVenc < 0 ? 'var(--danger)'
+        : _daysToVenc <= 10 ? '#f97316'
+        : 'var(--text-muted)';
+      const _daysLabel = _daysToVenc === null ? ''
+        : _daysToVenc < 0 ? `Venc. hace ${Math.abs(_daysToVenc)}d`
+        : `${_daysToVenc}d al vencimiento`;
+
       const cbCell = selectable ? `<td style="padding: 1rem; width: 40px;"><input type="checkbox" class="portfolio-check-cb" data-id="${op.id}" style="width:18px;height:18px;cursor:pointer;"></td>` : '';
       
       tr.innerHTML = `
@@ -562,7 +579,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
         <td style="padding: 1rem;">
           <div style="font-weight: 500; color: var(--primary);">💳 ${formatDateLocal(op.dueDate)}</div>
           <div style="font-size: 0.75rem; color: var(--text-muted);">Venc: ${formatDateLocal(addDays(op.dueDate, 30))}</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">${op.days} días</div>
+          ${_daysLabel ? `<div style="font-size: 0.75rem; color: ${_daysColor}; font-weight: 600;">${_daysLabel}</div>` : ''}
         </td>
         <td style="padding: 1rem; font-weight: 600;">${formatCurrency(op.nominalValue)}</td>
         <td style="padding: 1rem;">
@@ -589,6 +606,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
         </td>
         <td style="padding: 1rem; text-align: right; white-space: nowrap;">
           <button class="icon-btn edit-btn" title="Editar">✏️</button>
+          ${op.issuerCuit ? `<button class="icon-btn bcra-list-btn" title="Consultar BCRA: ${op.issuerCuit}" style="background:rgba(37,99,235,0.15);border:1px solid rgba(37,99,235,0.4);color:#3b82f6;border-radius:7px;padding:0.35rem 0.55rem;font-size:0.75rem;font-weight:700;cursor:pointer;margin-left:0.25rem;">🔍 BCRA</button>` : ''}
           <button class="icon-btn delete-btn" style="color: var(--danger);" title="Eliminar">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="pointer-events:none;"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>
           </button>
@@ -598,6 +616,15 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       tr.addEventListener('click', (e) => {
         if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, contacts, onSave); return; }
         if (e.target.closest('.delete-btn')) { onDelete(op.id); return; }
+        if (e.target.closest('.bcra-list-btn')) {
+          const cuit = (op.issuerCuit || '').replace(/\D/g, '');
+          if (!cuit || cuit.length < 11) { alert('CUIT no válido para consultar.'); return; }
+          navigator.clipboard.writeText(cuit).then(() => {
+            alert(`CUIT ${cuit} copiado al portapapeles.\n\nSe abrirá la web del BCRA. Pegá el CUIT allí para consultar.`);
+            window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
+          }).catch(() => window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank'));
+          return;
+        }
         if (e.target.closest('.portfolio-check-cb')) return; // handled by change
       });
 
@@ -762,6 +789,42 @@ function showOperationModal(existingOp, contacts, buyContacts, onSave) {
         </div>
       </div>
 
+      ${isEditing && existingOp?.sellSide ? `
+      <div style="background: rgba(16,185,129,0.04); border: 1px solid rgba(16,185,129,0.3); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+        <h3 style="margin: 0 0 1.25rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--success); font-weight: 600;">📤 Venta (Destino)</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem 1.5rem; align-items: end;">
+          <div class="form-group" style="margin:0;">
+            <label>Estado de la Operación</label>
+            <select name="sellSide_status" id="edit-sellside-status" style="width:100%;height:38px;padding:0 0.75rem;border-radius:8px;background:rgba(0,0,0,0.2);border:1px solid var(--border);color:var(--text-main);font-family:inherit;outline:none;">
+              <option value="PENDING" ${existingOp.sellSide.status === 'PENDING' ? 'selected' : ''}>En Cartera</option>
+              <option value="SOLD" ${existingOp.sellSide.status === 'SOLD' ? 'selected' : ''}>Vendido</option>
+              <option value="RETURNED" ${existingOp.sellSide.status === 'RETURNED' ? 'selected' : ''}>Devuelto</option>
+              <option value="BACK" ${existingOp.sellSide.status === 'BACK' ? 'selected' : ''}>Volvió</option>
+              <option value="REJECTED" ${existingOp.sellSide.status === 'REJECTED' ? 'selected' : ''}>Rechazado</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Comprador / Destinatario</label>
+            <input type="text" id="sellside-contact-input" list="sellside-contacts-datalist" placeholder="🔎 Buscar contacto..." autocomplete="off" value="${existingOp.sellSide.contactId ? (contacts.find(c => c.id === existingOp.sellSide.contactId)?.name || existingOp.sellSide.contactId) : ''}">
+            <datalist id="sellside-contacts-datalist">
+              ${contacts.map(c => `<option value="${c.name}"></option>`).join('')}
+            </datalist>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Pesificación Venta (%)</label>
+            <input type="number" step="0.01" name="sellSide_pesificacionRate" value="${existingOp.sellSide.pesificacionRate || ''}" placeholder="0.00">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Interés Mensual Venta (%)</label>
+            <input type="number" step="0.01" name="sellSide_monthlyInterest" value="${existingOp.sellSide.monthlyInterest || ''}" placeholder="0.00">
+          </div>
+          <div class="form-group" id="edit-backreason-group" style="margin:0; grid-column: 1 / -1; display:${existingOp.sellSide.status === 'BACK' ? 'block' : 'none'};">
+            <label>⚠️ Motivo de Retorno</label>
+            <textarea name="sellSide_backReason" rows="2" style="resize:vertical;" placeholder="Motivo...">${existingOp.sellSide.backReason || ''}</textarea>
+          </div>
+        </div>
+      </div>` : ''}
+
       <div class="form-group">
         <label>Notas / Observaciones</label>
         <textarea name="notes" rows="2" placeholder="Observaciones adicionales..." style="resize: vertical;">${existingOp?.notes || ''}</textarea>
@@ -795,6 +858,15 @@ function showOperationModal(existingOp, contacts, buyContacts, onSave) {
       window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
     });
   };
+
+  // Show/hide back-reason field when editing sell side status
+  const editStatusSel = content.querySelector('#edit-sellside-status');
+  const editBackReasonGrp = content.querySelector('#edit-backreason-group');
+  if (editStatusSel && editBackReasonGrp) {
+    editStatusSel.addEventListener('change', () => {
+      editBackReasonGrp.style.display = editStatusSel.value === 'BACK' ? 'block' : 'none';
+    });
+  }
 
   const form = content.querySelector('#check-form');
   
@@ -852,13 +924,35 @@ function showOperationModal(existingOp, contacts, buyContacts, onSave) {
         pesificacionRate: formData.get('buySide_pesificacionRate'),
         monthlyInterest: formData.get('buySide_monthlyInterest')
       },
-      sellSide: existingOp?.sellSide || {
-        status: 'PENDING',
-        contactId: null,
-        pesificacionRate: '',
-        monthlyInterest: '',
-        backReason: ''
-      }
+      sellSide: (() => {
+        if (isEditing && existingOp?.sellSide) {
+          // Preserve existing sellSide but allow status change from the edit form
+          const statusEl = content.querySelector('#edit-sellside-status');
+          const sellContactInput = content.querySelector('#sellside-contact-input');
+          const sellPesif = formData.get('sellSide_pesificacionRate');
+          const sellInterest = formData.get('sellSide_monthlyInterest');
+          const sellBackReason = formData.get('sellSide_backReason');
+          const newStatus = statusEl ? statusEl.value : existingOp.sellSide.status;
+          const sellContactName = sellContactInput ? sellContactInput.value.trim() : '';
+          const matchedSellContact = contacts.find(c => c.name.toLowerCase().trim() === sellContactName.toLowerCase());
+          const sellContactId = matchedSellContact ? matchedSellContact.id : (sellContactName || existingOp.sellSide.contactId);
+          return {
+            ...existingOp.sellSide,
+            status: newStatus,
+            contactId: sellContactId || existingOp.sellSide.contactId,
+            pesificacionRate: sellPesif !== null && sellPesif !== '' ? sellPesif : existingOp.sellSide.pesificacionRate,
+            monthlyInterest: sellInterest !== null && sellInterest !== '' ? sellInterest : existingOp.sellSide.monthlyInterest,
+            backReason: sellBackReason !== null ? sellBackReason : (existingOp.sellSide.backReason || '')
+          };
+        }
+        return existingOp?.sellSide || {
+          status: 'PENDING',
+          contactId: null,
+          pesificacionRate: '',
+          monthlyInterest: '',
+          backReason: ''
+        };
+      })()
     };
     onSave(data);
     modal.remove();
