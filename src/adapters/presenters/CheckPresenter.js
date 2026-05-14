@@ -24,7 +24,7 @@ export class CheckPresenter {
     this.pagination = {
       portfolioPage: 1,
       historyPage: 1,
-      itemsPerPage: 15
+      itemsPerPage: 50
     };
   }
 
