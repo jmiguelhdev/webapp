@@ -1,4 +1,6 @@
 // src/adapters/presenters/CheckPresenter.js
+import { Check } from '../../domain/entities/Check.js';
+import { GetChecksSummary } from '../../domain/usecases/GetChecksSummary.js';
 
 export class CheckPresenter {
   constructor(checkRepository, ui, operatorRepository, clientRepository) {
@@ -262,62 +264,16 @@ export class CheckPresenter {
   }
 
   calculateOperation(op) {
-    op.nominalValue = parseFloat(op.nominalValue) || 0;
-    const nominalValue = op.nominalValue;
-    const reception = new Date(op.receptionDate);
-    const due = new Date(op.dueDate);
-    op.clearing = parseInt(op.clearing) || 0;
-    const clearing = op.clearing;
-    
-    // TTL: 3 years from reception date.
-    // Stored as a native Date so Firestore serializes it as a Timestamp.
-    // To enable auto-deletion, configure a TTL policy on the 'check_operations'
-    // collection using the field name "expireAt" in the Firestore console.
-    const expireAt = new Date(reception);
-    expireAt.setFullYear(expireAt.getFullYear() + 3);
-    op.expireAt = expireAt;
-    
-    // Calculate days: (Due - Reception) + Clearing
-    const diffTime = due.getTime() - reception.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const totalDays = Math.max(0, diffDays + clearing);
-    
-    op.days = totalDays;
-
-    // Issue Date handling (no calculation needed, just ensures consistency)
-    if (op.issueDate && !isNaN(new Date(op.issueDate).getTime())) {
-      // Keep as string ISO for consistency with other dates in this app
-    }
-
-    // Buy side calculation
-    if (op.buySide) {
-      op.buySide.pesificacionRate = parseFloat(op.buySide.pesificacionRate) || 0;
-      op.buySide.monthlyInterest = parseFloat(op.buySide.monthlyInterest) || 0;
-      
-      const pesificationAmount = nominalValue * (op.buySide.pesificacionRate / 100);
-      const interestAmount = nominalValue * (op.buySide.monthlyInterest / 100 / 30) * totalDays;
-      
-      op.buySide.netAmount = nominalValue - pesificationAmount - interestAmount;
-    }
-
-    // Sell side calculation
-    if (op.sellSide && op.sellSide.status === 'SOLD') {
-      op.sellSide.pesificacionRate = parseFloat(op.sellSide.pesificacionRate) || 0;
-      op.sellSide.monthlyInterest = parseFloat(op.sellSide.monthlyInterest) || 0;
-      
-      const pesificationAmount = nominalValue * (op.sellSide.pesificacionRate / 100);
-      const interestAmount = nominalValue * (op.sellSide.monthlyInterest / 100 / 30) * totalDays;
-      
-      op.sellSide.netAmount = nominalValue - pesificationAmount - interestAmount;
-      op.profit = (op.sellSide.netAmount || 0) - (op.buySide ? op.buySide.netAmount : 0);
-    } else if (op.sellSide && (op.sellSide.status === 'RETURNED' || op.sellSide.status === 'REJECTED')) {
-      // Dejan registro pero sin ganancia.
-      op.profit = 0;
-    } else {
-      op.profit = 0;
-    }
-
-    return op;
+    const check = new Check(op);
+    check.calculate();
+    return {
+      ...op,
+      days: check.days,
+      expireAt: check.expireAt,
+      buySide: check.buySide ? { ...check.buySide } : null,
+      sellSide: check.sellSide ? { ...check.sellSide } : null,
+      profit: check.profit
+    };
   }
 
   async saveBatchBuy(operationsArray) {
@@ -358,9 +314,15 @@ export class CheckPresenter {
   }
 
   render() {
+    const getChecksSummary = new GetChecksSummary();
+    const globalSummary = getChecksSummary.execute(this.checks);
+    const filteredSummary = getChecksSummary.execute(this.getFilteredChecks());
+
     this.ui.renderChecks({
-      checks: this.checks,
-      filteredChecks: this.getFilteredChecks(),
+      checks: globalSummary.domainChecks,
+      filteredChecks: filteredSummary.domainChecks,
+      globalSummary,
+      filteredSummary,
       filters: this.filters,
       pagination: this.pagination,
       contacts: this.contacts,

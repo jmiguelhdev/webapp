@@ -15,7 +15,7 @@ import { showOperationModal, showBatchBuyModal, showBatchSellModal } from '../co
 import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../utils/formatters.js';
 
 export function renderChecks(container, options) {
-  const { checks, filteredChecks, filters, contacts, pagination, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell, onPortfolioPageChange, onHistoryPageChange } = options;
+  const { checks, filteredChecks, globalSummary, filteredSummary, filters, contacts, pagination, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell, onPortfolioPageChange, onHistoryPageChange } = options;
   container.innerHTML = '';
 
   const header = el('div', { 
@@ -73,28 +73,7 @@ export function renderChecks(container, options) {
 
   container.appendChild(header);
 
-  // Realized profit: only SOLD checks have profit > 0
-  const totalProfit = checks.reduce((sum, c) => sum + (c.profit || 0), 0);
-  
-  const isPortfolio = (c) => {
-    const st = c.sellSide?.status;
-    // RETURNED re-enters the portfolio so the check can be re-sold or tracked with its warning badge
-    return !st || st === 'PENDING' || st === 'BACK' || st === 'RETURNED';
-  };
-  const isHistory = (c) => {
-    const st = c.sellSide?.status;
-    return st === 'SOLD' || st === 'REJECTED';
-  };
-
-  const portfolioChecks = checks.filter(isPortfolio);
-  const totalInPortfolio = portfolioChecks.reduce((sum, c) => sum + (parseFloat(c.nominalValue) || 0), 0);
-
-  // Unrealized gain = purchase discounts locked in but not yet sold
-  const totalPortfolioDiscount = portfolioChecks.reduce((sum, c) => {
-    const nominal = parseFloat(c.nominalValue) || 0;
-    const netPaid = parseFloat(c.buySide?.netAmount);
-    return sum + (isNaN(netPaid) ? 0 : nominal - netPaid);
-  }, 0);
+  const { totalProfit, totalPortfolioDiscount, totalInPortfolio, portfolioChecksCount, expiringChecks } = globalSummary;
 
   const statsGrid = el('div', { 
     classes: ['stats-grid'],
@@ -104,20 +83,11 @@ export function renderChecks(container, options) {
   statsGrid.appendChild(createStatCard('Ganancia Vendida', formatCurrency(totalProfit), 'var(--success)'));
   statsGrid.appendChild(createStatCard('Desc. en Cartera', formatCurrency(totalPortfolioDiscount), 'var(--success)'));
   statsGrid.appendChild(createStatCard('Capital en Cartera', formatCurrency(totalInPortfolio), 'var(--primary)'));
-  statsGrid.appendChild(createStatCard('Cheques en Cartera', portfolioChecks.length, 'var(--primary)'));
+  statsGrid.appendChild(createStatCard('Cheques en Cartera', portfolioChecksCount, 'var(--primary)'));
 
   container.appendChild(statsGrid);
 
   // ── Warning banner: checks PRÓXIMO A VENCER ──
-  const today0 = new Date(); today0.setHours(0,0,0,0);
-  const expiringChecks = portfolioChecks.filter(c => {
-    const pay = parseDateLocal(c.dueDate); if (!pay) return false;
-    const exp = new Date(pay); exp.setDate(pay.getDate() + 30);
-    const dPay = Math.ceil((pay - today0) / 86400000);
-    const dExp = Math.ceil((exp - today0) / 86400000);
-    return dPay <= 0 && dExp >= 0 && dExp <= 10;
-  });
-
   if (expiringChecks.length > 0) {
     const banner = el('div', {
       style: 'position:relative; margin-bottom:1.25rem; padding:1rem 3rem 1rem 1.25rem; background:rgba(239,68,68,0.1); border:1.5px solid rgba(239,68,68,0.5); border-radius:14px; display:flex; align-items:flex-start; gap:0.75rem;'
@@ -148,10 +118,9 @@ export function renderChecks(container, options) {
     container.appendChild(banner);
   }
 
-  // Apply filters before splitting sections to compute counts
-  const currentList = filteredChecks || checks;
-  const currentHistory = currentList.filter(isHistory);
-  const currentPortfolio = currentList.filter(isPortfolio);
+  // Split sections using precalculated lists from filteredSummary
+  const currentPortfolio = filteredSummary.portfolioChecks;
+  const currentHistory = filteredSummary.historyChecks;
 
   // Filters Bar
   const filtersBar = el('div', { 
@@ -274,8 +243,8 @@ export function renderChecks(container, options) {
   const isFiltered = filters?.searchTerm || filters?.startDate || filters?.endDate;
   const filterLabel = isFiltered ? 'Resultados de los filtros aplicados' : 'Total sin filtros adicionales';
   
-  const totalPortfolioFiltered = currentPortfolio.reduce((acc, c) => acc + (parseFloat(c.nominalValue) || 0), 0);
-  const totalHistoryFiltered = currentHistory.reduce((acc, c) => acc + (parseFloat(c.nominalValue) || 0), 0);
+  const totalPortfolioFiltered = filteredSummary.totalInPortfolio;
+  const totalHistoryFiltered = currentHistory.reduce((acc, c) => acc + c.nominalValue, 0);
   
   filterCountBar.innerHTML = `
     <span style="font-size: 0.9rem; color: var(--text-muted);">
@@ -461,41 +430,22 @@ function renderPaginationControls(currentPage, totalPages, totalItems, onPageCha
 }
 
 function getCheckStatusBadge(op) {
-  const status = op.sellSide?.status || 'PENDING';
+  const alertState = op.getAlertState();
   let badgeHtml = '';
   
-  if (status === 'SOLD') badgeHtml += '<span class="status-badge badge-success">VENDIDO</span>';
-  else if (status === 'RETURNED') badgeHtml += '<span class="status-badge badge-warning">DEVUELTO</span>';
-  else if (status === 'REJECTED') badgeHtml += '<span class="status-badge badge-danger">RECHAZADO</span>';
-  else if (status === 'BACK') badgeHtml += '<span class="status-badge badge-back">VOLVIÓ - Contactar Vendedor</span>';
+  if (alertState.status === 'SOLD') badgeHtml += '<span class="status-badge badge-success">VENDIDO</span>';
+  else if (alertState.status === 'RETURNED') badgeHtml += '<span class="status-badge badge-warning">DEVUELTO</span>';
+  else if (alertState.status === 'REJECTED') badgeHtml += '<span class="status-badge badge-danger">RECHAZADO</span>';
+  else if (alertState.status === 'BACK') badgeHtml += '<span class="status-badge badge-back">VOLVIÓ - Contactar Vendedor</span>';
   
-  // Evaluate date alerts if it's in portfolio
-  if (status === 'PENDING' || status === 'BACK') {
-    // Use local-date parsing (YYYY-MM-DD → local midnight) to avoid UTC day-shift.
-    // new Date("YYYY-MM-DD") is UTC midnight which in UTC-3 is 21:00 the day before,
-    // causing setHours(0,0,0,0) to land on the wrong calendar day.
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const payDate = parseDateLocal(op.dueDate);
-    const expiryDate = new Date(payDate);
-    expiryDate.setDate(payDate.getDate() + 30);
-
-    const diffToPayDate = Math.ceil((payDate - today) / (1000 * 60 * 60 * 24));
-    const diffToExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-
-    if (diffToExpiry < 0) {
-      // Pasaron los 30 días de gracia → cheque vencido, no cobrable
-      badgeHtml += ' <span class="status-badge badge-danger">⛔ VENCIDO</span>';
-    } else if (diffToPayDate <= 0 && diffToExpiry <= 10) {
-      // Quedan 10 días o menos para el vencimiento → urgente
-      badgeHtml += ' <span class="status-badge" style="background:rgba(249,115,22,0.18);color:#f97316;border:1px solid rgba(249,115,22,0.4);font-weight:700;">⏳ PRÓXIMO A VENCER</span>';
-    } else if (diffToPayDate <= 0) {
-      // Fecha de pago pasó, aún dentro del período de gracia → disponible para cobrar
-      badgeHtml += ' <span class="status-badge badge-disponible">✅ DISPONIBLE</span>';
-    } else if (diffToPayDate <= 10) {
-      // Fecha de pago en los próximos 10 días → avisar que se acerca
-      badgeHtml += ` <span class="status-badge" style="background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.35);">🔔 PAGO EN ${diffToPayDate}d</span>`;
-    }
+  if (alertState.code === 'EXPIRED') {
+    badgeHtml += ' <span class="status-badge badge-danger">⛔ VENCIDO</span>';
+  } else if (alertState.code === 'EXPIRING_URGENT') {
+    badgeHtml += ' <span class="status-badge" style="background:rgba(249,115,22,0.18);color:#f97316;border:1px solid rgba(249,115,22,0.4);font-weight:700;">⏳ PRÓXIMO A VENCER</span>';
+  } else if (alertState.code === 'AVAILABLE') {
+    badgeHtml += ' <span class="status-badge badge-disponible">✅ DISPONIBLE</span>';
+  } else if (alertState.code === 'UPCOMING_PAYMENT') {
+    badgeHtml += ` <span class="status-badge" style="background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.35);">🔔 PAGO EN ${alertState.days}d</span>`;
   }
 
   return badgeHtml || '<span class="status-badge badge-pending">EN CARTERA</span>';
@@ -535,15 +485,11 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       const buyer = contacts.find(c => c.id === op.sellSide?.contactId)?.name || op.sellSide?.contactId || '-';
 
       // Dynamic days-to-vencimiento (dueDate + 30) from today
-      const _rowToday = new Date(); _rowToday.setHours(0, 0, 0, 0);
-      const _vencDt = parseDateLocal(addDays(op.dueDate, 30));
-      const _daysToVenc = _vencDt ? Math.ceil((_vencDt - _rowToday) / 86400000) : null;
-      const _daysColor = _daysToVenc === null ? 'var(--text-muted)'
-        : _daysToVenc < 0 ? 'var(--danger)'
+      const _daysToVenc = op.getDaysToExpiry();
+      const _daysColor = _daysToVenc < 0 ? 'var(--danger)'
         : _daysToVenc <= 10 ? '#f97316'
         : 'var(--text-muted)';
-      const _daysLabel = _daysToVenc === null ? ''
-        : _daysToVenc < 0 ? `Venc. hace ${Math.abs(_daysToVenc)}d`
+      const _daysLabel = _daysToVenc < 0 ? `Venc. hace ${Math.abs(_daysToVenc)}d`
         : `${_daysToVenc}d al vencimiento`;
 
       const cbCell = selectable ? `<td style="padding: 1rem; width: 40px;"><input type="checkbox" class="portfolio-check-cb" data-id="${op.id}" style="width:18px;height:18px;cursor:pointer;"></td>` : '';
@@ -570,15 +516,10 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
         <td style="padding: 1rem; font-weight: 600;">
           ${(() => {
             if (isSold) {
-              // Realized profit on sold check
               return `<span style="color:var(--success);">${formatCurrency(op.profit)}</span>`;
             }
-            const nominal = parseFloat(op.nominalValue) || 0;
-            const netPaid  = parseFloat(op.buySide?.netAmount);
-            if (!isNaN(netPaid) && nominal > 0) {
-              const disc = nominal - netPaid;
-              const pct  = ((disc / nominal) * 100).toFixed(2);
-              return `<span style="color:var(--success);">${formatCurrency(disc)}</span><div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.1rem;">${pct}% desc.</div>`;
+            if (op.purchaseDiscount > 0) {
+              return `<span style="color:var(--success);">${formatCurrency(op.purchaseDiscount)}</span><div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.1rem;">${op.purchaseDiscountPercentage.toFixed(2)}% desc.</div>`;
             }
             return '<span style="color:var(--text-muted);">-</span>';
           })()}
