@@ -1,6 +1,7 @@
 // src/adapters/presenters/TravelPresenter.js
 import { GetTravels } from '../../domain/usecases/GetTravels.js';
 import { CalculateCategoryStats } from '../../domain/usecases/CalculateCategoryStats.js';
+import { GetStockSummary } from '../../domain/usecases/GetStockSummary.js';
 import { PdfFaenaService } from '../../services/PdfFaenaService.js';
 import { SHARED_DATA_SOURCE_UID } from '../../config.js';
 import { debounce } from '../../utils.js';
@@ -14,6 +15,7 @@ export class TravelPresenter {
     this.clientRepository = clientRepository;
     this.getTravelsUseCase = new GetTravels(travelRepository);
     this.calculateStatsUseCase = new CalculateCategoryStats();
+    this.getStockSummaryUseCase = new GetStockSummary();
     this.pdfService = new PdfFaenaService();
     this.ui = ui;
     this.allTravels = [];
@@ -377,26 +379,10 @@ export class TravelPresenter {
     const completed = this.completedTravelsCache || [];
     const allCategories = this.allCategoriesCache || ['TODOS'];
 
-    // 1. Filter travels data by time and categories
-    let filtered = this._applyTimeFilter(completed);
-    if (this.state.selectedCategories.length > 0) {
-      filtered = filtered.filter(t => 
-        t.buy && t.buy.categories && t.buy.categories.some(cat => this.state.selectedCategories.includes(cat))
-      );
-    }
-
-    // 2. Calculate KPI stats
-    const categoryStats = this.calculateStatsUseCase.execute(
-      filtered,
-      this.state.selectedCategories,
-      this.state.includeCommission
-    );
-
-    // 3. NEW: Load Stock and Dispatch data
+    // 1. Load Stock and Dispatch data first to have categoryPrices
     let stockItems = [];
     let historyItems = [];
     let clients = [];
-    
     let categoryPrices = {};
     
     try {
@@ -412,7 +398,32 @@ export class TravelPresenter {
       console.error("Error loading dashboard extended data:", e);
     }
 
-    // 4. Render Dashboard via UI Interface
+    // 2. Filter travels data by time and categories
+    let filtered = this._applyTimeFilter(completed);
+    if (this.state.selectedCategories.length > 0) {
+      filtered = filtered.filter(t => 
+        t.buy && t.buy.categories && t.buy.categories.some(cat => this.state.selectedCategories.includes(cat))
+      );
+    }
+
+    // 3. Calculate KPI stats with categoryPrices
+    const categoryStats = this.calculateStatsUseCase.execute(
+      filtered,
+      this.state.selectedCategories,
+      this.state.includeCommission,
+      categoryPrices
+    );
+
+    // 4. Calculate stock totals using domain GetStockSummary
+    const stockSummary = this.getStockSummaryUseCase.execute({
+      stockItems,
+      draftItems: [],
+      achurasItems: [],
+      selectedIds: new Set(),
+      categoryPriceInputs: {}
+    });
+
+    // 5. Render Dashboard via UI Interface
     this.ui.renderDashboard({
       data: filtered,
       categories: allCategories,
@@ -421,7 +432,7 @@ export class TravelPresenter {
       categoryStats,
       
       // Stock & Dispatch data
-      stockItems,
+      stockTotals: stockSummary.stockTotals,
       historyItems,
       clients,
       categoryPrices,

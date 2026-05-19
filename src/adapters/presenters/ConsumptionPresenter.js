@@ -1,5 +1,6 @@
 // src/adapters/presenters/ConsumptionPresenter.js
 import { debounce } from '../../utils.js';
+import { GetStockSummary } from '../../domain/usecases/GetStockSummary.js';
 
 
 export class ConsumptionPresenter {
@@ -40,6 +41,8 @@ export class ConsumptionPresenter {
       this.state.historyFilters.search = val.toLowerCase();
       this.updateView();
     }, 400);
+
+    this.getStockSummary = new GetStockSummary();
   }
 
   setUserRole(role) {
@@ -445,12 +448,21 @@ export class ConsumptionPresenter {
       }
     });
 
+    const faenaStockSummary = this.getStockSummary.execute({
+      stockItems: stock,
+      draftItems: drafts,
+      achurasItems: this.achurasItems,
+      selectedIds: this.state.selectedIds,
+      categoryPriceInputs: this.state.categoryPriceInputs
+    });
+
     const options = {
       state: this.state,
       stockItems: stock,
       draftItems: drafts,
       historyItems: history,
       achurasItems: this.achurasItems,
+      faenaStockSummary,
       allTropas,
       finishedTropas,
       userRole: this.userRole,

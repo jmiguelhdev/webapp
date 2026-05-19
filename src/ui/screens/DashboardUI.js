@@ -1,11 +1,30 @@
+/**
+ * @file DashboardUI.js
+ * @description Panel visual de control gerencial para el análisis de tendencias, rendimientos de faena, stock en cámaras y simulación de costos reales en gancho.
+ * @module ui/screens/DashboardUI
+ * @author Antigravity
+ */
+
 import { el } from '../../utils/dom.js';
 import { renderTimeFilterUI } from '../components/Filters.js';
 import { MarketService } from '../../api/MarketService.js';
 import Chart from 'chart.js/auto';
 
-// Scoped chart instances for this module
+/**
+ * Instancias de gráficos activos cargados por Chart.js.
+ * Se conservan en el ámbito local del módulo para destruirlas y recrearlas limpiamente al cambiar de filtros.
+ * @type {Object<string, Chart>}
+ */
 let chartInstances = {};
 
+/**
+ * Genera una tarjeta de KPI estadístico estandarizada.
+ * @param {string} label - Título o etiqueta descriptiva de la tarjeta.
+ * @param {string|number} value - Valor numérico o textual principal a resaltar.
+ * @param {string} icon - Emoji o ícono representativo.
+ * @param {string} [subtext=''] - Texto secundario aclaratorio.
+ * @returns {HTMLElement} Elemento DOM que contiene la tarjeta renderizada.
+ */
 function renderStatCard(label, value, icon, subtext = '') {
   return el('div', { 
     classes: ['stat-card'], 
@@ -19,12 +38,31 @@ function renderStatCard(label, value, icon, subtext = '') {
   });
 }
 
+/**
+ * Renderiza el dashboard interactivo de analítica gerencial en el contenedor DOM especificado.
+ * @param {HTMLElement} container - Contenedor raíz donde se inyectará la vista.
+ * @param {Object} options - Parámetros de configuración, datos filtrados y handlers de eventos.
+ * @param {Array<Object>} [options.data=[]] - Viajes completados que alimentan la analítica.
+ * @param {Array<string>} [options.categories=[]] - Lista completa de categorías disponibles para el filtro.
+ * @param {Array<string>} [options.selectedCategories=[]] - Categorías actualmente seleccionadas.
+ * @param {boolean} [options.includeCommission=false] - Flag para incluir comisiones en los cálculos de precios promedios.
+ * @param {Function} options.onCategoryToggle - Callback invocado al alternar el filtro de una categoría.
+ * @param {Function} options.onCommissionToggle - Callback invocado al alternar la comisión.
+ * @param {Object} options.categoryStats - Resumen de métricas y analíticas devuelto por el caso de uso del dominio.
+ * @param {Object} options.stockTotals - Resumen consolidado del stock actual de medias reses (kilos, cantidad global y por categoría).
+ * @param {Array<Object>} [options.historyItems=[]] - Elementos de despacho del día.
+ * @param {Array<Object>} [options.clients=[]] - Listado de clientes cargados.
+ * @param {Object} [options.dashHistoryFilters={}] - Filtros activos del acordeón de despachos históricos.
+ * @param {Function} options.onDashHistoryFilter - Callback invocado al actualizar un filtro de despachos históricos.
+ * @param {Object} [options.categoryPrices={}] - Referencia de precios de venta configurados por categoría.
+ */
 export function renderDashboard(container, options) {
   const { 
     data = [], categories = [], selectedCategories = [], includeCommission = false, 
     onCategoryToggle, onCommissionToggle,
     categoryStats,
-    stockItems = [], historyItems = [], clients = [], dashHistoryFilters = {},
+    stockTotals = { kg: 0, count: 0, byCategory: {} },
+    historyItems = [], clients = [], dashHistoryFilters = {},
     onDashHistoryFilter,
     categoryPrices = {}
   } = options;
@@ -40,16 +78,6 @@ export function renderDashboard(container, options) {
 
     // --- 1. STOCK ACTUAL SECTION ---
     const stockSection = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; padding: 1.5rem;' });
-    const stockTotals = stockItems.reduce((acc, item) => {
-      acc.kg += item.kg || 0;
-      acc.count += 1;
-      const cat = item.standardizedCategory || 'OTRO';
-      if (!acc.byCategory[cat]) acc.byCategory[cat] = { kg: 0, count: 0 };
-      acc.byCategory[cat].kg += item.kg || 0;
-      acc.byCategory[cat].count += 1;
-      return acc;
-    }, { kg: 0, count: 0, byCategory: {} });
-
     stockSection.innerHTML = `
       <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
         <span style="font-size: 1.5rem;">🥩</span>
@@ -116,40 +144,23 @@ export function renderDashboard(container, options) {
       statsGrid.appendChild(renderStatCard(`Compra Prom. [${labelSuffix}]`, `$${(categoryStats.avgPrice || 0).toFixed(2)}`, '💰'));
       statsGrid.appendChild(renderStatCard('Compra c/Comis.', `$${(categoryStats.avgPriceWithCommission || 0).toFixed(2)}`, '💸'));
       
-      // Dynamic Real Cost and Margin Cards when ONE category is selected
+      // Simulación del Costo Real en Gancho con IIBB, Flete y Comisión
       if (selectedCategories.length === 1) {
         const cat = selectedCategories[0];
-        const sellPriceRef = parseFloat(categoryPrices[cat]) || 0;
-        
-        // --- REAL COST LOGIC (Refined Simulator Logic) ---
-        // 1. Costo Vivo = (Compra + Flete + Comisión) / KgLimpio
-        const totalBaseCost = includeCommission ? (categoryStats.avgPriceWithCommission * categoryStats.totalKg) : (categoryStats.avgPrice * categoryStats.totalKg);
-        const totalFreight = categoryStats.totalFreight || 0;
-        const totalKg = categoryStats.totalKg || 1;
-        const costoVivo = (totalBaseCost + totalFreight) / totalKg;
+        const { realCostGancho, sellPriceRef, margin, marginPct, yieldVal } = categoryStats;
 
-        // 2. Costo Gancho = Costo Vivo / Rendimiento
-        const yieldVal = categoryStats.avgYield || 0.58; // fallback to 58% if no yield data
-        const costoGancho = yieldVal > 0 ? (costoVivo / yieldVal) : 0;
-
-        // 3. Costo Final (with IIBB) = Costo Gancho / (1 - IIBB_Rate)
-        const iibbRate = 0.017; // 1.7% from Simulator
-        const realCostGancho = costoGancho / (1 - iibbRate);
-
-        statsGrid.appendChild(renderStatCard('Costo Real en Gancho', `$${realCostGancho.toFixed(2)}`, '🏗️', `Rend: ${(yieldVal * 100).toFixed(1)}% | Incl. Flete, Comis. e IIBB`));
+        statsGrid.appendChild(renderStatCard('Costo Real en Gancho', `$${(realCostGancho || 0).toFixed(2)}`, '🏗️', `Rend: ${((yieldVal || 0) * 100).toFixed(1)}% | Incl. Flete, Comis. e IIBB`));
 
         if (sellPriceRef > 0) {
-          const margin = sellPriceRef - realCostGancho;
-          const marginPct = (margin / (realCostGancho || 1)) * 100;
           const marginColor = margin >= 0 ? '#10b981' : '#ef4444';
 
-          statsGrid.appendChild(renderStatCard(`Venta Config [${cat}]`, `$${sellPriceRef.toFixed(2)}`, '🏷️'));
+          statsGrid.appendChild(renderStatCard(`Venta Config [${cat}]`, `$${(sellPriceRef || 0).toFixed(2)}`, '🏷️'));
 
-          const diffCard = renderStatCard('Utilidad $/Kg (Real)', `${margin >= 0 ? '+' : ''}$${margin.toFixed(2)}`, '⚖️');
+          const diffCard = renderStatCard('Utilidad $/Kg (Real)', `${margin >= 0 ? '+' : ''}$${(margin || 0).toFixed(2)}`, '⚖️');
           diffCard.querySelector('h3').style.color = marginColor;
           statsGrid.appendChild(diffCard);
 
-          const pctCard = renderStatCard('Rendimiento Final', `${marginPct >= 0 ? '+' : ''}${marginPct.toFixed(2)}%`, '📊');
+          const pctCard = renderStatCard('Rendimiento Final', `${marginPct >= 0 ? '+' : ''}${(marginPct || 0).toFixed(2)}%`, '📊');
           pctCard.querySelector('h3').style.color = marginColor;
           statsGrid.appendChild(pctCard);
         }
@@ -166,7 +177,7 @@ export function renderDashboard(container, options) {
       const totalCostoFaenados = (categoryStats.totalKgFaena || 0) * (categoryStats.avgPriceWithCommission || 0);
       statsGrid.appendChild(renderStatCard('Kilos Faenados', `${(categoryStats.totalKgFaena || 0).toLocaleString()} kg`, '🔪', `Costo: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}`));
 
-      // Market comparison (MAG)
+      // Comparación con mercado de referencia MAG (Mercado Agroganadero)
       const selectedCat = selectedCategories.length === 1 ? selectedCategories[0] : null;
       if (selectedCat && selectedCat !== 'TODOS') {
         MarketService.getReferencePrices().then(prices => {
@@ -213,6 +224,7 @@ export function renderDashboard(container, options) {
     dateFilter.innerHTML = `<label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.25rem;">Fecha</label>
       <input type="date" class="form-input" style="width:100%" value="${dashHistoryFilters.date || ''}">`;
     dateFilter.querySelector('input').onchange = (e) => onDashHistoryFilter('date', e.target.value);
+    
     const destFilter = el('div', { style: 'flex: 2; min-width: 200px;' });
     destFilter.innerHTML = `<label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.25rem;">Filtrar por Destino</label>
       <select class="form-input" style="width:100%">
@@ -220,6 +232,7 @@ export function renderDashboard(container, options) {
         ${clients.map(c => `<option value="${c.name}" ${dashHistoryFilters.destination === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
       </select>`;
     destFilter.querySelector('select').onchange = (e) => onDashHistoryFilter('destination', e.target.value);
+    
     dFilters.appendChild(dateFilter);
     dFilters.appendChild(destFilter);
     dispatchContent.appendChild(dFilters);
@@ -243,12 +256,14 @@ export function renderDashboard(container, options) {
         </tbody>`;
       listTable.appendChild(table);
       dispatchContent.appendChild(listTable);
+
       const destSummary = filteredHistory.reduce((acc, i) => {
         const d = i.destination || 'Otro';
         if (!acc[d]) acc[d] = { count: 0, kg: 0 };
         acc[d].count++; acc[d].kg += i.kg || 0;
         return acc;
       }, {});
+      
       const summaryRow = el('div', { style: 'margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;' });
       Object.entries(destSummary).forEach(([dest, val]) => {
         const card = el('div', { style: 'background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 0.75rem 1rem; flex: 1; min-width: 150px;' });
@@ -261,7 +276,7 @@ export function renderDashboard(container, options) {
     dispatchSection.appendChild(dispatchContent);
     wrapper.appendChild(dispatchSection);
 
-    if (data.length === 0 && stockItems.length === 0) {
+    if (data.length === 0 && stockTotals.kg === 0) {
       const emptyMsg = el('div', { classes: ['alert', 'info'], text: 'No hay datos suficientes.' });
       wrapper.appendChild(emptyMsg);
       container.appendChild(wrapper);
@@ -269,40 +284,7 @@ export function renderDashboard(container, options) {
     }
 
     // --- 5. CHARTS & RANKINGS ---
-    const trendsMap = {};
-    const catDistributionMap = {};
-    const entityMap = {};
-    data.forEach(t => {
-      const date = t.date || 'Sin Fecha';
-      if (!trendsMap[date]) trendsMap[date] = { totalPrice: 0, totalYield: 0, count: 0 };
-      const buy = t.buy || {};
-      const price = includeCommission ? (buy.avgPriceWithCommission || 0) : (buy.avgPrice || 0);
-      const yieldVal = (buy.generalYield || 0) * 100;
-      trendsMap[date].totalPrice += price; trendsMap[date].totalYield += yieldVal; trendsMap[date].count++;
-
-      (buy.categories || []).forEach(cat => { 
-        if (!catDistributionMap[cat]) catDistributionMap[cat] = { kg: 0, buyPriceSum: 0, count: 0 }; 
-        const kgShare = (buy.totalKgClean || 0) / (buy.categories.length || 1);
-        catDistributionMap[cat].kg += kgShare;
-        catDistributionMap[cat].buyPriceSum += price;
-        catDistributionMap[cat].count++;
-      });
-      
-      const agentName = buy.agent?.name;
-      if (agentName) {
-        if (!entityMap[agentName]) entityMap[agentName] = { totalPrice: 0, totalYield: 0, yields: [], count: 0, totalKg: 0, type: 'AGENT', minYield: 999, maxYield: 0 };
-        entityMap[agentName].totalPrice += price; entityMap[agentName].totalYield += yieldVal; entityMap[agentName].totalKg += (buy.totalKgClean || 0); entityMap[agentName].count++;
-        entityMap[agentName].minYield = Math.min(entityMap[agentName].minYield, yieldVal); entityMap[agentName].maxYield = Math.max(entityMap[agentName].maxYield, yieldVal);
-      }
-      (buy.listOfProducers || []).forEach(p => {
-        const pName = p.producer?.name;
-        if (pName) {
-          if (!entityMap[pName]) entityMap[pName] = { totalPrice: 0, totalYield: 0, yields: [], count: 0, totalKg: 0, type: 'PRODUCER', minYield: 999, maxYield: 0 };
-          entityMap[pName].totalPrice += price; entityMap[pName].totalYield += yieldVal; entityMap[pName].totalKg += (p.totalKgClean || 0); entityMap[pName].count++;
-          entityMap[pName].minYield = Math.min(entityMap[pName].minYield, yieldVal); entityMap[pName].maxYield = Math.max(entityMap[pName].maxYield, yieldVal);
-        }
-      });
-    });
+    const { trendsMap = {}, catDistributionMap = {}, entityMap = {} } = categoryStats || {};
 
     const sortedDates = Object.keys(trendsMap).sort((a,b) => new Date(a) - new Date(b));
     const chartGrid = el('div', { classes: ['chart-grid'] });
@@ -312,24 +294,75 @@ export function renderDashboard(container, options) {
     chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], html: '<h3>🤝 Top 5 Comisionistas (Kilos)</h3><div class="canvas-holder"><canvas id="topAgentsChart"></canvas></div>' }));
     wrapper.appendChild(chartGrid);
 
+    /**
+     * Helper para renderizar las tablas de rankings de Productores y Comisionistas.
+     * @param {string} typeFilter - 'AGENT' o 'PRODUCER'.
+     * @param {string} title - Título de la tabla.
+     * @returns {string} Fragmento HTML correspondiente al card de ranking.
+     */
     const renderRankingTable = (typeFilter, title) => {
-      const list = Object.keys(entityMap).filter(e => entityMap[e].type === typeFilter).map(e => ({ name: e, avg: entityMap[e].totalYield / entityMap[e].count, min: entityMap[e].minYield, max: entityMap[e].maxYield, count: entityMap[e].count })).sort((a,b) => b.avg - a.avg);
+      const list = Object.keys(entityMap)
+        .filter(e => entityMap[e].type === typeFilter)
+        .map(e => ({ 
+          name: e, 
+          avg: entityMap[e].totalYield / entityMap[e].count, 
+          min: entityMap[e].minYield, 
+          max: entityMap[e].maxYield, 
+          count: entityMap[e].count 
+        }))
+        .sort((a,b) => b.avg - a.avg);
+      
       if (list.length === 0) return '';
-      return `<div class="ranking-card glass-card" style="padding: 1.5rem;"><h3 style="margin-top: 0; margin-bottom: 1rem;">🏆 ${title}</h3><div class="table-responsive"><table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;"><thead><tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;"><th style="padding: 0.5rem;">Nombre</th><th style="padding: 0.5rem; text-align: center;">Viajes</th><th style="padding: 0.5rem; text-align: right; color: var(--danger);">Mín (%)</th><th style="padding: 0.5rem; text-align: right; color: var(--success);">Máx (%)</th><th style="padding: 0.5rem; text-align: right; font-weight: 700;">Prom (%)</th></tr></thead><tbody>
-          ${list.map(r => `<tr style="border-bottom: 1px solid var(--border);"><td style="padding: 0.5rem; font-weight: 500;">${r.name}</td><td style="padding: 0.5rem; text-align: center; color: var(--text-muted);">${r.count}</td><td style="padding: 0.5rem; text-align: right; color: rgba(239, 68, 68, 0.8);">${r.min.toFixed(2)}%</td><td style="padding: 0.5rem; text-align: right; color: rgba(16, 185, 129, 0.8);">${r.max.toFixed(2)}%</td><td style="padding: 0.5rem; text-align: right; font-weight: 700; color: var(--text-main);">${r.avg.toFixed(2)}%</td></tr>`).join('')}
-        </tbody></table></div></div>`;
+      return `
+        <div class="ranking-card glass-card" style="padding: 1.5rem;">
+          <h3 style="margin-top: 0; margin-bottom: 1rem;">🏆 ${title}</h3>
+          <div class="table-responsive">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;">
+                  <th style="padding: 0.5rem;">Nombre</th>
+                  <th style="padding: 0.5rem; text-align: center;">Viajes</th>
+                  <th style="padding: 0.5rem; text-align: right; color: var(--danger);">Mín (%)</th>
+                  <th style="padding: 0.5rem; text-align: right; color: var(--success);">Máx (%)</th>
+                  <th style="padding: 0.5rem; text-align: right; font-weight: 700;">Prom (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map(r => `
+                  <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 0.5rem; font-weight: 500;">${r.name}</td>
+                    <td style="padding: 0.5rem; text-align: center; color: var(--text-muted);">${r.count}</td>
+                    <td style="padding: 0.5rem; text-align: right; color: rgba(239, 68, 68, 0.8);">${r.min.toFixed(2)}%</td>
+                    <td style="padding: 0.5rem; text-align: right; color: rgba(16, 185, 129, 0.8);">${r.max.toFixed(2)}%</td>
+                    <td style="padding: 0.5rem; text-align: right; font-weight: 700; color: var(--text-main);">${r.avg.toFixed(2)}%</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
     };
-    wrapper.appendChild(el('div', { style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;', html: renderRankingTable('AGENT', 'Ranking de Comisionistas') + renderRankingTable('PRODUCER', 'Ranking de Productores') }));
+
+    wrapper.appendChild(el('div', { 
+      style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;', 
+      html: renderRankingTable('AGENT', 'Ranking de Comisionistas') + renderRankingTable('PRODUCER', 'Ranking de Productores') 
+    }));
 
     container.appendChild(wrapper);
 
-    // 6. Init Charts with a safer delay
+    // 6. Inicialización de los gráficos de Chart.js con un retraso seguro
     setTimeout(() => {
       const isDark = document.body.classList.contains('dark');
       const textColor = isDark ? '#ffffff' : '#71717a';
       const borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
       const palette = ['#841d1d', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
       
+      /**
+       * Inicializa de forma segura un gráfico y destruye su instancia previa si existe.
+       * @param {string} id - ID del canvas en el DOM.
+       * @param {Object} config - Configuración completa para Chart.js.
+       * @returns {Chart|null} Instancia del gráfico creado.
+       */
       const initChart = (id, config) => { 
         try { 
           const canvas = document.getElementById(id); 
@@ -340,8 +373,57 @@ export function renderDashboard(container, options) {
         } catch (err) { console.error(`Error chart ${id}:`, err); return null; } 
       };
       
-      initChart('trendChart', { type: 'line', data: { labels: sortedDates, datasets: [{ label: 'Precio Promedio ($)', data: sortedDates.map(d => trendsMap[d].totalPrice / trendsMap[d].count), borderColor: isDark ? '#ffffff' : '#841d1d', backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(132, 29, 29, 0.1)', yAxisID: 'y', tension: 0.3, fill: true }, { label: 'Rendimiento (%)', data: sortedDates.map(d => trendsMap[d].totalYield / trendsMap[d].count), borderColor: '#10b981', yAxisID: 'y1', tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor } } }, scales: { x: { ticks: { color: textColor }, grid: { color: borderColor } }, y: { type: 'linear', display: true, position: 'left', ticks: { color: textColor, callback: (v) => '$' + v }, grid: { color: borderColor } }, y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: textColor, callback: (v) => v + '%' } } } } });
+      // Gráfico 1: Tendencias de Precio y Rendimiento
+      initChart('trendChart', { 
+        type: 'line', 
+        data: { 
+          labels: sortedDates, 
+          datasets: [
+            { 
+              label: 'Precio Promedio ($)', 
+              data: sortedDates.map(d => trendsMap[d].totalPrice / trendsMap[d].count), 
+              borderColor: isDark ? '#ffffff' : '#841d1d', 
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(132, 29, 29, 0.1)', 
+              yAxisID: 'y', 
+              tension: 0.3, 
+              fill: true 
+            }, 
+            { 
+              label: 'Rendimiento (%)', 
+              data: sortedDates.map(d => trendsMap[d].totalYield / trendsMap[d].count), 
+              borderColor: '#10b981', 
+              yAxisID: 'y1', 
+              tension: 0.3 
+            }
+          ] 
+        }, 
+        options: { 
+          responsive: true, 
+          maintainAspectRatio: false, 
+          plugins: { 
+            legend: { labels: { color: textColor } } 
+          }, 
+          scales: { 
+            x: { ticks: { color: textColor }, grid: { color: borderColor } }, 
+            y: { 
+              type: 'linear', 
+              display: true, 
+              position: 'left', 
+              ticks: { color: textColor, callback: (v) => '$' + v }, 
+              grid: { color: borderColor } 
+            }, 
+            y1: { 
+              type: 'linear', 
+              display: true, 
+              position: 'right', 
+              grid: { drawOnChartArea: false }, 
+              ticks: { color: textColor, callback: (v) => v + '%' } 
+            } 
+          } 
+        } 
+      });
       
+      // Gráfico 2: Doughnut de Mix de Categorías Compradas
       const catLabels = Object.keys(catDistributionMap);
       initChart('categoryChart', { 
         type: 'doughnut', 
@@ -355,7 +437,8 @@ export function renderDashboard(container, options) {
           }] 
         }, 
         options: { 
-          responsive: true, maintainAspectRatio: false, 
+          responsive: true, 
+          maintainAspectRatio: false, 
           plugins: { 
             legend: { position: 'right', labels: { color: textColor, font: { size: 10 } } },
             tooltip: {
@@ -378,8 +461,10 @@ export function renderDashboard(container, options) {
         } 
       });
 
+      // Gráficos 3 y 4: Top 5 Productores y Top 5 Comisionistas
       const topP = Object.keys(entityMap).filter(n => entityMap[n].type === 'PRODUCER').sort((a,b) => entityMap[b].totalKg - entityMap[a].totalKg).slice(0, 5);
       initChart('topProducersChart', { type: 'bar', data: { labels: topP, datasets: [{ label: 'Kg Totales', data: topP.map(n => entityMap[n].totalKg), backgroundColor: '#3b82f6', borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor, font: { size: 10 } } } } } });
+      
       const topA = Object.keys(entityMap).filter(n => entityMap[n].type === 'AGENT').sort((a,b) => entityMap[b].totalKg - entityMap[a].totalKg).slice(0, 5);
       initChart('topAgentsChart', { type: 'bar', data: { labels: topA, datasets: [{ label: 'Kg Totales', data: topA.map(n => entityMap[n].totalKg), backgroundColor: '#8b5cf6', borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor, font: { size: 10 } } } } } });
     }, 150);

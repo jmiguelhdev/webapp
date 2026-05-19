@@ -1,6 +1,19 @@
+/**
+ * @file ConsumptionUI.js
+ * @description Capa de presentación (Screen) para el módulo de control de faena, stock de cámaras,
+ * achuras, preparación de despachos y auditoría histórica.
+ * Gestiona el renderizado dinámico en el DOM, la lectura automatizada por cámara con OCR, pitidos de 
+ * confirmación y delega en su totalidad la lógica matemática de stock al modelo de dominio FaenaStock.
+ */
+
 import { el } from '../../utils/dom.js';
 import { printDispatchPreparation } from '../reports/ReportService.js';
-/** Utility to play success/error beeps using Web Audio API */
+
+/**
+ * Reproduce pitidos agradables o de advertencia utilizando la API Web Audio de forma nativa.
+ * 
+ * @param {string} type - Tipo de sonido a emitir ('success' o 'error').
+ */
 const playSound = (type) => {
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -10,19 +23,16 @@ const playSound = (type) => {
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     
-    // Smooth volume ramp
     gain.gain.setValueAtTime(0, audioCtx.currentTime);
     gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.01);
 
     if (type === 'success') {
-      // High pleasant beep
       osc.type = 'sine';
       osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
       gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.4);
     } else {
-      // Double low beep for error/no-match
       osc.type = 'square';
       osc.frequency.setValueAtTime(220, audioCtx.currentTime);
       gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
@@ -33,6 +43,7 @@ const playSound = (type) => {
       const gain2 = audioCtx.createGain();
       osc2.connect(gain2);
       gain2.connect(audioCtx.destination);
+      
       osc2.type = 'square';
       osc2.frequency.setValueAtTime(220, audioCtx.currentTime + 0.15);
       gain2.gain.setValueAtTime(0.1, audioCtx.currentTime + 0.15);
@@ -44,9 +55,16 @@ const playSound = (type) => {
   }
 };
 
+/**
+ * Abre la interfaz flotante de escáner en tiempo real mediante la cámara del dispositivo móvil.
+ * Realiza un bucle asíncrono capturando frames de video, procesándolos mediante la librería OCR Tesseract.js,
+ * y validando números de tropa y garrón contra los elementos disponibles en stock.
+ *
+ * @param {Array<Object>} stockItems - Lista de ítems colgados disponibles para comprobar.
+ * @param {Function} onFound - Callback disparado al obtener una coincidencia exacta de tropa y garrón.
+ */
 function openScannerModal(stockItems, onFound) {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' });
-  
   const modal = el('div', { classes: ['glass-card'], style: 'background: var(--bg-dark); max-width: 450px; width: 100%; padding: 1.5rem; position: relative; display: flex; flex-direction: column; align-items: center;' });
   
   modal.innerHTML = `
@@ -87,8 +105,6 @@ function openScannerModal(stockItems, onFound) {
       });
       video.srcObject = stream;
       status.textContent = '🤖 Escaneo Automático Activo';
-      
-      // Initial delay to allow autofocus
       loopTimeout = setTimeout(internalScan, 2000);
     } catch (e) {
       status.textContent = '❌ Error de cámara. Asegúrese de dar permisos.';
@@ -119,7 +135,6 @@ function openScannerModal(stockItems, onFound) {
     status.style.color = 'var(--text-muted)';
     
     try {
-      // Catch image on canvas
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
@@ -146,7 +161,6 @@ function openScannerModal(stockItems, onFound) {
       });
       
       if (foundItem) {
-        // SUCCESS!
         playSound('success');
         status.textContent = `✅ ENCONTRADO: Tr. ${foundItem.tropa} - G. ${foundItem.garron}`;
         status.style.color = '#10b981';
@@ -160,16 +174,13 @@ function openScannerModal(stockItems, onFound) {
       }
       
     } catch (e) {
-      // Only play error sound if it's a "no match" or "bad OCR" case 
-      // but avoid spamming sounds if camera is just blurry
-      // For simplicity, we play a subtle error sound if data was seen but not matched
       if (e.message.includes('Sin coincidencia')) {
          playSound('error');
       }
       
       status.textContent = `⏳ ${e.message}`;
       if (!isClosed) {
-        loopTimeout = setTimeout(internalScan, 1500); // Retry after 1.5s
+        loopTimeout = setTimeout(internalScan, 1500);
       }
     } finally {
       isProcessing = false;
@@ -179,11 +190,48 @@ function openScannerModal(stockItems, onFound) {
   startCamera();
 }
 
+/**
+ * Renderiza la pantalla principal del panel de control de faena, stock e inventario.
+ * 
+ * Gestiona dinámicamente cuatro pestañas primarias (STOCK, DRAFTS, HISTORY, ACHURAS) y
+ * delega en `faenaStockSummary` la visualización de estadísticas agregadas, desgloses por
+ * categoría de despacho estimulado e importes agregados.
+ *
+ * @param {HTMLElement} container - Elemento contenedor padre donde se inyectará el módulo.
+ * @param {Object} options - Parámetros de configuración, callbacks de negocio y resumen financiero del dominio.
+ * @param {Object} options.state - Parámetros de estado actual inyectados desde el presentador.
+ * @param {Array<Object>} options.stockItems - Colección de piezas en stock filtradas.
+ * @param {Array<Object>} options.draftItems - Colección de preparaciones en borrador.
+ * @param {Array<Object>} options.historyItems - Colección de despachos históricos realizados.
+ * @param {Array<string>} options.allTropas - Catálogo de números de tropas de origen registrados en la sesión.
+ * @param {Array<string>} options.finishedTropas - Catálogo de números de tropas cuyos garrones fueron despachados.
+ * @param {Object} options.faenaStockSummary - Resumen consolidado e instanciado de la entidad de dominio FaenaStock.
+ * @param {Function} options.onTabSwitch - Callback al alternar entre pestañas de visualización.
+ * @param {Function} options.onToggleSelection - Callback al marcar o desmarcar una pieza en stock.
+ * @param {Function} options.onSelectAll - Callback para marcar todo el stock visible a la vez.
+ * @param {Function} options.onClearSelection - Callback para reestablecer la selección de despacho.
+ * @param {Function} options.onDestinationInput - Callback gatillado al escribir el nombre del cliente destino.
+ * @param {Function} options.onDispatch - Callback para confirmar el despacho definitivo.
+ * @param {Function} options.onFilterChange - Callback disparado al refinar filtros de auditoría histórica.
+ * @param {Function} options.onToggleSort - Callback para invertir el ordenamiento por número de garrón.
+ * @param {Function} options.onStockSearch - Callback disparado al tipear en el input de búsqueda de stock.
+ * @param {Function} options.onCategoryChange - Callback para cambiar el filtro global por categoría.
+ * @param {Function} options.onTropaChange - Callback para filtrar la grilla según una tropa en particular.
+ * @param {Function} [options.onCategoryPriceInput] - Callback para actualizar estimaciones de precios de despacho.
+ * @param {Function} [options.onMoveToCamara] - Callback para trasladar los garrones seleccionados a otra cámara frigorífica.
+ * @param {Function} [options.onConfirmDraft] - Callback para importar un borrador preparado a la grilla de salida del administrador.
+ * @param {Function} [options.onRevertDraft] - Callback para disolver una preparación y reintegrarla al stock.
+ * @param {Array<Object>} [options.clients] - Lista global de clientes registrados en base de datos.
+ * @param {Array<Object|string>} [options.camarasList] - Lista de cámaras de frío cargadas.
+ * @param {Object} [options.camaraOccupancy] - Ocupación numérica actual por cámara.
+ * @param {number} [options.unassignedCount] - Cantidad de reses huérfanas sin cámara.
+ */
 export function renderFaenaConsumption(container, options) {
   const { 
     state, 
     stockItems, 
     historyItems,
+    faenaStockSummary,
     allTropas = [],
     finishedTropas = [],
     onTabSwitch,
@@ -207,7 +255,6 @@ export function renderFaenaConsumption(container, options) {
   container.innerHTML = '';
   const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
 
-  // 1. Header & Segmented Tabs
   const header = el('div', { 
     classes: ['dashboard-header'], 
     style: 'display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;' 
@@ -226,7 +273,6 @@ export function renderFaenaConsumption(container, options) {
   titleContainer.querySelector('#back-to-dash').onclick = options.onBack;
   header.appendChild(titleContainer);
   
-  // Segmented Control for Tabs
   const tabs = el('div', { 
     style: 'display: flex; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 0.35rem; gap: 0.25rem;' 
   });
@@ -262,12 +308,10 @@ export function renderFaenaConsumption(container, options) {
   header.appendChild(tabs);
   wrapper.appendChild(header);
 
-  // Unified Toolbar for Filters
   const toolbarContainer = el('div', { 
     style: 'display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; background: rgba(255,255,255,0.02); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border);'
   });
 
-  // Global Category Chips
   const categoryFilters = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;' });
   categoryFilters.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; min-width: 60px;">Filtro:</span>`;
   const categories = ['ALL', 'NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO'];
@@ -296,7 +340,6 @@ export function renderFaenaConsumption(container, options) {
   
   toolbarContainer.appendChild(categoryFilters);
 
-  // --- Camara Filter ---
   const camaraFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;' });
   camaraFilterRow.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; min-width: 60px;">Cámara:</span>`;
   
@@ -335,7 +378,6 @@ export function renderFaenaConsumption(container, options) {
   camaraFilterRow.appendChild(camaraChipsWrap);
   toolbarContainer.appendChild(camaraFilterRow);
 
-  // --- Tropa Filter ---
   const tropaFilterRow = el('div', { style: 'display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;' });
   tropaFilterRow.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; min-width: 60px;">Tropa:</span>`;
   
@@ -363,9 +405,9 @@ export function renderFaenaConsumption(container, options) {
   toolbarContainer.appendChild(tropaFilterRow);
   wrapper.appendChild(toolbarContainer);
 
-  if (state.activeTab === 'STOCK') {
+  const { stockTotals, dispatchSummary, groupedDrafts, achurasTotals: achTotals } = faenaStockSummary;
 
-    // --- Unassigned Warning ---
+  if (state.activeTab === 'STOCK') {
     if (options.unassignedCount > 0) {
       const banner = el('div', { style: 'background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem;' });
       banner.innerHTML = `
@@ -378,7 +420,6 @@ export function renderFaenaConsumption(container, options) {
       wrapper.appendChild(banner);
     }
 
-    // --- Finished Troops Panel ---
     if (finishedTropas.length > 0) {
       const finishedPanel = el('div', { style: 'background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: 16px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;' });
       finishedPanel.innerHTML = `
@@ -396,49 +437,19 @@ export function renderFaenaConsumption(container, options) {
       wrapper.appendChild(finishedPanel);
     }
 
-    // Stats Grid
-    const totals = stockItems.reduce((acc, item) => {
-      acc.kg += item.kg || 0;
-      acc.count += 1;
-      const cat = item.standardizedCategory || 'OTRO';
-      if (!acc.byCategory[cat]) acc.byCategory[cat] = { kg: 0, count: 0 };
-      acc.byCategory[cat].kg += item.kg || 0;
-      acc.byCategory[cat].count += 1;
-      return acc;
-    }, { kg: 0, count: 0, byCategory: {} });
-
     const statsGrid = el('div', { classes: ['stats-grid'] });
     const addStat = (title, val, subtitle) => {
       statsGrid.appendChild(el('div', { classes: ['stat-card', 'glass-card'], html: `<h3>${title}</h3><div class="stat-value">${val}</div><div class="stat-subtitle">${subtitle}</div>` }));
     };
 
-    addStat('Total Reses', totals.count, `${totals.kg.toFixed(1)} kg Colgados`);
-    Object.keys(totals.byCategory).forEach(cat => {
-      addStat(`Stock ${cat}`, totals.byCategory[cat].count, `${totals.byCategory[cat].kg.toFixed(1)} kg`);
+    addStat('Total Reses', stockTotals.count, `${stockTotals.kg.toFixed(1)} kg Colgados`);
+    Object.keys(stockTotals.byCategory).forEach(cat => {
+      addStat(`Stock ${cat}`, stockTotals.byCategory[cat].count, `${stockTotals.byCategory[cat].kg.toFixed(1)} kg`);
     });
     wrapper.appendChild(statsGrid);
 
-    // Dispatch Panel (If items selected)
     if (state.selectedIds.size > 0) {
-      const selectedItems = stockItems.filter(i => state.selectedIds.has(i.id));
-      const selKg = selectedItems.reduce((s, i) => s + (i.kg || 0), 0);
-
-      const byCategory = {};
-      selectedItems.forEach(item => {
-        const cat = item.standardizedCategory || 'OTRO';
-        if (!byCategory[cat]) byCategory[cat] = { kg: 0, count: 0 };
-        byCategory[cat].kg += item.kg || 0;
-        byCategory[cat].count += 1;
-      });
-
-      const catEntries = Object.entries(byCategory);
-      const multiCat = catEntries.length > 1;
-
-      let grandTotal = 0;
-      catEntries.forEach(([cat, data]) => {
-        const p = parseFloat(state.categoryPriceInputs?.[cat]) || 0;
-        grandTotal += data.kg * p;
-      });
+      const { selectedItems, selKg, byCategory, catEntries, multiCat, grandTotal } = dispatchSummary;
 
       const panel = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #ef4444; padding: 1.5rem;' });
       
@@ -542,7 +553,6 @@ export function renderFaenaConsumption(container, options) {
       panel.querySelector('#dispatch-btn').onclick = () => onDispatch();
       
       panel.querySelector('#print-dispatch-btn').onclick = () => {
-        // Collect current snapshot of data for printing
         let printGrandTotal = 0;
         const currentByCategory = {};
         catEntries.forEach(([cat, data]) => {
@@ -602,15 +612,13 @@ export function renderFaenaConsumption(container, options) {
     listHeader.innerHTML = `<h3 style="margin: 0; min-width: 200px;">Medias Reses en Cámara</h3>`;
     listHeader.appendChild(stockSearchInput);
     
-    // Camera Button
     const scanBtn = el('button', {
       classes: ['btn-primary'],
       text: '📷 Leer Tarjeta',
       style: 'font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px;'
     });
     scanBtn.onclick = () => openScannerModal(stockItems, (id) => {
-      // Pass ID up as if checked manually
-      options.onToggleSelection(id);
+      onToggleSelection(id);
     });
     listHeader.appendChild(scanBtn);
 
@@ -687,39 +695,21 @@ export function renderFaenaConsumption(container, options) {
     wrapper.appendChild(listCard);
 
   } else if (state.activeTab === 'DRAFTS') {
-    // --- DRAFTS VIEW ---
     const draftCard = el('div', { classes: ['glass-card'] });
     draftCard.innerHTML = `<h3 style="margin-bottom: 1rem;">Borradores Pendientes de Confirmación</h3>`;
     
-    if (!options.draftItems || options.draftItems.length === 0) {
+    if (groupedDrafts.length === 0) {
        draftCard.appendChild(el('p', { text: 'No hay borradores pendientes.', style: 'color: var(--text-muted);' }));
     } else {
-       // Group drafts
-       let draftsByGroup = {};
-       options.draftItems.forEach(d => {
-         const key = `${d.destination}_${d.draftDate}`;
-         if (!draftsByGroup[key]) {
-            draftsByGroup[key] = {
-               destination: d.destination || 'Sin destino',
-               draftDate: d.draftDate,
-               draftPrices: d.draftPrices,
-               items: []
-            };
-         }
-         draftsByGroup[key].items.push(d);
-       });
-       
-       Object.values(draftsByGroup).forEach(group => {
+       groupedDrafts.forEach(group => {
           const groupCard = el('div', { style: 'margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; background: rgba(255,255,255,0.02);' });
-          
-          let totalKg = group.items.reduce((sum, i) => sum + (i.kg || 0), 0);
           
           groupCard.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
               <div>
                 <h4 style="margin:0; color: var(--primary);">Destino: ${group.destination}</h4>
                 <div style="font-size: 0.85rem; color: var(--text-muted);">
-                  ${group.items.length} reses | ${totalKg.toFixed(1)} kg | Preparado: ${new Date(group.draftDate).toLocaleString()}
+                  ${group.items.length} reses | ${group.totalKg.toFixed(1)} kg | Preparado: ${new Date(group.draftDate).toLocaleString()}
                 </div>
               </div>
               <div style="display: flex; gap: 0.5rem;">
@@ -742,7 +732,6 @@ export function renderFaenaConsumption(container, options) {
             };
           }
           
-          // Show items table
           const itemsTableWrap = el('div', { classes: ['table-responsive'] });
           const itemsTable = el('table', { style: 'width: 100%; min-width: 400px; font-size: 0.9rem; border-collapse: collapse;' });
           itemsTable.innerHTML = `
@@ -771,24 +760,19 @@ export function renderFaenaConsumption(container, options) {
     wrapper.appendChild(draftCard);
 
   } else if (state.activeTab === 'ACHURAS') {
-    // --- ACHURAS VIEW ---
     const achurasCard = el('div', { classes: ['glass-card'] });
     achurasCard.innerHTML = `<h3 style="margin-bottom: 1rem;">🥩 Stock de Achuras</h3>`;
 
-    const totalJuegos = (options.achurasItems || []).reduce((sum, item) => sum + (item.availableQuantity || 0), 0);
-    
-    // Stats
     const statsContainer = el('div', { style: 'display: flex; gap: 1rem; margin-bottom: 2rem;' });
     statsContainer.innerHTML = `
       <div class="stat-card glass-card" style="flex: 1;">
         <h3>Juegos Disponibles</h3>
-        <div class="stat-value" style="color: #10b981;">${totalJuegos}</div>
+        <div class="stat-value" style="color: #10b981;">${achTotals}</div>
       </div>
     `;
     achurasCard.appendChild(statsContainer);
 
-    // Dispatch form
-    if (totalJuegos > 0) {
+    if (achTotals > 0) {
       const dispatchPanel = el('div', { style: 'background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;' });
       const currentPrice = state.categoryPriceInputs['ACHURAS'] || (options.categoryPrices && options.categoryPrices['ACHURAS']) || '';
       dispatchPanel.innerHTML = `
@@ -796,7 +780,7 @@ export function renderFaenaConsumption(container, options) {
         <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
           <div class="form-group" style="flex: 1; min-width: 120px; margin: 0;">
             <label>Cantidad (Juegos)</label>
-            <input type="number" id="achuras-qty" class="form-input" placeholder="Ej: 10" min="1" max="${totalJuegos}">
+            <input type="number" id="achuras-qty" class="form-input" placeholder="Ej: 10" min="1" max="${achTotals}">
           </div>
           <div class="form-group" style="flex: 2; min-width: 200px; margin: 0;">
             <label>Destino / Cliente</label>
@@ -827,7 +811,6 @@ export function renderFaenaConsumption(container, options) {
       };
     }
 
-    // Table of batches
     const tableWrap = el('div', { style: 'overflow-x: auto;' });
     const table = document.createElement('table');
     table.className = 'faena-table';
@@ -857,11 +840,9 @@ export function renderFaenaConsumption(container, options) {
     `;
     tableWrap.appendChild(table);
     achurasCard.appendChild(tableWrap);
-
     wrapper.appendChild(achurasCard);
 
   } else {
-    // --- HISTORY VIEW ---
     const filterPanel = el('div', { classes: ['glass-card'], style: 'margin-bottom: 1.5rem; display: flex; gap: 1rem;' });
     filterPanel.innerHTML = `
       <div class="form-group" style="flex: 1; margin: 0;">
