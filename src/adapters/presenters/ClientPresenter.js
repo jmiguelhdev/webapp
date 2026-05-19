@@ -1,5 +1,8 @@
 // src/adapters/presenters/ClientPresenter.js
 
+import { ClientAccount } from '../../domain/entities/ClientAccount.js';
+import { GetClientAccountSummary } from '../../domain/usecases/GetClientAccountSummary.js';
+
 export class ClientPresenter {
   constructor(clientRepository, operatorRepository, ui) {
     this.clientRepository = clientRepository;
@@ -15,6 +18,7 @@ export class ClientPresenter {
     this.analysisHistory = [];
     this.analysisParams = { startDate: '', endDate: '', expectedPrice: 0, totalSales: 0 };
     this.viewMode = 'accounts'; // 'accounts' or 'analysis'
+    this.getClientAccountSummary = new GetClientAccountSummary();
   }
 
   async loadClients() {
@@ -25,9 +29,8 @@ export class ClientPresenter {
       
       for (const client of this.clients) {
         const txs = allClientTxs.filter(t => t.clientId === client.id);
-        const debt = txs.filter(t => t.type === 'DEBT').reduce((sum, t) => sum + (t.amount || 0), 0);
-        const payments = txs.filter(t => t.type === 'PAYMENT').reduce((sum, t) => sum + (t.amount || 0), 0);
-        client.balance = debt - payments;
+        const account = new ClientAccount(client, txs);
+        client.balance = account.getBalance();
       }
       
       if (this.operatorRepository) {
@@ -36,9 +39,8 @@ export class ClientPresenter {
         
         for (const op of this.operators) {
           const txs = allOpTxs.filter(t => t.operatorId === op.id);
-          const debt = txs.filter(t => t.type === 'DEBT').reduce((sum, t) => sum + (t.amount || 0), 0);
-          const payments = txs.filter(t => t.type === 'PAYMENT').reduce((sum, t) => sum + (t.amount || 0), 0);
-          op.balance = debt - payments;
+          const account = new ClientAccount(op, txs);
+          op.balance = account.getBalance();
         }
       }
 
@@ -144,6 +146,14 @@ export class ClientPresenter {
   }
 
   render() {
+    let accountSummary = null;
+    if (this.selectedClient) {
+      accountSummary = this.getClientAccountSummary.execute({
+        client: this.selectedClient,
+        transactions: this.transactions
+      });
+    }
+
     this.ui.renderClientAccounts({
       clients: this.clients,
       operators: this.operators,
@@ -151,6 +161,7 @@ export class ClientPresenter {
       selectedType: this.selectedType,
       activeTab: this.activeTab,
       transactions: this.transactions,
+      accountSummary: accountSummary,
       onSelectClient: this.selectClient.bind(this),
       onAddPayment: this.addPayment.bind(this),
       onAddSale: this.addSale.bind(this),

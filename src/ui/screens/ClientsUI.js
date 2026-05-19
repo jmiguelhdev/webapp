@@ -1,13 +1,48 @@
+/**
+ * @file ClientsUI.js
+ * @description Capa de presentación (Screen) para el módulo de cuentas corrientes y saldos de clientes/operadores.
+ * Se encarga del renderizado de la interfaz en el DOM, del manejo de modales interactivos de edición/creación
+ * y de derivar las acciones del usuario (guardar, pagar, imprimir, compartir) hacia el presentador y
+ * la entidad de dominio ClientAccount.
+ * Cumple estrictamente con Clean Architecture al delegar toda la lógica matemática de saldo,
+ * cálculo por rango de fechas y generación de reportes al modelo de dominio.
+ */
+
 import { el } from '../../utils/dom.js';
 
+/**
+ * Renderiza la pantalla principal del módulo de cuentas corrientes (clientes y operadores).
+ * 
+ * Gestiona dos estados principales: la lista general segmentada por pestañas de clientes y
+ * de operadores, y la vista detallada de una cuenta seleccionada que expone el historial de
+ * movimientos, tarjetas estadísticas y herramientas de registro de pagos y ventas genéricas.
+ *
+ * @param {Object} options - Parámetros y callbacks inyectados por el presentador.
+ * @param {Array<Object>} options.clients - Catálogo de clientes de la base de datos.
+ * @param {Array<Object>} options.operators - Catálogo de operadores de la base de datos.
+ * @param {Object|null} options.selectedClient - Cliente u operador seleccionado para ver el detalle.
+ * @param {string} options.selectedType - El tipo del sujeto seleccionado ('CLIENT' o 'OPERATOR').
+ * @param {string} options.activeTab - Identificador de la pestaña de visualización activa ('CLIENTS' o 'OPERATORS').
+ * @param {Array<Object>} options.transactions - Movimientos de cuenta de la entidad seleccionada.
+ * @param {Object|null} options.accountSummary - Resumen consolidado del balance y la entidad de dominio.
+ * @param {Function} options.onSelectClient - Callback disparado al hacer clic sobre una tarjeta de la lista.
+ * @param {Function} options.onAddPayment - Callback para registrar un pago recibido.
+ * @param {Function} options.onAddSale - Callback para registrar una venta/deuda genérica.
+ * @param {Function} options.onBack - Callback de retorno a la lista de cuentas o análisis.
+ * @param {Function} options.onAnalyzePrice - Callback para abrir la herramienta de análisis de precios promedio.
+ * @param {Function} options.onTabChange - Callback para alternar entre las pestañas de la lista.
+ * @param {Function} options.onSaveClient - Callback para añadir o actualizar la información del cliente.
+ * @param {Function} options.onBackToDashboard - Callback para regresar al panel principal de la aplicación.
+ */
 export function renderClientAccounts(options) {
-  const { clients, operators, selectedClient, selectedType, activeTab, transactions, onSelectClient, onAddPayment, onBack, onAnalyzePrice, onTabChange, onSaveClient } = options;
+  const { clients, operators, selectedClient, selectedType, activeTab, transactions, accountSummary, onSelectClient, onAddPayment, onBack, onAnalyzePrice, onTabChange, onSaveClient } = options;
   const container = document.getElementById('content');
   container.innerHTML = '';
   const wrapper = el('div', { classes: ['dashboard', 'fade-in'] });
 
-  if (selectedClient) {
-    // --- DETAILS VIEW ---
+  if (selectedClient && accountSummary) {
+    const { debtTotal, paymentsTotal, balance, account } = accountSummary;
+
     const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; gap: 0.5rem;' });
     header.innerHTML = `
       <div style="display: flex; align-items: center; gap: 1rem; flex: 1;">
@@ -39,24 +74,18 @@ export function renderClientAccounts(options) {
     wrapper.appendChild(header);
 
     header.querySelector('#analyze-price-btn').onclick = onAnalyzePrice;
-
-    header.querySelector('#print-account-btn').onclick = () => showPrintOptionsModal(selectedClient, transactions);
+    header.querySelector('#print-account-btn').onclick = () => showPrintOptionsModal(selectedClient, transactions, account);
 
     const statsGrid = el('div', { classes: ['stats-grid'], style: 'margin-bottom: 2rem;' });
     const addStat = (title, val, color) => {
       statsGrid.appendChild(el('div', { classes: ['stat-card', 'glass-card'], html: `<h3>${title}</h3><div class="stat-value" style="color: ${color};">${val}</div>` }));
     };
 
-    const debt = transactions.filter(t => t.type === 'DEBT').reduce((sum, t) => sum + (t.amount || 0), 0);
-    const payments = transactions.filter(t => t.type === 'PAYMENT').reduce((sum, t) => sum + (t.amount || 0), 0);
-    const balance = debt - payments;
-
-    addStat('Deuda Total', `$${debt.toLocaleString()}`, 'var(--text-main)');
-    addStat('Pagos Totales', `$${payments.toLocaleString()}`, '#10b981');
+    addStat('Deuda Total', `$${debtTotal.toLocaleString()}`, 'var(--text-main)');
+    addStat('Pagos Totales', `$${paymentsTotal.toLocaleString()}`, '#10b981');
     addStat('Saldo Pendiente', `$${balance.toLocaleString()}`, balance > 0 ? '#ef4444' : '#10b981');
     wrapper.appendChild(statsGrid);
 
-    // Form to add payment
     const paymentCard = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #10b981;' });
     paymentCard.innerHTML = `
       <h3 style="margin-bottom: 1rem; color: #10b981;">➕ Registrar Pago</h3>
@@ -69,7 +98,6 @@ export function renderClientAccounts(options) {
     `;
     wrapper.appendChild(paymentCard);
 
-    // Form to add Generic Sale (DEBT)
     const saleCard = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; border-left: 4px solid #ef4444;' });
     saleCard.innerHTML = `
       <h3 style="margin-bottom: 1rem; color: #ef4444;">🛒 Registrar Venta (Genérica)</h3>
@@ -81,7 +109,6 @@ export function renderClientAccounts(options) {
     `;
     wrapper.appendChild(saleCard);
 
-    // Transactions Table
     const histCard = el('div', { classes: ['glass-card'] });
     histCard.innerHTML = `<h3 style="margin-bottom: 1rem;">Historial de Movimientos</h3>`;
     
@@ -145,13 +172,12 @@ export function renderClientAccounts(options) {
       btn.onclick = () => {
         const tx = transactions.find(t => t.id === btn.dataset.id);
         if (tx && tx.breakout) {
-          renderTransactionDetailModal(tx);
+          renderTransactionDetailModal(tx, account);
         }
       };
     });
 
   } else {
-    // --- LIST VIEW ---
     const isOperatorsTab = activeTab === 'OPERATORS';
     
     const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;' });
@@ -227,7 +253,17 @@ export function renderClientAccounts(options) {
   container.appendChild(wrapper);
 }
 
-function renderTransactionDetailModal(tx) {
+/**
+ * Crea y presenta en pantalla un modal flotante e interactivo con el desglose detallado
+ * de una transacción de faena (movimiento de garrones).
+ * 
+ * Permite imprimir el comprobante detallado de manera individual o compartirlo de forma
+ * directa a través de un enlace de WhatsApp con formato estructurado en Markdown.
+ *
+ * @param {Object} tx - Transacción del historial a detallar.
+ * @param {ClientAccount} account - Instancia de la entidad de dominio para resolver detalles financieros y textos para compartir.
+ */
+function renderTransactionDetailModal(tx, account) {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
   const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 500px; width: 100%; padding: 2rem;' });
   
@@ -255,19 +291,13 @@ function renderTransactionDetailModal(tx) {
   const content = el('div');
   
   let rowsHtml = '';
-  let totalWeight = 0;
-  let totalPrice = 0;
-  let waText = `*Detalle de Movimiento*\nFecha: ${txDate}\nConcepto: ${txDesc}\n\n`;
+  const { totalWeight, totalPrice } = account.getTransactionDetailSummary(tx);
+  const waText = account.getWhatsAppText(tx);
   
   if (tx.breakout && tx.breakout.length > 0) {
-    waText += `*Detalle:*\n`;
     const tbodyHtml = tx.breakout.map(item => {
       const weight = Number(item.weight) || 0;
       const total = Number(item.total) || 0;
-      totalWeight += weight;
-      totalPrice += total;
-      
-      waText += `• G#${item.garron}: ${weight}kg @ $${item.price} = $${total.toLocaleString('es-AR')}\n`;
       
       return `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -279,8 +309,6 @@ function renderTransactionDetailModal(tx) {
       `;
     }).join('');
     
-    waText += `\n*TOTAL:* ${totalWeight.toFixed(1)}kg - $${totalPrice.toLocaleString('es-AR')}`;
-
     rowsHtml = `
       <table style="width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; text-align: left;">
         <thead>
@@ -305,7 +333,6 @@ function renderTransactionDetailModal(tx) {
       </table>
     `;
   } else {
-    waText += `Monto: $${(tx.amount || 0).toLocaleString('es-AR')}`;
     rowsHtml = '<p style="color: var(--text-muted);">No hay detalles desglosados para este movimiento.</p>';
   }
   
@@ -404,7 +431,15 @@ function renderTransactionDetailModal(tx) {
   };
 }
 
-function showPrintOptionsModal(client, transactions) {
+/**
+ * Muestra en pantalla el modal interactivo de selección de rango de fechas y formatos
+ * de impresión (A4 o Ticket Térmico de 80mm) para emitir el resumen de cuenta.
+ *
+ * @param {Object} client - El cliente u operador del que se emitirá el reporte.
+ * @param {Array<Object>} transactions - Historial completo de movimientos de cuenta.
+ * @param {ClientAccount} account - Entidad de dominio para procesar filtrado temporal y saldos acumulados.
+ */
+function showPrintOptionsModal(client, transactions, account) {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
   const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; padding: 2rem;' });
   
@@ -448,15 +483,8 @@ function showPrintOptionsModal(client, transactions) {
     const toTime = new Date(modal.querySelector('#print-to').value + 'T23:59:59').getTime();
     const format = modal.querySelector('#print-format').value;
 
-    const filtered = transactions.filter(t => {
-      const dTime = new Date(t.date || t.createdAt).getTime();
-      return dTime >= fromTime && dTime <= toTime;
-    }).sort((a,b) => new Date(a.date || a.createdAt).getTime() - new Date(b.date || b.createdAt).getTime());
-
-    const before = transactions.filter(t => new Date(t.date || t.createdAt).getTime() < fromTime);
-    const saldoAnterior = before.reduce((sum, t) => {
-      return sum + (t.type === 'DEBT' ? (t.amount || 0) : -(t.amount || 0));
-    }, 0);
+    const filtered = account.getTransactionsForRange(fromTime, toTime);
+    const saldoAnterior = account.getBalanceForward(fromTime);
 
     printAccountStatement(client, filtered, saldoAnterior, { format, fromDate: new Date(fromTime), toDate: new Date(toTime) });
     overlay.remove();
@@ -465,6 +493,20 @@ function showPrintOptionsModal(client, transactions) {
   modal.querySelector('.btn-cancel').onclick = () => overlay.remove();
 }
 
+/**
+ * Genera una ventana emergente de impresión optimizada para emitir estados de cuenta corrientes.
+ * 
+ * Admite formatos en hoja estándar A4 o ticket de impresora térmica de 80mm de ancho.
+ * Computa el arrastre progresivo de saldos basándose en el saldo forward inicial.
+ *
+ * @param {Object} client - El cliente u operador titular de la cuenta.
+ * @param {Array<Object>} txs - Colección de transacciones filtradas por rango temporal.
+ * @param {number} saldoAnterior - Saldo neto de arrastre acumulado antes del período.
+ * @param {Object} options - Parámetros de personalización.
+ * @param {string} options.format - Formato físico del comprobante ('standard' o 'thermal').
+ * @param {Date} options.fromDate - Fecha de inicio del intervalo del reporte.
+ * @param {Date} options.toDate - Fecha de cierre del intervalo del reporte.
+ */
 function printAccountStatement(client, txs, saldoAnterior, options) {
   const { format, fromDate, toDate } = options;
   const isThermal = format === 'thermal';
@@ -592,6 +634,14 @@ function printAccountStatement(client, txs, saldoAnterior, options) {
   printWindow.document.close();
 }
 
+/**
+ * Muestra en pantalla el modal interactivo para la creación o edición de perfiles
+ * de clientes u operadores de cheques de la aplicación.
+ *
+ * @param {Object|null} client - Perfil del cliente a editar, o null para crear uno nuevo.
+ * @param {Function} onSave - Callback asíncrono para persistir los cambios del perfil en el repositorio.
+ * @param {string} [type='CLIENT'] - Identificador del rol de la entidad ('CLIENT' o 'OPERATOR').
+ */
 function showClientModal(client, onSave, type = 'CLIENT') {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
   const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 500px; width: 100%; padding: 2rem; border-radius: 16px;' });
@@ -623,7 +673,6 @@ function showClientModal(client, onSave, type = 'CLIENT') {
   modal.querySelector('.close-btn').onclick = close;
   modal.querySelector('.btn-cancel').onclick = close;
   
-  // Focus the first input after a slight delay
   setTimeout(() => modal.querySelector('#m-client-name').focus(), 100);
 
   modal.querySelector('.btn-save').onclick = async () => {

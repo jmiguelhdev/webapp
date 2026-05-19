@@ -1,19 +1,42 @@
 /**
- * ChecksUI.js
- * Capa de presentación (Screen) para el módulo de Cheques.
- *
- * Responsabilidades:
- *  - Renderizar la pantalla: header, estadísticas, alerta de vencimientos,
- *    filtros, tabla de cartera y tabla de historial.
- *  - Delegar modales a ChecksModals.js.
- *
- * Se mantiene estrictamente dentro de la capa UI según rules.md.
+ * @file ChecksUI.js
+ * @description Capa de presentación (Screen) para el módulo de Cheques.
+ * Se encarga únicamente del renderizado de la interfaz en el DOM y de delegar
+ * los eventos e interacciones del usuario hacia el presentador y los componentes de modales.
+ * Cumple con Clean Architecture y SOLID al no contener lógica de cálculo financiero.
  */
+
 import { el } from '../../utils/dom.js';
 import { renderDateModal } from '../components/Modals.js';
 import { showOperationModal, showBatchBuyModal, showBatchSellModal } from '../components/ChecksModals.js';
 import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../utils/formatters.js';
 
+/**
+ * Renderiza la interfaz principal del módulo de gestión de cheques.
+ * 
+ * Orquesta la inserción en el DOM del encabezado, las tarjetas estadísticas generales,
+ * el banner de advertencia sobre cheques próximos a vencer, la barra de filtros y
+ * las tablas de cheques en cartera y el historial de operaciones.
+ *
+ * @param {HTMLElement} container - El elemento contenedor del DOM donde se dibujará la interfaz.
+ * @param {Object} options - Parámetros y callbacks provistos por el presentador.
+ * @param {Array<Check>} options.checks - Lista de todas las entidades de cheque cargadas.
+ * @param {Array<Check>} options.filteredChecks - Lista filtrada de entidades de cheque a mostrar.
+ * @param {Object} options.globalSummary - Resumen de estadísticas financieras globales de la aplicación.
+ * @param {Object} options.filteredSummary - Resumen de estadísticas financieras para el subconjunto filtrado.
+ * @param {Object} options.filters - Estado actual de los filtros activos (búsqueda, fechas).
+ * @param {Array<Object>} options.contacts - Colección de contactos/clientes del sistema.
+ * @param {Object} options.pagination - Objeto de control de paginación para cartera e historial.
+ * @param {Function} options.onFilterChange - Callback disparado al actualizar algún filtro.
+ * @param {Function} options.onSave - Callback para guardar una operación nueva o editada.
+ * @param {Function} options.onDelete - Callback para eliminar un cheque.
+ * @param {Function} options.onPrint - Callback para imprimir un listado de cheques.
+ * @param {Function} options.onExport - Callback para exportar los cheques a formato Excel.
+ * @param {Function} options.onBatchBuy - Callback para procesar compras masivas de cheques.
+ * @param {Function} options.onBatchSell - Callback para procesar ventas masivas de cheques.
+ * @param {Function} options.onPortfolioPageChange - Callback al cambiar la página de cheques en cartera.
+ * @param {Function} options.onHistoryPageChange - Callback al cambiar la página del historial.
+ */
 export function renderChecks(container, options) {
   const { checks, filteredChecks, globalSummary, filteredSummary, filters, contacts, pagination, onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell, onPortfolioPageChange, onHistoryPageChange } = options;
   container.innerHTML = '';
@@ -165,7 +188,15 @@ export function renderChecks(container, options) {
   searchGroup.appendChild(searchInput);
 
 
-  // ── Date field helper ──
+  /**
+   * Helper interno para generar de manera estandarizada y accesible campos de entrada de fecha.
+   *
+   * @param {string} labelText - Etiqueta descriptiva para el campo de fecha.
+   * @param {string} isoValue - Valor ISO inicial de la fecha ('YYYY-MM-DD').
+   * @returns {Object} Objeto con las referencias generadas al contenedor y al input.
+   * @property {HTMLElement} group - El elemento contenedor del formulario del campo de fecha.
+   * @property {HTMLInputElement} input - El elemento de entrada de tipo date nativo.
+   */
   function makeDateField(labelText, isoValue) {
     const group = el('div', { classes: ['form-group'], style: 'margin-bottom:0;' });
     group.appendChild(el('label', { text: labelText }));
@@ -388,6 +419,15 @@ export function renderChecks(container, options) {
   }
 }
 
+/**
+ * Crea y retorna el componente visual de controles de paginación para las tablas.
+ *
+ * @param {number} currentPage - Índice de la página que se encuentra activa (1-indexed).
+ * @param {number} totalPages - Cantidad total de páginas disponibles basadas en los límites.
+ * @param {number} totalItems - Cantidad total de registros/cheques disponibles para paginar.
+ * @param {Function} onPageChange - Callback disparado al presionar las acciones de navegación de página.
+ * @returns {HTMLElement} El elemento contenedor HTML de los controles de paginación.
+ */
 function renderPaginationControls(currentPage, totalPages, totalItems, onPageChange) {
   const pagContainer = el('div', { 
     style: 'display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 2rem;'
@@ -429,6 +469,16 @@ function renderPaginationControls(currentPage, totalPages, totalItems, onPageCha
   return pagContainer;
 }
 
+/**
+ * Determina y construye el marcado HTML correspondiente al indicador/badge de estado del cheque.
+ * 
+ * Consume el estado de alertas de la entidad de dominio `Check` para visualizar
+ * los estados `VENDIDO`, `DEVUELTO`, `RECHAZADO`, `VOLVIÓ`, `VENCIDO`, `PRÓXIMO A VENCER`,
+ * `DISPONIBLE`, `PAGO EN Xd` y `EN CARTERA` sin realizar ningún tipo de cálculo local.
+ *
+ * @param {Check} op - La entidad de cheque de dominio a evaluar.
+ * @returns {string} Código de marcado HTML que representa visualmente el estado del cheque.
+ */
 function getCheckStatusBadge(op) {
   const alertState = op.getAlertState();
   let badgeHtml = '';
@@ -452,6 +502,20 @@ function getCheckStatusBadge(op) {
 }
 
 
+/**
+ * Crea y dibuja en el DOM la tabla interactiva de visualización de cheques.
+ *
+ * @param {Array<Check>} checksList - Subconjunto paginado y ordenado de cheques a mostrar en la tabla.
+ * @param {Array<Object>} contacts - Catálogo de contactos registrados para resolver nombres de origen/destino.
+ * @param {Function} onSave - Callback para guardar cambios en la edición.
+ * @param {Function} onDelete - Callback para procesar la baja/eliminación.
+ * @param {string} [sortBy='receptionDate'] - Nombre de la propiedad utilizada para ordenar la lista.
+ * @param {boolean} [sortAsc=false] - Indica si la ordenación debe ser ascendente o descendente.
+ * @param {boolean} [selectable=false] - Habilita la selección múltiple por checkboxes para ventas masivas.
+ * @param {Set<string>} [selectedIds=null] - Conjunto mutable de identificadores seleccionados de cheques.
+ * @param {Function} [onSelectionChange=null] - Callback ejecutado al seleccionar o deseleccionar algún checkbox.
+ * @returns {HTMLElement} El elemento contenedor div ('glass-card table-responsive') con la tabla renderizada.
+ */
 function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false, selectable = false, selectedIds = null, onSelectionChange = null) {
   const tableWrapper = el('div', { classes: ['glass-card', 'table-responsive'], style: 'padding: 0; margin-bottom: 2rem;' });
   const table = el('table', { style: 'width: 100%; min-width: 800px; border-collapse: collapse;' });
@@ -484,7 +548,8 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Desconocido';
       const buyer = contacts.find(c => c.id === op.sellSide?.contactId)?.name || op.sellSide?.contactId || '-';
 
-      // Dynamic days-to-vencimiento (dueDate + 30) from today
+      // Días de gracia restantes calculados según circular del BCRA, delegados a la entidad del dominio
+      // para evitar discrepancias por desfases de la zona horaria en el lado del cliente.
       const _daysToVenc = op.getDaysToExpiry();
       const _daysColor = _daysToVenc < 0 ? 'var(--danger)'
         : _daysToVenc <= 10 ? '#f97316'
@@ -589,6 +654,14 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
   return tableWrapper;
 }
 
+/**
+ * Helper utilitario para crear tarjetas visuales de métricas financieras.
+ *
+ * @param {string} label - Título o etiqueta descriptiva del indicador financiero.
+ * @param {string|number} value - Valor monetario o numérico formateado de la métrica.
+ * @param {string} color - Código de color o variable CSS para el borde indicativo de la tarjeta.
+ * @returns {HTMLElement} El contenedor div ('glass-card') de la tarjeta estadística.
+ */
 function createStatCard(label, value, color) {
   const card = el('div', { 
     classes: ['glass-card'], 
