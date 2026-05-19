@@ -1,5 +1,29 @@
+/**
+ * @file EstablishmentUI.js
+ * @description Pantalla para la gestión de sucursales (establecimientos) y personal (empleados) asociado.
+ * Permite listar, crear, editar y eliminar sucursales y empleados mediante formularios modales limpios.
+ * @module ui/screens/EstablishmentUI
+ * @author Antigravity
+ */
+
 import { el } from '../../utils/dom.js';
 
+/**
+ * Renderiza la interfaz principal del administrador de sucursales y personal.
+ * Alterna dinámicamente entre la vista de sucursales y la lista de empleados de la sucursal seleccionada.
+ * @param {HTMLElement} container - Contenedor raíz del DOM donde se inyectará la pantalla.
+ * @param {Object} presenter - Presentador que expone el estado y los métodos de acción.
+ * @param {Object} presenter.state - Estado reactivo de la pantalla.
+ * @param {Array<Object>} presenter.state.establishments - Lista de sucursales cargadas.
+ * @param {Object|null} presenter.state.selectedEstablishment - Sucursal actualmente seleccionada (si aplica).
+ * @param {Array<Object>} presenter.state.employees - Empleados de la sucursal seleccionada.
+ * @param {Function} presenter.clearSelection - Desselecciona la sucursal para volver al listado general.
+ * @param {Function} presenter.selectEstablishment - Selecciona una sucursal para ver sus empleados.
+ * @param {Function} presenter.deleteEstablishment - Elimina una sucursal.
+ * @param {Function} presenter.deleteEmployee - Elimina un empleado de la sucursal actual.
+ * @param {Function} presenter.saveEstablishment - Guarda (crea/edita) una sucursal.
+ * @param {Function} presenter.saveEmployee - Guarda (crea/edita) un empleado.
+ */
 export function renderEstablishmentManager(container, presenter) {
   const { establishments = [], selectedEstablishment = null, employees = [] } = presenter.state || {};
   container.innerHTML = '';
@@ -11,7 +35,7 @@ export function renderEstablishmentManager(container, presenter) {
 
   const titleGroup = el('div', { style: 'display: flex; align-items: center; gap: 1rem;' });
   
-  // If viewing employees of an establishment, show back button to establishments list
+  // Si hay una sucursal seleccionada, mostramos un botón de retroceso para volver a la vista general
   if (selectedEstablishment) {
     const backBtn = el('button', { 
       classes: ['back-btn-m3'],
@@ -33,6 +57,7 @@ export function renderEstablishmentManager(container, presenter) {
     style: 'margin: 0;',
     html: `<svg viewBox="0 0 24 24" width="18" height="18" style="fill:currentColor;flex-shrink:0;"><path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg> ${selectedEstablishment ? 'Nuevo Empleado' : 'Nueva Sucursal'}`
   });
+  
   actionBtn.onclick = () => {
     if (selectedEstablishment) {
       showEmployeeModal(null, presenter);
@@ -47,16 +72,22 @@ export function renderEstablishmentManager(container, presenter) {
   const listContainer = el('div', { classes: ['glass-card'], style: 'padding: 0;' });
 
   if (selectedEstablishment) {
-    // Render Employees Table
+    // Renderizado de la tabla de empleados pertenecientes a la sucursal activa
     listContainer.appendChild(renderEmployeesTable(employees, presenter));
   } else {
-    // Render Establishments List
+    // Renderizado de la lista de sucursales de la empresa
     listContainer.appendChild(renderEstablishmentsList(establishments, presenter));
   }
 
   container.appendChild(listContainer);
 }
 
+/**
+ * Renderiza el listado tabular de sucursales en el DOM.
+ * @param {Array<Object>} establishments - Listado de sucursales a mostrar.
+ * @param {Object} presenter - Presentador de control.
+ * @returns {HTMLTableElement} Elemento tabla de sucursales listo para el DOM.
+ */
 function renderEstablishmentsList(establishments, presenter) {
   const table = el('table', { style: 'width: 100%; border-collapse: collapse;' });
   
@@ -98,6 +129,12 @@ function renderEstablishmentsList(establishments, presenter) {
   return table;
 }
 
+/**
+ * Renderiza el listado tabular de empleados de una sucursal seleccionada.
+ * @param {Array<Object>} employees - Listado de empleados.
+ * @param {Object} presenter - Presentador de control.
+ * @returns {HTMLTableElement} Elemento tabla de empleados.
+ */
 function renderEmployeesTable(employees, presenter) {
   const table = el('table', { style: 'width: 100%; border-collapse: collapse;' });
   
@@ -148,6 +185,11 @@ function renderEmployeesTable(employees, presenter) {
   return table;
 }
 
+/**
+ * Crea y muestra un cuadro de diálogo modal interactivo para crear o editar una sucursal.
+ * @param {Object|null} existingEst - Datos de la sucursal a editar, o null si es creación.
+ * @param {Object} presenter - Presentador de control.
+ */
 function showEstablishmentModal(existingEst, presenter) {
   const modal = el('div', { 
     classes: ['modal-overlay'],
@@ -195,6 +237,11 @@ function showEstablishmentModal(existingEst, presenter) {
   content.querySelector('.btn-cancel').onclick = () => modal.remove();
 }
 
+/**
+ * Crea y muestra un cuadro de diálogo modal interactivo para crear o editar un empleado.
+ * @param {Object|null} existingEmp - Datos del empleado a editar, o null si es creación.
+ * @param {Object} presenter - Presentador de control.
+ */
 function showEmployeeModal(existingEmp, presenter) {
   const modal = el('div', { 
     classes: ['modal-overlay'],
@@ -230,12 +277,12 @@ function showEmployeeModal(existingEmp, presenter) {
           <input type="text" name="phone" placeholder="Ej: 341 555-1234" value="${existingEmp?.phone || ''}">
         </div>
       </div>
-
+ 
       <div class="form-group" style="margin-bottom: 1.5rem;">
         <label>Dirección</label>
         <input type="text" name="address" placeholder="Ej: Calle Falsa 123" value="${existingEmp?.address || ''}">
       </div>
-
+ 
       <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
         <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cancelar</button>
         <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: var(--primary); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer;">Guardar</button>
