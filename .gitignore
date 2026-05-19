@@ -6,3 +6,10 @@ dist/
 .env.test.local
 .env.production.local
 .DS_Store
+
+.gradle/
+.idea/
+.kotlin/
+build/
+kotlin-js-store/
+test_ui_logic.js

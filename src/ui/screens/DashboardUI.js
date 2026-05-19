@@ -1,6 +1,7 @@
 /**
  * @file DashboardUI.js
- * @description Panel visual de control gerencial para el análisis de tendencias, rendimientos de faena, stock en cámaras y simulación de costos reales en gancho.
+ * @description Modern glassmorphic analytics control center featuring real-time stock boards,
+ * KPI metric grids, and dynamic, highly-responsive charts.
  * @module ui/screens/DashboardUI
  * @author Antigravity
  */
@@ -11,52 +12,35 @@ import { MarketService } from '../../api/MarketService.js';
 import Chart from 'chart.js/auto';
 
 /**
- * Instancias de gráficos activos cargados por Chart.js.
- * Se conservan en el ámbito local del módulo para destruirlas y recrearlas limpiamente al cambiar de filtros.
+ * Active chart instances registered on the window.
+ * Preserved locally to destroy/re-instantiate cleanly during filter shifts.
  * @type {Object<string, Chart>}
  */
 let chartInstances = {};
 
 /**
- * Genera una tarjeta de KPI estadístico estandarizada.
- * @param {string} label - Título o etiqueta descriptiva de la tarjeta.
- * @param {string|number} value - Valor numérico o textual principal a resaltar.
- * @param {string} icon - Emoji o ícono representativo.
- * @param {string} [subtext=''] - Texto secundario aclaratorio.
- * @returns {HTMLElement} Elemento DOM que contiene la tarjeta renderizada.
+ * Renders a standardized, high-fidelity analytics scorecard with custom metric indicators.
+ * @param {string} label - The metric title descriptor.
+ * @param {string|number} value - The primary metric numerical value.
+ * @param {string} icon - The card visual emoji.
+ * @param {string} [subtext=''] - Optional lower label caption.
+ * @returns {HTMLElement} The constructed glass card node.
  */
 function renderStatCard(label, value, icon, subtext = '') {
   return el('div', { 
-    classes: ['stat-card'], 
-    html: `
-      <div class="stat-icon">${icon}</div>
-      <div class="stat-info">
-        <p>${label}</p>
-        <h3>${value}</h3>
-        ${subtext ? `<div style="font-size:0.75em; color:var(--text-muted); margin-top:4px;">${subtext}</div>` : ''}
-      </div>` 
+    classes: ['stat-card', 'glass-card', 'settings-card'], 
+    style: 'padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; border-radius: 18px; transition: all 0.22s ease;'
   });
 }
 
 /**
- * Renderiza el dashboard interactivo de analítica gerencial en el contenedor DOM especificado.
- * @param {HTMLElement} container - Contenedor raíz donde se inyectará la vista.
- * @param {Object} options - Parámetros de configuración, datos filtrados y handlers de eventos.
- * @param {Array<Object>} [options.data=[]] - Viajes completados que alimentan la analítica.
- * @param {Array<string>} [options.categories=[]] - Lista completa de categorías disponibles para el filtro.
- * @param {Array<string>} [options.selectedCategories=[]] - Categorías actualmente seleccionadas.
- * @param {boolean} [options.includeCommission=false] - Flag para incluir comisiones en los cálculos de precios promedios.
- * @param {Function} options.onCategoryToggle - Callback invocado al alternar el filtro de una categoría.
- * @param {Function} options.onCommissionToggle - Callback invocado al alternar la comisión.
- * @param {Object} options.categoryStats - Resumen de métricas y analíticas devuelto por el caso de uso del dominio.
- * @param {Object} options.stockTotals - Resumen consolidado del stock actual de medias reses (kilos, cantidad global y por categoría).
- * @param {Array<Object>} [options.historyItems=[]] - Elementos de despacho del día.
- * @param {Array<Object>} [options.clients=[]] - Listado de clientes cargados.
- * @param {Object} [options.dashHistoryFilters={}] - Filtros activos del acordeón de despachos históricos.
- * @param {Function} options.onDashHistoryFilter - Callback invocado al actualizar un filtro de despachos históricos.
- * @param {Object} [options.categoryPrices={}] - Referencia de precios de venta configurados por categoría.
+ * Refactors and renders the premium dashboard analytics panel inside the given DOM root.
+ * @param {HTMLElement} container - Root DOM layout container.
+ * @param {Object} options - State model config options and event action hooks.
  */
 export function renderDashboard(container, options) {
+  if (!container) return;
+
   const { 
     data = [], categories = [], selectedCategories = [], includeCommission = false, 
     onCategoryToggle, onCommissionToggle,
@@ -71,166 +55,369 @@ export function renderDashboard(container, options) {
     container.innerHTML = '';
     const wrapper = el('div', { classes: ['dashboard-wrapper'] });
 
-    // --- 0. HEADER ---
-    const header = el('div', { classes: ['dashboard-header', 'glass-card'] });
-    header.innerHTML = `<h2>📊 Dashboard de Inteligencia</h2><p>Análisis de rendimiento y tendencias de precios.</p>`;
+    // --- 0. Title Card Panel ---
+    const header = el('div', { 
+      classes: ['dashboard-header', 'glass-card'], 
+      style: 'margin-bottom: 2rem; padding: 1.75rem 2rem; border-radius: 20px;' 
+    });
+    header.innerHTML = `
+      <h2 style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--text-main);">📊 Dashboard de Inteligencia</h2>
+      <p style="margin: 0.35rem 0 0 0; color: var(--text-muted); font-size: 0.85rem; font-weight: 500;">Análisis gerencial y control en tiempo real de tendencias, rendimientos y stock.</p>
+    `;
     wrapper.appendChild(header);
 
-    // --- 1. STOCK ACTUAL SECTION ---
-    const stockSection = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; padding: 1.5rem;' });
-    stockSection.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
-        <span style="font-size: 1.5rem;">🥩</span>
-        <h3 style="margin: 0;">Stock Actual de Medias Reses</h3>
-      </div>
-      <div class="stock-chips-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem;">
-        <div class="stock-category-card" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1rem;">
-          <div style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600;">TOTAL COLGADO</div>
-          <div style="font-size: 1.2rem; font-weight: 700; margin: 0.25rem 0;">${stockTotals.kg.toLocaleString(undefined, {maximumFractionDigits: 1})} kg</div>
-          <div style="color: var(--text-muted); font-size: 0.75rem;">Peso acumulado</div>
-        </div>
-        <div class="stock-category-card" style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 12px; padding: 1rem;">
-          <div style="color: var(--success); font-size: 0.8rem; font-weight: 600;">TOTAL PIEZAS</div>
-          <div style="font-size: 1.2rem; font-weight: 700; margin: 0.25rem 0;">${stockTotals.count}</div>
-          <div style="color: var(--success); font-size: 0.75rem;">Medias reses</div>
-        </div>
-        ${Object.entries(stockTotals.byCategory).map(([cat, val]) => `
-          <div class="stock-category-card" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1rem;">
-            <div style="color: var(--text-muted); font-size: 0.8rem; font-weight: 600;">${cat}</div>
-            <div style="font-size: 1.2rem; font-weight: 700; margin: 0.25rem 0;">${val.kg.toLocaleString(undefined, {maximumFractionDigits: 1})} kg</div>
-            <div style="color: var(--primary); font-size: 0.75rem;">${val.count} piezas</div>
-          </div>
-        `).join('')}
-      </div>
+    // --- 1. Stock Status Grid Card ---
+    const stockSection = el('div', { 
+      classes: ['glass-card'], 
+      style: 'margin-bottom: 2rem; padding: 1.75rem 2rem; border-radius: 22px;' 
+    });
+    
+    const stockTitle = el('div', { 
+      style: 'display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;' 
+    });
+    stockTitle.innerHTML = `
+      <span style="font-size: 1.4rem;">🥩</span>
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 750; color: var(--text-main);">Stock Actual de Medias Reses</h3>
     `;
+    stockSection.appendChild(stockTitle);
+
+    const stockChipsGrid = el('div', { 
+      classes: ['stock-chips-grid'],
+      style: 'display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.15rem;' 
+    });
+
+    // Total kilograms hang card
+    const totalHangCard = el('div', { 
+      classes: ['stock-category-card', 'glass-card'],
+      style: 'padding: 1.15rem 1.25rem; border-radius: 16px; border-left: 4px solid var(--primary);'
+    });
+    totalHangCard.innerHTML = `
+      <div style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">TOTAL COLGADO</div>
+      <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0.35rem 0;">${stockTotals.kg.toLocaleString(undefined, {maximumFractionDigits: 1})} kg</div>
+      <div style="color: var(--text-muted); font-size: 0.7rem; font-weight: 500;">Peso total en cámaras</div>
+    `;
+    stockChipsGrid.appendChild(totalHangCard);
+
+    // Total pieces card
+    const totalPiecesCard = el('div', { 
+      classes: ['stock-category-card', 'glass-card'],
+      style: 'padding: 1.15rem 1.25rem; border-radius: 16px; border-left: 4px solid #10b981;'
+    });
+    totalPiecesCard.innerHTML = `
+      <div style="color: #34d399; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">TOTAL PIEZAS</div>
+      <div style="font-size: 1.35rem; font-weight: 800; color: #34d399; margin: 0.35rem 0;">${stockTotals.count}</div>
+      <div style="color: var(--text-muted); font-size: 0.7rem; font-weight: 500;">Medias reses colgadas</div>
+    `;
+    stockChipsGrid.appendChild(totalPiecesCard);
+
+    // Category elements iteration
+    Object.entries(stockTotals.byCategory).forEach(([cat, val]) => {
+      const catCard = el('div', { 
+        classes: ['stock-category-card', 'glass-card'],
+        style: 'padding: 1.15rem 1.25rem; border-radius: 16px;'
+      });
+      catCard.innerHTML = `
+        <div style="color: var(--text-muted); font-size: 0.75rem; font-weight: 750; text-transform: uppercase; letter-spacing: 0.5px;">${cat}</div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); margin: 0.35rem 0;">${val.kg.toLocaleString(undefined, {maximumFractionDigits: 1})} kg</div>
+        <div style="color: var(--primary); font-size: 0.72rem; font-weight: 600;">${val.count} piezas colgadas</div>
+      `;
+      stockChipsGrid.appendChild(catCard);
+    });
+
+    stockSection.appendChild(stockChipsGrid);
     wrapper.appendChild(stockSection);
 
-    // --- 2. FILTERS CONTAINER ---
-    const filtersArea = el('div', { classes: ['dashboard-filters', 'glass-card'], style: 'margin-bottom: 2rem;' });
+    // --- 2. Interactive Filter Board ---
+    const filtersArea = el('div', { 
+      classes: ['dashboard-filters', 'glass-card'], 
+      style: 'margin-bottom: 2rem; padding: 1.5rem 2rem; border-radius: 22px; display: flex; flex-direction: column; gap: 1.25rem;' 
+    });
+    
+    // A. Filters Sub-component
     const timeRow = renderTimeFilterUI(options);
     filtersArea.appendChild(timeRow);
 
-    const chipsRow = el('div', { classes: ['selector-row'] });
-    const catLabel = el('span', { text: 'Categorías:', classes: ['selector-label'] });
-    const chipsContainer = el('div', { classes: ['category-chips-container'] });
+    // B. Category chip layout filters
+    const chipsRow = el('div', { 
+      classes: ['selector-row'],
+      style: 'display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.25rem; flex-wrap: wrap;' 
+    });
+    
+    const chipsLeft = el('div', { 
+      style: 'display: flex; align-items: center; gap: 1rem; flex: 1; flex-wrap: wrap;' 
+    });
+    chipsLeft.innerHTML = `<span style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Categorías:</span>`;
+    
+    const chipsContainer = el('div', { 
+      classes: ['category-chips-container'],
+      style: 'display: flex; gap: 0.5rem; flex-wrap: wrap;' 
+    });
     categories.forEach(cat => {
       const isTodos = cat === 'TODOS';
       const isSelected = isTodos ? selectedCategories.length === 0 : selectedCategories.includes(cat);
-      const chip = el('button', { classes: ['category-chip', isSelected ? 'active' : 'inactive'], text: cat });
+      const chip = el('button', { 
+        classes: ['category-chip', isSelected ? 'active' : 'inactive'], 
+        text: cat 
+      });
       chip.onclick = () => onCategoryToggle && onCategoryToggle(cat);
       chipsContainer.appendChild(chip);
     });
+    chipsLeft.appendChild(chipsContainer);
 
-    const commToggle = el('label', { classes: ['comm-toggle'], html: `
-      <input type="checkbox" ${includeCommission ? 'checked' : ''}>
-      <span>Con Comisión</span>
-    ` });
+    // Dynamic "Con Comisión" Toggle Selector
+    const commToggle = el('label', { 
+      classes: ['comm-toggle'], 
+      style: 'display: flex; align-items: center; gap: 0.75rem; cursor: pointer; background: rgba(255,255,255,0.02); padding: 0.6rem 1rem; border-radius: 12px; border: 1px solid var(--border); transition: all 0.2s ease;',
+      html: `
+        <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-main);">Con Comisión</span>
+        <label class="switch-container-m3" style="margin: 0;">
+          <input type="checkbox" ${includeCommission ? 'checked' : ''}>
+          <span class="switch-slider-m3"></span>
+        </label>
+      ` 
+    });
     const commInput = commToggle.querySelector('input');
     if (commInput) {
       commInput.onchange = (e) => onCommissionToggle && onCommissionToggle(e.target.checked);
     }
 
-    chipsRow.appendChild(catLabel);
-    chipsRow.appendChild(chipsContainer);
+    chipsRow.appendChild(chipsLeft);
     chipsRow.appendChild(commToggle);
     filtersArea.appendChild(chipsRow);
     wrapper.appendChild(filtersArea);
 
-    // --- 3. KPI STAT CARDS ---
+    // --- 3. Dynamic Analytics KPIs Grids ---
     if (categoryStats) {
       const labelSuffix = selectedCategories.length === 0 ? 'Totales' : selectedCategories.join(', ');
-      const statsGrid = el('div', { classes: ['stats-grid'], style: 'margin-bottom: 2rem;' });
+      const statsGrid = el('div', { 
+        classes: ['stats-grid'], 
+        style: 'margin-bottom: 2rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.25rem;' 
+      });
 
-      statsGrid.appendChild(renderStatCard(`Compra Prom. [${labelSuffix}]`, `$${(categoryStats.avgPrice || 0).toFixed(2)}`, '💰'));
-      statsGrid.appendChild(renderStatCard('Compra c/Comis.', `$${(categoryStats.avgPriceWithCommission || 0).toFixed(2)}`, '💸'));
+      // Avg Price cards
+      const avgPriceNode = renderStatCard(`Compra Prom. [${labelSuffix}]`, `$${(categoryStats.avgPrice || 0).toFixed(2)}`, '💰');
+      avgPriceNode.innerHTML = `
+        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">💰</div>
+        <div class="stat-info">
+          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Compra Promedio</p>
+          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">$${(categoryStats.avgPrice || 0).toFixed(2)}</h3>
+        </div>
+      `;
+      statsGrid.appendChild(avgPriceNode);
+
+      const commPriceNode = renderStatCard('Compra c/Comis.', `$${(categoryStats.avgPriceWithCommission || 0).toFixed(2)}`, '💸');
+      commPriceNode.innerHTML = `
+        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">💸</div>
+        <div class="stat-info">
+          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Compra con Comis.</p>
+          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">$${(categoryStats.avgPriceWithCommission || 0).toFixed(2)}</h3>
+        </div>
+      `;
+      statsGrid.appendChild(commPriceNode);
       
-      // Simulación del Costo Real en Gancho con IIBB, Flete y Comisión
+      // Hook simulator cost metrics (Available when exactly 1 category is selected)
       if (selectedCategories.length === 1) {
         const cat = selectedCategories[0];
         const { realCostGancho, sellPriceRef, margin, marginPct, yieldVal } = categoryStats;
 
-        statsGrid.appendChild(renderStatCard('Costo Real en Gancho', `$${(realCostGancho || 0).toFixed(2)}`, '🏗️', `Rend: ${((yieldVal || 0) * 100).toFixed(1)}% | Incl. Flete, Comis. e IIBB`));
+        const realCostNode = renderStatCard('Costo Real en Gancho', `$${(realCostGancho || 0).toFixed(2)}`, '🏗️', `Rend: ${((yieldVal || 0) * 100).toFixed(1)}% | Incl. Flete, Comis. e IIBB`);
+        realCostNode.innerHTML = `
+          <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🏗️</div>
+          <div class="stat-info" style="flex: 1;">
+            <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Costo Real Gancho</p>
+            <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: #fbbf24; font-family: monospace;">$${(realCostGancho || 0).toFixed(2)}</h3>
+            <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600; margin-top: 0.25rem;">Rend: ${((yieldVal || 0) * 100).toFixed(1)}% &bull; Incl. flete, comis. e IIBB</div>
+          </div>
+        `;
+        statsGrid.appendChild(realCostNode);
 
         if (sellPriceRef > 0) {
-          const marginColor = margin >= 0 ? '#10b981' : '#ef4444';
+          const marginColor = margin >= 0 ? '#34d399' : '#f87171';
 
-          statsGrid.appendChild(renderStatCard(`Venta Config [${cat}]`, `$${(sellPriceRef || 0).toFixed(2)}`, '🏷️'));
+          const sellRefNode = renderStatCard(`Venta Config [${cat}]`, `$${(sellPriceRef || 0).toFixed(2)}`, '🏷️');
+          sellRefNode.innerHTML = `
+            <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🏷️</div>
+            <div class="stat-info">
+              <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Venta Config [${cat}]</p>
+              <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">$${(sellPriceRef || 0).toFixed(2)}</h3>
+            </div>
+          `;
+          statsGrid.appendChild(sellRefNode);
 
           const diffCard = renderStatCard('Utilidad $/Kg (Real)', `${margin >= 0 ? '+' : ''}$${(margin || 0).toFixed(2)}`, '⚖️');
-          diffCard.querySelector('h3').style.color = marginColor;
+          diffCard.innerHTML = `
+            <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">⚖️</div>
+            <div class="stat-info">
+              <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Utilidad $/Kg</p>
+              <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: ${marginColor}; font-family: monospace;">${margin >= 0 ? '+' : ''}$${(margin || 0).toFixed(2)}</h3>
+            </div>
+          `;
           statsGrid.appendChild(diffCard);
 
           const pctCard = renderStatCard('Rendimiento Final', `${marginPct >= 0 ? '+' : ''}${(marginPct || 0).toFixed(2)}%`, '📊');
-          pctCard.querySelector('h3').style.color = marginColor;
+          pctCard.innerHTML = `
+            <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">📊</div>
+            <div class="stat-info">
+              <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rentabilidad Final</p>
+              <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: ${marginColor}; font-family: monospace;">${marginPct >= 0 ? '+' : ''}${(marginPct || 0).toFixed(2)}%</h3>
+            </div>
+          `;
           statsGrid.appendChild(pctCard);
         }
       }
 
-      statsGrid.appendChild(renderStatCard('Viajes Incluidos', `${categoryStats.travelCount || 0}`, '🚛'));
-      statsGrid.appendChild(renderStatCard('Peso Media Res (Prom.)', `${(categoryStats.avgKgMediaRes || 0).toFixed(2)} kg`, '🥩'));
-      statsGrid.appendChild(renderStatCard('Cabezas Totales', `${categoryStats.totalQuantity || 0}`, '🐂'));
-      statsGrid.appendChild(renderStatCard('Rendimiento Promedio', `${((categoryStats.avgYield || 0) * 100).toFixed(2)}%`, '📈'));
+      const travelsNode = renderStatCard('Viajes Incluidos', `${categoryStats.travelCount || 0}`, '🚛');
+      travelsNode.innerHTML = `
+        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🚛</div>
+        <div class="stat-info">
+          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Viajes Completados</p>
+          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main);">${categoryStats.travelCount || 0} viajes</h3>
+        </div>
+      `;
+      statsGrid.appendChild(travelsNode);
+
+      const weightNode = renderStatCard('Peso Media Res (Prom.)', `${(categoryStats.avgKgMediaRes || 0).toFixed(2)} kg`, '🥩');
+      weightNode.innerHTML = `
+        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🥩</div>
+        <div class="stat-info">
+          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Peso Res (Prom.)</p>
+          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">${(categoryStats.avgKgMediaRes || 0).toFixed(2)} kg</h3>
+        </div>
+      `;
+      statsGrid.appendChild(weightNode);
+
+      const headsNode = renderStatCard('Cabezas Totales', `${categoryStats.totalQuantity || 0}`, '🐂');
+      headsNode.innerHTML = `
+        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🐂</div>
+        <div class="stat-info">
+          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Cabezas Faenadas</p>
+          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main);">${categoryStats.totalQuantity || 0} cabezas</h3>
+        </div>
+      `;
+      statsGrid.appendChild(headsNode);
+
+      const yieldNode = renderStatCard('Rendimiento Promedio', `${((categoryStats.avgYield || 0) * 100).toFixed(2)}%`, '📈');
+      yieldNode.innerHTML = `
+        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">📈</div>
+        <div class="stat-info">
+          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rendimiento Prom.</p>
+          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: #34d399; font-family: monospace;">${((categoryStats.avgYield || 0) * 100).toFixed(2)}%</h3>
+        </div>
+      `;
+      statsGrid.appendChild(yieldNode);
       
       const maxYieldLabel = categoryStats.maxYield > 0 ? `${(categoryStats.maxYield * 100).toFixed(2)}%` : 'N/A';
-      statsGrid.appendChild(renderStatCard('Rendimiento Máximo', maxYieldLabel, '👑', categoryStats.maxYieldEntity || ''));
+      const maxYNode = renderStatCard('Rendimiento Máximo', maxYieldLabel, '👑', categoryStats.maxYieldEntity || '');
+      maxYNode.innerHTML = `
+        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">👑</div>
+        <div class="stat-info">
+          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rendimiento Máx.</p>
+          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: #fbbf24; font-family: monospace;">${maxYieldLabel}</h3>
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 650; margin-top: 0.15rem;">${categoryStats.maxYieldEntity || 'N/A'}</div>
+        </div>
+      `;
+      statsGrid.appendChild(maxYNode);
 
       const totalCostoFaenados = (categoryStats.totalKgFaena || 0) * (categoryStats.avgPriceWithCommission || 0);
-      statsGrid.appendChild(renderStatCard('Kilos Faenados', `${(categoryStats.totalKgFaena || 0).toLocaleString()} kg`, '🔪', `Costo: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}`));
+      const totalKgNode = renderStatCard('Kilos Faenados', `${(categoryStats.totalKgFaena || 0).toLocaleString()} kg`, '🔪', `Costo: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
+      totalKgNode.innerHTML = `
+        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🔪</div>
+        <div class="stat-info">
+          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Kilos Faenados</p>
+          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">${(categoryStats.totalKgFaena || 0).toLocaleString()} kg</h3>
+          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 650; margin-top: 0.15rem;">Costo: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+        </div>
+      `;
+      statsGrid.appendChild(totalKgNode);
 
-      // Comparación con mercado de referencia MAG (Mercado Agroganadero)
+      // MAG Reference market indices
       const selectedCat = selectedCategories.length === 1 ? selectedCategories[0] : null;
       if (selectedCat && selectedCat !== 'TODOS') {
         MarketService.getReferencePrices().then(prices => {
           const ref = prices[selectedCat];
           if (ref) {
             const gap = MarketService.calculateGap(categoryStats.avgPrice, ref);
-            const gapColor = gap > 0 ? '#ef4444' : '#10b981';
+            const gapColor = gap > 0 ? '#f87171' : '#34d399';
             const sign = gap > 0 ? '+' : '';
+            
             const gapCard = renderStatCard('Vs Mercado (MAG)', `${sign}${gap.toFixed(1)}%`, '📈');
-            gapCard.querySelector('h3').style.color = gapColor;
+            gapCard.innerHTML = `
+              <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">📈</div>
+              <div class="stat-info">
+                <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Vs Mercado (MAG)</p>
+                <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: ${gapColor}; font-family: monospace;">${sign}${gap.toFixed(1)}%</h3>
+              </div>
+            `;
             statsGrid.appendChild(gapCard);
-            statsGrid.appendChild(renderStatCard('Precio MAG (+IVA)', `$${ref.toLocaleString()}`, '🏷️', 'Fuente: MAG'));
+
+            const magRefNode = renderStatCard('Precio MAG (+IVA)', `$${ref.toLocaleString()}`, '🏷️', 'Fuente: MAG');
+            magRefNode.innerHTML = `
+              <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🏛️</div>
+              <div class="stat-info">
+                <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Precio Ref MAG</p>
+                <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">$${ref.toLocaleString()}</h3>
+                <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500; margin-top: 0.15rem;">Fuente: Mercado MAG</div>
+              </div>
+            `;
+            statsGrid.appendChild(magRefNode);
           }
         });
       }
       wrapper.appendChild(statsGrid);
     }
 
-    // --- 4. SALIDAS / DESPACHOS SECTION ---
-    const dispatchSection = el('div', { classes: ['glass-card'], style: 'margin-bottom: 2rem; padding: 0;' });
+    // --- 4. Dispatch history Accordion Sheet ---
+    const dispatchSection = el('div', { 
+      classes: ['glass-card'], 
+      style: 'margin-bottom: 2rem; padding: 0; overflow: hidden; border-radius: 20px;' 
+    });
+    
     const dispatchHeader = el('div', { 
-      style: 'padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.2s;',
+      style: 'padding: 1.5rem 2rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.25s ease;',
       classes: ['dispatch-accordion-header']
     });
     dispatchHeader.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <span style="font-size: 1.5rem;">🚚</span>
-        <h3 style="margin: 0;">Salidas y Despachos del Día</h3>
+      <div style="display: flex; align-items: center; gap: 0.85rem;">
+        <span style="font-size: 1.4rem;">🚚</span>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 750; color: var(--text-main);">Salidas y Despachos de Hacienda</h3>
       </div>
-      <div style="display: flex; align-items: center; gap: 1rem;">
-        <span id="dispatch-count-badge" style="background: rgba(132, 29, 29, 0.1); color: var(--primary); padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">...</span>
-        <span class="accordion-arrow" style="transition: transform 0.3s;">▼</span>
+      <div style="display: flex; align-items: center; gap: 1.25rem;">
+        <span id="dispatch-count-badge" style="background: rgba(132, 29, 29, 0.08); color: var(--primary); border: 1px solid rgba(132, 29, 29, 0.2); padding: 0.35rem 0.85rem; border-radius: 10px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.5px;">...</span>
+        <span class="accordion-arrow" style="transition: transform 0.3s ease; color: var(--text-muted); font-size: 0.95rem;">▼</span>
       </div>
     `;
-    const dispatchContent = el('div', { style: 'display: none; padding: 1.5rem; background: rgba(0,0,0,0.05);', classes: ['dispatch-accordion-content'] });
+    
+    const dispatchContent = el('div', { 
+      style: 'display: none; padding: 2rem; background: rgba(0,0,0,0.08); border-top: 1px solid var(--border);', 
+      classes: ['dispatch-accordion-content'] 
+    });
+    
     dispatchHeader.onclick = () => {
       const isVisible = dispatchContent.style.display === 'block';
       dispatchContent.style.display = isVisible ? 'none' : 'block';
       dispatchHeader.querySelector('.accordion-arrow').style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
     };
 
-    const dFilters = el('div', { style: 'display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: flex-end;' });
-    const dateFilter = el('div', { style: 'flex: 1; min-width: 150px;' });
-    dateFilter.innerHTML = `<label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.25rem;">Fecha</label>
-      <input type="date" class="form-input" style="width:100%" value="${dashHistoryFilters.date || ''}">`;
+    // Filters for accordion
+    const dFilters = el('div', { 
+      style: 'display: flex; gap: 1.25rem; margin-bottom: 1.75rem; flex-wrap: wrap; align-items: flex-end;' 
+    });
+    
+    const dateFilter = el('div', { style: 'flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 0.4rem;' });
+    dateFilter.innerHTML = `
+      <label style="font-size: 0.78rem; font-weight: 650; color: var(--text-muted); text-transform: uppercase;">📅 Fecha Despacho</label>
+      <input type="date" class="form-input" style="width: 100%; padding: 0.55rem 0.85rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600;" value="${dashHistoryFilters.date || ''}">
+    `;
     dateFilter.querySelector('input').onchange = (e) => onDashHistoryFilter('date', e.target.value);
     
-    const destFilter = el('div', { style: 'flex: 2; min-width: 200px;' });
-    destFilter.innerHTML = `<label style="display:block; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.25rem;">Filtrar por Destino</label>
-      <select class="form-input" style="width:100%">
+    const destFilter = el('div', { style: 'flex: 2; min-width: 240px; display: flex; flex-direction: column; gap: 0.4rem;' });
+    destFilter.innerHTML = `
+      <label style="font-size: 0.78rem; font-weight: 650; color: var(--text-muted); text-transform: uppercase;">🏢 Cliente Destinatario</label>
+      <select class="form-input" style="width: 100%; padding: 0.55rem 0.85rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600;">
         <option value="">Todos los destinos</option>
         ${clients.map(c => `<option value="${c.name}" ${dashHistoryFilters.destination === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
-      </select>`;
+      </select>
+    `;
     destFilter.querySelector('select').onchange = (e) => onDashHistoryFilter('destination', e.target.value);
     
     dFilters.appendChild(dateFilter);
@@ -247,13 +434,37 @@ export function renderDashboard(container, options) {
     dispatchHeader.querySelector('#dispatch-count-badge').textContent = `${filteredHistory.length} piezas`;
 
     if (filteredHistory.length === 0) {
-      dispatchContent.appendChild(el('div', { style: 'padding: 2rem; text-align: center; color: var(--text-muted); background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px dashed var(--border);', text: 'No se encontraron despachos.' }));
+      dispatchContent.appendChild(el('div', { 
+        style: 'padding: 2.5rem; text-align: center; color: var(--text-muted); background: rgba(255,255,255,0.01); border-radius: 14px; border: 1px dashed var(--border); font-size: 0.82rem; font-weight: 600;', 
+        text: 'No se encontraron despachos registrados para esta fecha o destino.' 
+      }));
     } else {
-      const listTable = el('div', { classes: ['table-responsive'], style: 'background: rgba(255,255,255,0.02); border-radius: 12px;' });
-      const table = el('table', { style: 'width: 100%; border-collapse: collapse; font-size: 0.9rem;' });
-      table.innerHTML = `<thead><tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text-muted);"><th style="padding: 1rem;">Garrón</th><th style="padding: 1rem;">Categoría</th><th style="padding: 1rem;">Kilos</th><th style="padding: 1rem;">Destino</th><th style="padding: 1rem;">Hora</th></tr></thead><tbody>
-          ${filteredHistory.map(item => `<tr style="border-bottom: 1px solid var(--border);"><td style="padding: 1rem; font-weight: 600;">#${item.garron}</td><td style="padding: 1rem;">${item.standardizedCategory || item.category}</td><td style="padding: 1rem; color: #10b981; font-weight: 700;">${(item.kg || 0).toFixed(1)} kg</td><td style="padding: 1rem; color: var(--primary); font-weight: 500;">${item.destination || 'N/A'}</td><td style="padding: 1rem; color: var(--text-muted); font-size: 0.8rem;">${new Date(item.dispatchDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td></tr>`).join('')}
-        </tbody>`;
+      const listTable = el('div', { 
+        classes: ['table-responsive'], 
+        style: 'background: rgba(0,0,0,0.12); border-radius: 16px; border: 1px solid var(--border); overflow-x: auto; margin-bottom: 1.5rem;' 
+      });
+      const table = el('table', { style: 'width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 500px;' });
+      table.innerHTML = `
+        <thead>
+          <tr style="border-bottom: 2px solid var(--border); text-align: left; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+            <th style="padding: 0.85rem 1.15rem;">Garrón #</th>
+            <th style="padding: 0.85rem 1.15rem;">Categoría</th>
+            <th style="padding: 0.85rem 1.15rem; text-align: right;">Kilos Despachados</th>
+            <th style="padding: 0.85rem 1.15rem; text-align: left;">Destino</th>
+            <th style="padding: 0.85rem 1.15rem; text-align: center;">Hora Despacho</th>
+          </tr>
+        </thead>
+        <tbody style="font-weight: 600; color: var(--text-main);">
+          ${filteredHistory.map(item => `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+              <td style="padding: 0.85rem 1.15rem; font-weight: 750; color: #ffffff;">#${item.garron}</td>
+              <td style="padding: 0.85rem 1.15rem; color: var(--text-muted);">${item.standardizedCategory || item.category}</td>
+              <td style="padding: 0.85rem 1.15rem; text-align: right; color: #34d399; font-weight: 750; font-family: monospace;">${(item.kg || 0).toFixed(1)} kg</td>
+              <td style="padding: 0.85rem 1.15rem; color: var(--primary); font-weight: 700;">${item.destination || 'N/A'}</td>
+              <td style="padding: 0.85rem 1.15rem; text-align: center; color: var(--text-muted); font-size: 0.78rem;">${new Date(item.dispatchDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} hs</td>
+            </tr>`).join('')}
+        </tbody>
+      `;
       listTable.appendChild(table);
       dispatchContent.appendChild(listTable);
 
@@ -264,10 +475,17 @@ export function renderDashboard(container, options) {
         return acc;
       }, {});
       
-      const summaryRow = el('div', { style: 'margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;' });
+      const summaryRow = el('div', { style: 'display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem;' });
       Object.entries(destSummary).forEach(([dest, val]) => {
-        const card = el('div', { style: 'background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 0.75rem 1rem; flex: 1; min-width: 150px;' });
-        card.innerHTML = `<div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">${dest}</div><div style="font-weight: 700; font-size: 1.1rem; color: #10b981;">${val.kg.toLocaleString(undefined, {maximumFractionDigits: 0})} kg</div><div style="font-size: 0.75rem; color: var(--text-muted);">${val.count} piezas</div>`;
+        const card = el('div', { 
+          classes: ['glass-card'],
+          style: 'border-left: 3px solid #10b981; padding: 0.95rem 1.15rem; border-radius: 12px; background: rgba(16, 185, 129, 0.03);' 
+        });
+        card.innerHTML = `
+          <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 750; text-transform: uppercase; letter-spacing: 0.5px;">${dest}</div>
+          <div style="font-weight: 800; font-size: 1.25rem; color: #34d399; margin: 0.25rem 0; font-family: monospace;">${val.kg.toLocaleString(undefined, {maximumFractionDigits: 0})} kg</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">${val.count} piezas despachadas</div>
+        `;
         summaryRow.appendChild(card);
       });
       dispatchContent.appendChild(summaryRow);
@@ -277,28 +495,32 @@ export function renderDashboard(container, options) {
     wrapper.appendChild(dispatchSection);
 
     if (data.length === 0 && stockTotals.kg === 0) {
-      const emptyMsg = el('div', { classes: ['alert', 'info'], text: 'No hay datos suficientes.' });
+      const emptyMsg = el('div', { classes: ['alert', 'info'], text: 'No hay datos operacionales suficientes para desplegar el análisis gráfico.' });
       wrapper.appendChild(emptyMsg);
       container.appendChild(wrapper);
       return;
     }
 
-    // --- 5. CHARTS & RANKINGS ---
+    // --- 5. Structured Analytics Charts Grid ---
     const { trendsMap = {}, catDistributionMap = {}, entityMap = {} } = categoryStats || {};
 
     const sortedDates = Object.keys(trendsMap).sort((a,b) => new Date(a) - new Date(b));
-    const chartGrid = el('div', { classes: ['chart-grid'] });
-    chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], html: '<h3>📈 Tendencias de Precio y Rendimiento</h3><div class="canvas-holder"><canvas id="trendChart"></canvas></div>' }));
-    chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], html: '<h3>🍰 Mix de Categorías Compradas (Kilos)</h3><div class="canvas-holder"><canvas id="categoryChart"></canvas></div>' }));
-    chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], html: '<h3>🔝 Top 5 Productores (Kilos)</h3><div class="canvas-holder"><canvas id="topProducersChart"></canvas></div>' }));
-    chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], html: '<h3>🤝 Top 5 Comisionistas (Kilos)</h3><div class="canvas-holder"><canvas id="topAgentsChart"></canvas></div>' }));
+    const chartGrid = el('div', { 
+      classes: ['chart-grid'],
+      style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 2rem; margin-bottom: 2rem;' 
+    });
+    
+    chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], style: 'padding: 1.5rem; border-radius: 20px;', html: '<h3 style="margin: 0 0 1.25rem 0; font-size: 1.05rem; font-weight: 750;">📈 Tendencias de Precio y Rendimiento</h3><div class="canvas-holder" style="height: 300px; position: relative;"><canvas id="trendChart"></canvas></div>' }));
+    chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], style: 'padding: 1.5rem; border-radius: 20px;', html: '<h3 style="margin: 0 0 1.25rem 0; font-size: 1.05rem; font-weight: 750;">🍰 Mix de Categorías Compradas (Kilos)</h3><div class="canvas-holder" style="height: 300px; position: relative;"><canvas id="categoryChart"></canvas></div>' }));
+    chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], style: 'padding: 1.5rem; border-radius: 20px;', html: '<h3 style="margin: 0 0 1.25rem 0; font-size: 1.05rem; font-weight: 750;">🔝 Top 5 Productores (Kilos)</h3><div class="canvas-holder" style="height: 300px; position: relative;"><canvas id="topProducersChart"></canvas></div>' }));
+    chartGrid.appendChild(el('div', { classes: ['chart-container', 'glass-card'], style: 'padding: 1.5rem; border-radius: 20px;', html: '<h3 style="margin: 0 0 1.25rem 0; font-size: 1.05rem; font-weight: 750;">🤝 Top 5 Comisionistas (Kilos)</h3><div class="canvas-holder" style="height: 300px; position: relative;"><canvas id="topAgentsChart"></canvas></div>' }));
     wrapper.appendChild(chartGrid);
 
     /**
-     * Helper para renderizar las tablas de rankings de Productores y Comisionistas.
-     * @param {string} typeFilter - 'AGENT' o 'PRODUCER'.
-     * @param {string} title - Título de la tabla.
-     * @returns {string} Fragmento HTML correspondiente al card de ranking.
+     * Internal helper to render the Producer / Agent ranking grid tables
+     * @param {string} typeFilter - 'AGENT' or 'PRODUCER'.
+     * @param {string} title - The ranking card title.
+     * @returns {string} The constructed layout fragment.
      */
     const renderRankingTable = (typeFilter, title) => {
       const list = Object.keys(entityMap)
@@ -314,27 +536,27 @@ export function renderDashboard(container, options) {
       
       if (list.length === 0) return '';
       return `
-        <div class="ranking-card glass-card" style="padding: 1.5rem;">
-          <h3 style="margin-top: 0; margin-bottom: 1rem;">🏆 ${title}</h3>
-          <div class="table-responsive">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+        <div class="ranking-card glass-card" style="padding: 1.75rem 2rem; border-radius: 22px;">
+          <h3 style="margin-top: 0; margin-bottom: 1.25rem; font-size: 1.1rem; font-weight: 750; color: var(--text-main);">🏆 ${title}</h3>
+          <div class="table-responsive" style="background: rgba(0,0,0,0.12); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
               <thead>
-                <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted); text-align: left;">
-                  <th style="padding: 0.5rem;">Nombre</th>
-                  <th style="padding: 0.5rem; text-align: center;">Viajes</th>
-                  <th style="padding: 0.5rem; text-align: right; color: var(--danger);">Mín (%)</th>
-                  <th style="padding: 0.5rem; text-align: right; color: var(--success);">Máx (%)</th>
-                  <th style="padding: 0.5rem; text-align: right; font-weight: 700;">Prom (%)</th>
+                <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); text-align: left; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                  <th style="padding: 0.85rem 1rem;">Nombre</th>
+                  <th style="padding: 0.85rem 1rem; text-align: center;">Viajes</th>
+                  <th style="padding: 0.85rem 1rem; text-align: right; color: #f87171;">Mín</th>
+                  <th style="padding: 0.85rem 1rem; text-align: right; color: #34d399;">Máx</th>
+                  <th style="padding: 0.85rem 1rem; text-align: right; font-weight: 800;">Promedio</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody style="font-weight: 650; color: var(--text-main);">
                 ${list.map(r => `
-                  <tr style="border-bottom: 1px solid var(--border);">
-                    <td style="padding: 0.5rem; font-weight: 500;">${r.name}</td>
-                    <td style="padding: 0.5rem; text-align: center; color: var(--text-muted);">${r.count}</td>
-                    <td style="padding: 0.5rem; text-align: right; color: rgba(239, 68, 68, 0.8);">${r.min.toFixed(2)}%</td>
-                    <td style="padding: 0.5rem; text-align: right; color: rgba(16, 185, 129, 0.8);">${r.max.toFixed(2)}%</td>
-                    <td style="padding: 0.5rem; text-align: right; font-weight: 700; color: var(--text-main);">${r.avg.toFixed(2)}%</td>
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);" class="ranking-row-hover">
+                    <td style="padding: 0.85rem 1rem; font-weight: 700; color: #ffffff;">${r.name}</td>
+                    <td style="padding: 0.85rem 1rem; text-align: center; color: var(--text-muted);">${r.count}</td>
+                    <td style="padding: 0.85rem 1rem; text-align: right; color: rgba(248, 113, 113, 0.8); font-family: monospace;">${r.min.toFixed(2)}%</td>
+                    <td style="padding: 0.85rem 1rem; text-align: right; color: rgba(52, 211, 153, 0.8); font-family: monospace;">${r.max.toFixed(2)}%</td>
+                    <td style="padding: 0.85rem 1rem; text-align: right; font-weight: 800; color: #34d399; font-family: monospace;">${r.avg.toFixed(2)}%</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -344,24 +566,24 @@ export function renderDashboard(container, options) {
     };
 
     wrapper.appendChild(el('div', { 
-      style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;', 
+      style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 2rem; margin-top: 1.5rem;', 
       html: renderRankingTable('AGENT', 'Ranking de Comisionistas') + renderRankingTable('PRODUCER', 'Ranking de Productores') 
     }));
 
     container.appendChild(wrapper);
 
-    // 6. Inicialización de los gráficos de Chart.js con un retraso seguro
+    // --- 6. ChartJS elements rendering ---
     setTimeout(() => {
-      const isDark = document.body.classList.contains('dark');
-      const textColor = isDark ? '#ffffff' : '#71717a';
-      const borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+      const isDark = document.body.classList.contains('dark') || true; // Force dark-themed colors
+      const textColor = isDark ? '#a1a1aa' : '#71717a';
+      const borderColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.08)';
       const palette = ['#841d1d', '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
       
       /**
-       * Inicializa de forma segura un gráfico y destruye su instancia previa si existe.
-       * @param {string} id - ID del canvas en el DOM.
-       * @param {Object} config - Configuración completa para Chart.js.
-       * @returns {Chart|null} Instancia del gráfico creado.
+       * Safe Chart.js loader. Destroys pre-existing bindings first.
+       * @param {string} id - The Canvas identifier.
+       * @param {Object} config - Config parameters structure.
+       * @returns {Chart|null} The initialized instance.
        */
       const initChart = (id, config) => { 
         try { 
@@ -373,7 +595,7 @@ export function renderDashboard(container, options) {
         } catch (err) { console.error(`Error chart ${id}:`, err); return null; } 
       };
       
-      // Gráfico 1: Tendencias de Precio y Rendimiento
+      // Chart 1: Trends
       initChart('trendChart', { 
         type: 'line', 
         data: { 
@@ -382,8 +604,8 @@ export function renderDashboard(container, options) {
             { 
               label: 'Precio Promedio ($)', 
               data: sortedDates.map(d => trendsMap[d].totalPrice / trendsMap[d].count), 
-              borderColor: isDark ? '#ffffff' : '#841d1d', 
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(132, 29, 29, 0.1)', 
+              borderColor: '#841d1d', 
+              backgroundColor: 'rgba(132, 29, 29, 0.1)', 
               yAxisID: 'y', 
               tension: 0.3, 
               fill: true 
@@ -401,7 +623,7 @@ export function renderDashboard(container, options) {
           responsive: true, 
           maintainAspectRatio: false, 
           plugins: { 
-            legend: { labels: { color: textColor } } 
+            legend: { labels: { color: textColor, font: { weight: '600' } } } 
           }, 
           scales: { 
             x: { ticks: { color: textColor }, grid: { color: borderColor } }, 
@@ -423,7 +645,7 @@ export function renderDashboard(container, options) {
         } 
       });
       
-      // Gráfico 2: Doughnut de Mix de Categorías Compradas
+      // Chart 2: Category Mix Doughnut
       const catLabels = Object.keys(catDistributionMap);
       initChart('categoryChart', { 
         type: 'doughnut', 
@@ -432,7 +654,7 @@ export function renderDashboard(container, options) {
           datasets: [{ 
             data: catLabels.map(l => catDistributionMap[l].kg), 
             backgroundColor: palette, 
-            borderColor: isDark ? '#18181b' : '#ffffff', 
+            borderColor: '#18181b', 
             borderWidth: 2 
           }] 
         }, 
@@ -440,7 +662,7 @@ export function renderDashboard(container, options) {
           responsive: true, 
           maintainAspectRatio: false, 
           plugins: { 
-            legend: { position: 'right', labels: { color: textColor, font: { size: 10 } } },
+            legend: { position: 'right', labels: { color: textColor, font: { size: 10, weight: '600' } } },
             tooltip: {
               callbacks: {
                 label: (context) => {
@@ -461,15 +683,15 @@ export function renderDashboard(container, options) {
         } 
       });
 
-      // Gráficos 3 y 4: Top 5 Productores y Top 5 Comisionistas
+      // Chart 3 & 4: Rankings top 5
       const topP = Object.keys(entityMap).filter(n => entityMap[n].type === 'PRODUCER').sort((a,b) => entityMap[b].totalKg - entityMap[a].totalKg).slice(0, 5);
-      initChart('topProducersChart', { type: 'bar', data: { labels: topP, datasets: [{ label: 'Kg Totales', data: topP.map(n => entityMap[n].totalKg), backgroundColor: '#3b82f6', borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor, font: { size: 10 } } } } } });
+      initChart('topProducersChart', { type: 'bar', data: { labels: topP, datasets: [{ label: 'Kg Totales', data: topP.map(n => entityMap[n].totalKg), backgroundColor: '#3b82f6', borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor, font: { size: 10, weight: '600' } } } } } });
       
       const topA = Object.keys(entityMap).filter(n => entityMap[n].type === 'AGENT').sort((a,b) => entityMap[b].totalKg - entityMap[a].totalKg).slice(0, 5);
-      initChart('topAgentsChart', { type: 'bar', data: { labels: topA, datasets: [{ label: 'Kg Totales', data: topA.map(n => entityMap[n].totalKg), backgroundColor: '#8b5cf6', borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor, font: { size: 10 } } } } } });
+      initChart('topAgentsChart', { type: 'bar', data: { labels: topA, datasets: [{ label: 'Kg Totales', data: topA.map(n => entityMap[n].totalKg), backgroundColor: '#8b5cf6', borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor, font: { size: 10, weight: '600' } } } } } });
     }, 150);
   } catch (error) {
     console.error("Dashboard Render Error:", error);
-    container.innerHTML = `<div class="alert error">Error al cargar Dashboard: ${error.message}</div>`;
+    container.innerHTML = `<div class="alert error" style="padding: 1.5rem; border-radius: 12px; font-weight:600;">Error al cargar Dashboard: ${error.message}</div>`;
   }
 }

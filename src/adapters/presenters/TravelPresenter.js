@@ -19,6 +19,12 @@ export class TravelPresenter {
     this.pdfService = new PdfFaenaService();
     this.ui = ui;
     this.allTravels = [];
+    
+    // Performance optimization cache for dashboard Firebase queries
+    this.stockItemsCache = null;
+    this.historyItemsCache = null;
+    this.clientsCache = null;
+    this.categoryPricesCache = null;
     // Default: last month range
     const _today = new Date();
     const _oneMonthAgo = new Date(_today);
@@ -74,9 +80,17 @@ export class TravelPresenter {
     return travels;
   }
 
+  invalidateDashboardCache() {
+    this.stockItemsCache = null;
+    this.historyItemsCache = null;
+    this.clientsCache = null;
+    this.categoryPricesCache = null;
+  }
+
   async loadTravels(uid) {
     this.ui.showLoading();
     try {
+      this.invalidateDashboardCache();
       const raw = await this.getTravelsUseCase.execute({ uid, filter: 'TODOS', sort: 'DESC' });
       
       // Deduplicate by ID
@@ -324,6 +338,7 @@ export class TravelPresenter {
       updatedRaw.reduce = newValue; // Picked up by updated Travel.js constructor 
       
       await this.travelRepository.updateTravel(uid, travelId, updatedRaw);
+      this.invalidateDashboardCache();
       this.refresh();
     } catch (error) {
       this.ui.showError("Error al actualizar achique: " + error.message);
@@ -379,24 +394,26 @@ export class TravelPresenter {
     const completed = this.completedTravelsCache || [];
     const allCategories = this.allCategoriesCache || ['TODOS'];
 
-    // 1. Load Stock and Dispatch data first to have categoryPrices
-    let stockItems = [];
-    let historyItems = [];
-    let clients = [];
-    let categoryPrices = {};
-    
-    try {
-      const [allFaenaData, catsRes] = await Promise.all([
-        this.travelRepository.getFaenaStock(SHARED_DATA_SOURCE_UID),
-        this.clientRepository.getCategoryPrices()
-      ]);
-      categoryPrices = catsRes || {};
-      stockItems = allFaenaData.filter(f => f.status === 'AVAILABLE');
-      historyItems = allFaenaData.filter(f => f.status === 'DISPATCHED');
-      clients = await this.clientRepository.getClients();
-    } catch (e) {
-      console.error("Error loading dashboard extended data:", e);
+    // 1. Load Stock and Dispatch data first with lazy memory caching to resolve filter lag
+    if (!this.stockItemsCache || !this.categoryPricesCache || !this.clientsCache) {
+      try {
+        const [allFaenaData, catsRes] = await Promise.all([
+          this.travelRepository.getFaenaStock(SHARED_DATA_SOURCE_UID),
+          this.clientRepository.getCategoryPrices()
+        ]);
+        this.categoryPricesCache = catsRes || {};
+        this.stockItemsCache = allFaenaData.filter(f => f.status === 'AVAILABLE');
+        this.historyItemsCache = allFaenaData.filter(f => f.status === 'DISPATCHED');
+        this.clientsCache = await this.clientRepository.getClients();
+      } catch (e) {
+        console.error("Error loading dashboard extended data:", e);
+      }
     }
+
+    const stockItems = this.stockItemsCache || [];
+    const historyItems = this.historyItemsCache || [];
+    const clients = this.clientsCache || [];
+    const categoryPrices = this.categoryPricesCache || {};
 
     // 2. Filter travels data by time and categories
     let filtered = this._applyTimeFilter(completed);

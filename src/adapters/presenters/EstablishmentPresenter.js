@@ -11,12 +11,18 @@ export class EstablishmentPresenter {
   }
 
   async loadData() {
+    console.log("EstablishmentPresenter: loadData() started");
     this.ui.showLoading();
     try {
+      console.log("EstablishmentPresenter: fetching establishments from repository...");
       this.state.establishments = await this.repository.getEstablishments();
+      console.log("EstablishmentPresenter: fetched", this.state.establishments.length, "establishments");
       this.render();
+      console.log("EstablishmentPresenter: render complete");
     } catch (error) {
+      console.error("EstablishmentPresenter: Error loading data", error);
       this.ui.showError("Error al cargar sucursales: " + error.message);
+      alert("Error crítico al cargar sucursales: " + error.message);
     } finally {
       this.ui.hideLoading();
     }
