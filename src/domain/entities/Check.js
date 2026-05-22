@@ -14,7 +14,7 @@ export class Check {
     this.notes = data.notes || '';
     this.issuerName = data.issuerName || '';
     this.issuerCuit = data.issuerCuit || '';
-    
+
     this.buySide = data.buySide ? {
       contactId: data.buySide.contactId || '',
       pesificacionRate: parseFloat(data.buySide.pesificacionRate) || 0,
@@ -42,16 +42,18 @@ export class Check {
   calculate() {
     const reception = new Date(this.receptionDate);
     const due = new Date(this.dueDate);
-    
+
     // TTL: 3 years from reception date
     const expireAt = new Date(reception);
     expireAt.setFullYear(expireAt.getFullYear() + 3);
     this.expireAt = expireAt;
-    
+
     // Calculate days: (Due - Reception) + Clearing
-    const diffTime = due.getTime() - reception.getTime();
+    const diffTime = due.getTime() - reception.getTime(); // chequear el caso de igual a cero
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    this.days = Math.max(0, diffDays + this.clearing);
+    // Si la diferencia de días es 0 (o negativa), los días totales son 0 y el clearing no aplica.
+    // Si es mayor a 0, se suman los días de diferencia + el clearing.
+    this.days = diffDays <= 0 ? 0 : diffDays + this.clearing;
 
     // Buy side calculation
     if (this.buySide) {
