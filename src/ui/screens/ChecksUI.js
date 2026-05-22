@@ -122,8 +122,13 @@ export function renderChecks(container, options) {
     style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;'
   });
 
-  statsGrid.appendChild(createStatCard('Ganancia Vendida', formatCurrency(totalProfit), '#10b981', '📈'));
-  statsGrid.appendChild(createStatCard('Desc. en Cartera', formatCurrency(totalPortfolioDiscount), '#fbbf24', '📉'));
+  if (filters?.onlyNominal) {
+    statsGrid.appendChild(createStatCard('Ganancia Vendida', '🔒 Oculto', '#64748b', '📈'));
+    statsGrid.appendChild(createStatCard('Desc. en Cartera', '🔒 Oculto', '#64748b', '📉'));
+  } else {
+    statsGrid.appendChild(createStatCard('Ganancia Vendida', formatCurrency(totalProfit), '#10b981', '📈'));
+    statsGrid.appendChild(createStatCard('Desc. en Cartera', formatCurrency(totalPortfolioDiscount), '#fbbf24', '📉'));
+  }
   statsGrid.appendChild(createStatCard('Capital en Cartera', formatCurrency(totalInPortfolio), '#3b82f6', '💰'));
   statsGrid.appendChild(createStatCard('Cheques en Cartera', `${portfolioChecksCount} uds.`, 'var(--primary)', '📂'));
 
@@ -300,10 +305,35 @@ export function renderChecks(container, options) {
   applyBtnGroup.appendChild(applyBtn);
   applyBtnGroup.appendChild(clearBtn);
 
+  const nominalToggleGroup = el('div', { 
+    classes: ['form-group'], 
+    style: 'margin-bottom: 0; display: flex; align-items: center; gap: 0.6rem; height: 38px; cursor: pointer; user-select: none;' 
+  });
+  const nominalCb = el('input', {
+    attrs: { type: 'checkbox', id: 'filter-only-nominal' },
+    style: 'width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);'
+  });
+  if (filters?.onlyNominal) {
+    nominalCb.checked = true;
+  }
+  const nominalLabel = el('label', {
+    attrs: { for: 'filter-only-nominal' },
+    text: '🔍 Solo Total Nominal',
+    style: 'font-size: 0.8rem; font-weight: 700; color: var(--text-muted); cursor: pointer; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;'
+  });
+  
+  nominalToggleGroup.appendChild(nominalCb);
+  nominalToggleGroup.appendChild(nominalLabel);
+
+  nominalCb.addEventListener('change', () => {
+    onFilterChange({ onlyNominal: nominalCb.checked });
+  });
+
   filtersGrid.appendChild(searchGroup);
   filtersGrid.appendChild(dateTypeGroup);
   filtersGrid.appendChild(startField.group);
   filtersGrid.appendChild(endField.group);
+  filtersGrid.appendChild(nominalToggleGroup);
   filtersGrid.appendChild(applyBtnGroup);
   filtersBar.appendChild(filtersGrid);
 
@@ -373,6 +403,12 @@ export function renderChecks(container, options) {
     style: 'border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.82rem; font-weight: 700;',
     text: 'Limpiar selección'
   });
+
+  const printSelBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem;',
+    html: '🖨️ Imprimir Selección'
+  });
   
   const batchSellBtn = el('button', {
     classes: ['btn-nueva-operacion'],
@@ -382,17 +418,29 @@ export function renderChecks(container, options) {
   
   batchSellBar.appendChild(batchSellLabel);
   batchSellBar.appendChild(clearSelBtn);
+  batchSellBar.appendChild(printSelBtn);
   batchSellBar.appendChild(batchSellBtn);
   container.appendChild(batchSellBar);
 
   let selectedIds = new Set();
+
+  // Botón para imprimir los cheques seleccionados
+  printSelBtn.onclick = () => {
+    if (selectedIds.size === 0) return;
+    // Mapeamos los IDs seleccionados a sus correspondientes entidades de cheque para mantener la integridad de los datos
+    // Se utiliza comparación de tipo string para prevenir desajustes entre dataset y base de datos
+    const selectedChecks = Array.from(selectedIds).map(id => checks.find(c => String(c.id) === String(id))).filter(Boolean);
+    if (typeof onPrint === 'function') {
+      onPrint(selectedChecks, 'Reporte de Cheques Seleccionados');
+    }
+  };
 
   const updateBatchBar = () => {
     if (selectedIds.size > 0) {
       batchSellBar.style.display = 'flex';
       let totalNominal = 0;
       currentPortfolio.forEach(c => {
-        if (selectedIds.has(c.id)) {
+        if (selectedIds.has(String(c.id))) {
           totalNominal += parseFloat(c.nominalValue) || 0;
         }
       });
@@ -412,10 +460,11 @@ export function renderChecks(container, options) {
 
   batchSellBtn.onclick = () => {
     if (selectedIds.size === 0) return;
-    showBatchSellModal(contacts, Array.from(selectedIds), onBatchSell, () => {
+    const selectedChecks = Array.from(selectedIds).map(id => checks.find(c => String(c.id) === String(id))).filter(Boolean);
+    showBatchSellModal(contacts, selectedChecks, onBatchSell, () => {
       selectedIds.clear();
       updateBatchBar();
-    });
+    }, filters?.onlyNominal);
   };
 
   // Sort portfolio BEFORE pagination boundaries
@@ -432,7 +481,7 @@ export function renderChecks(container, options) {
   const portStart = (portCurrentPage - 1) * (pagination?.itemsPerPage || 15);
   const portPaginated = sortedPortfolio.slice(portStart, portStart + (pagination?.itemsPerPage || 15));
 
-  const portfolioTable = renderCheckTable(portPaginated, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar);
+  const portfolioTable = renderCheckTable(portPaginated, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar, filters?.onlyNominal);
   container.appendChild(portfolioTable);
   
   if (portTotalPages > 1) {
@@ -440,7 +489,7 @@ export function renderChecks(container, options) {
   }
 
   // --- 6. HISTORY OPERATIONS LOGS ---
-  const historyHeader = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-top: 3rem; margin-bottom: 1.15rem; flex-wrap: wrap; gap: 1rem;' });
+  const historyHeader = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-top: 3rem; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 1rem;' });
   
   const histTitleNode = el('div', { style: 'display: flex; align-items: center; gap: 0.65rem;' });
   histTitleNode.innerHTML = `
@@ -449,16 +498,49 @@ export function renderChecks(container, options) {
   `;
   historyHeader.appendChild(histTitleNode);
 
-  const printHistoryBtn = el('button', {
-    classes: ['btn-secondary'],
-    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600;',
-    html: '<span>🖨️ Imprimir</span>'
-  });
-  printHistoryBtn.onclick = () => {
-    if (typeof onPrint === 'function') onPrint(sortedHistory);
-  };
-  historyHeader.appendChild(printHistoryBtn);
+  const activeTab = localStorage.getItem('checks_history_tab') || 'list';
+
+  if (activeTab === 'list') {
+    const printHistoryBtn = el('button', {
+      classes: ['btn-secondary'],
+      style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.85rem; font-weight: 600;',
+      html: '<span>🖨️ Imprimir</span>'
+    });
+    printHistoryBtn.onclick = () => {
+      if (typeof onPrint === 'function') onPrint(sortedHistory);
+    };
+    historyHeader.appendChild(printHistoryBtn);
+  }
   container.appendChild(historyHeader);
+
+  // Tab Selector Pilling
+  const tabContainer = el('div', {
+    style: 'display: flex; gap: 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 0.25rem; border-radius: 12px; margin-bottom: 1.5rem; width: fit-content;'
+  });
+  
+  const listTabBtn = el('button', {
+    style: `padding: 0.5rem 1.25rem; border-radius: 9px; border: none; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; ${activeTab === 'list' ? 'background: var(--primary); color: var(--on-primary);' : 'background: transparent; color: var(--text-muted);' }`,
+    text: '📋 Listado General'
+  });
+  
+  const groupedTabBtn = el('button', {
+    style: `padding: 0.5rem 1.25rem; border-radius: 9px; border: none; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; ${activeTab === 'grouped' ? 'background: var(--primary); color: var(--on-primary);' : 'background: transparent; color: var(--text-muted);' }`,
+    text: '📦 Agrupado por Operación'
+  });
+  
+  tabContainer.appendChild(listTabBtn);
+  tabContainer.appendChild(groupedTabBtn);
+  container.appendChild(tabContainer);
+  
+  listTabBtn.onclick = () => {
+    localStorage.setItem('checks_history_tab', 'list');
+    onFilterChange({});
+  };
+  
+  groupedTabBtn.onclick = () => {
+    localStorage.setItem('checks_history_tab', 'grouped');
+    onFilterChange({});
+  };
 
   // Sort history BEFORE pagination
   const sortedHistory = [...currentHistory].sort((a,b) => {
@@ -467,18 +549,378 @@ export function renderChecks(container, options) {
     return tB - tA; // history defaults to descending
   });
 
-  const histTotal = sortedHistory.length;
-  const histTotalPages = Math.ceil(histTotal / (pagination?.itemsPerPage || 15));
-  let histCurrentPage = pagination?.historyPage || 1;
-  if (histCurrentPage > histTotalPages && histTotalPages > 0) histCurrentPage = histTotalPages;
-  const histStart = (histCurrentPage - 1) * (pagination?.itemsPerPage || 15);
-  const histPaginated = sortedHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
+  if (activeTab === 'list') {
+    const histTotal = sortedHistory.length;
+    const histTotalPages = Math.ceil(histTotal / (pagination?.itemsPerPage || 15));
+    let histCurrentPage = pagination?.historyPage || 1;
+    if (histCurrentPage > histTotalPages && histTotalPages > 0) histCurrentPage = histTotalPages;
+    const histStart = (histCurrentPage - 1) * (pagination?.itemsPerPage || 15);
+    const histPaginated = sortedHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
 
-  const historyTable = renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false);
-  container.appendChild(historyTable);
+    const historyTable = renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false, false, null, null, filters?.onlyNominal);
+    container.appendChild(historyTable);
 
-  if (histTotalPages > 1) {
-    container.appendChild(renderPaginationControls(histCurrentPage, histTotalPages, histTotal, onHistoryPageChange));
+    if (histTotalPages > 1) {
+      container.appendChild(renderPaginationControls(histCurrentPage, histTotalPages, histTotal, onHistoryPageChange));
+    }
+  } else {
+    // Render Grouped Mode
+    const groupedType = localStorage.getItem('checks_grouped_type') || 'sell';
+
+    const typeContainer = el('div', {
+      style: 'display: flex; gap: 0.5rem; margin-bottom: 1.5rem;'
+    });
+    const sellTypeBtn = el('button', {
+      style: `padding: 0.45rem 1.15rem; border-radius: 20px; border: 1px solid ${groupedType === 'sell' ? 'rgba(16,185,129,0.35)' : 'var(--border)'}; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.2s; ${groupedType === 'sell' ? 'background: rgba(16,185,129,0.15); color: #34d399;' : 'background: transparent; color: var(--text-muted);'}`,
+      text: '📤 Ventas Realizadas'
+    });
+    const buyTypeBtn = el('button', {
+      style: `padding: 0.45rem 1.15rem; border-radius: 20px; border: 1px solid ${groupedType === 'buy' ? 'rgba(59,130,246,0.35)' : 'var(--border)'}; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.2s; ${groupedType === 'buy' ? 'background: rgba(59,130,246,0.15); color: #60a5fa;' : 'background: transparent; color: var(--text-muted);'}`,
+      text: '📥 Compras Realizadas'
+    });
+    
+    typeContainer.appendChild(sellTypeBtn);
+    typeContainer.appendChild(buyTypeBtn);
+    container.appendChild(typeContainer);
+    
+    sellTypeBtn.onclick = () => {
+      localStorage.setItem('checks_grouped_type', 'sell');
+      onFilterChange({});
+    };
+    buyTypeBtn.onclick = () => {
+      localStorage.setItem('checks_grouped_type', 'buy');
+      onFilterChange({});
+    };
+
+    const groupedListContainer = el('div', {
+      style: 'display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 2rem;'
+    });
+
+    if (groupedType === 'sell') {
+      const sellGroups = {};
+      sortedHistory.forEach(c => {
+        if (c.sellSide?.status === 'SOLD') {
+          const opId = c.sellSide?.operationId || `IND-${c.id}`;
+          if (!sellGroups[opId]) {
+            sellGroups[opId] = {
+              id: opId,
+              isGrouped: !!c.sellSide?.operationId,
+              contactId: c.sellSide?.contactId,
+              contactName: contacts.find(con => con.id === c.sellSide?.contactId)?.name || c.sellSide?.contactId || 'Desconocido',
+              date: c.sellSide?.date || c.dueDate || '',
+              checks: [],
+              totalNominal: 0,
+              totalNet: 0,
+              totalProfit: 0
+            };
+          }
+          sellGroups[opId].checks.push(c);
+          sellGroups[opId].totalNominal += c.nominalValue;
+          sellGroups[opId].totalNet += c.sellSide.netAmount;
+          sellGroups[opId].totalProfit += c.profit;
+        }
+      });
+
+      const operationList = Object.values(sellGroups);
+      operationList.sort((a,b) => {
+        const dA = a.date ? new Date(a.date).getTime() : 0;
+        const dB = b.date ? new Date(b.date).getTime() : 0;
+        return dB - dA;
+      });
+
+      if (operationList.length === 0) {
+        groupedListContainer.innerHTML = `<div class="glass-card" style="padding: 2.5rem; text-align: center; color: var(--text-muted); font-weight: 600;">No se encontraron operaciones de venta en esta sección.</div>`;
+      } else {
+        operationList.forEach(op => {
+          const card = el('div', {
+            classes: ['glass-card'],
+            style: 'padding: 1.25rem 1.5rem; border-radius: 16px; border: 1px solid var(--border); background: rgba(255,255,255,0.015); display: flex; flex-direction: column; gap: 1rem; transition: all 0.2s ease;'
+          });
+          card.addEventListener('mouseenter', () => { card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; });
+          card.addEventListener('mouseleave', () => { card.style.transform = 'translateY(0)'; card.style.boxShadow = 'none'; });
+
+          const opDateStr = op.date ? new Date(op.date).toLocaleDateString('es-AR') : '-';
+          
+          const headerRow = el('div', {
+            style: 'display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;'
+          });
+          headerRow.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span style="padding: 0.25rem 0.65rem; border-radius: 8px; background: rgba(16,185,129,0.12); color: #34d399; font-size: 0.72rem; font-weight: 800; text-transform: uppercase;">Venta</span>
+              <strong style="font-family: monospace; font-size: 0.95rem; color: #ffffff;">${op.id}</strong>
+              <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">📅 ${opDateStr}</span>
+            </div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary);">
+              👤 <span style="color: var(--text-main);">${op.contactName}</span>
+            </div>
+          `;
+
+          const kpisRow = el('div', {
+            style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; background: rgba(0,0,0,0.15); border-radius: 12px; padding: 0.85rem 1.25rem; border: 1px solid rgba(255,255,255,0.02);'
+          });
+          kpisRow.innerHTML = `
+            <div>
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Total Nominal</div>
+              <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: #ffffff; margin-top: 0.15rem;">${formatCurrency(op.totalNominal)}</div>
+            </div>
+            ${!filters?.onlyNominal ? `
+            <div>
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Neto Cobrado</div>
+              <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: #60a5fa; margin-top: 0.15rem;">${formatCurrency(op.totalNet)}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Ganancia Total</div>
+              <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: #34d399; margin-top: 0.15rem;">+${formatCurrency(op.totalProfit)}</div>
+            </div>
+            ` : ''}
+            <div>
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Cheques</div>
+              <div style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); margin-top: 0.15rem;">${op.checks.length} uds.</div>
+            </div>
+          `;
+
+          const expContainer = el('div', {
+            style: 'display: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.15); margin-top: 0.5rem;'
+          });
+          const expTable = el('table', {
+            style: 'width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;'
+          });
+          expTable.innerHTML = `
+            <thead>
+              <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">
+                <th style="padding: 0.5rem 0.75rem;">Banco</th>
+                <th style="padding: 0.5rem 0.75rem;">Nº Cheque</th>
+                <th style="padding: 0.5rem 0.75rem;">Vencimiento</th>
+                <th style="padding: 0.5rem 0.75rem; text-align: right;">Nominal</th>
+                ${!filters?.onlyNominal ? `
+                <th style="padding: 0.5rem 0.75rem; text-align: right;">Neto Venta</th>
+                <th style="padding: 0.5rem 0.75rem; text-align: right;">Ganancia</th>
+                ` : ''}
+              </tr>
+            </thead>
+            <tbody>
+              ${op.checks.map(c => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
+                  <td style="padding: 0.5rem 0.75rem; font-weight: 700; color: #ffffff;">${c.bank || '-'}</td>
+                  <td style="padding: 0.5rem 0.75rem; color: var(--text-muted); font-weight: 600;">${c.checkNumber || '-'}</td>
+                  <td style="padding: 0.5rem 0.75rem; font-weight: 600;">${formatDateLocal(c.dueDate)} <span style="font-size:10px; color:var(--text-muted);">(${c.days}d)</span></td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; font-weight: 700; color: #ffffff;">${formatCurrency(c.nominalValue)}</td>
+                  ${!filters?.onlyNominal ? `
+                  <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; color: #60a5fa; font-weight: 700;">${formatCurrency(c.sellSide?.netAmount)}</td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; color: #34d399; font-weight: 700;">+${formatCurrency(c.profit)}</td>
+                  ` : ''}
+                </tr>
+              `).join('')}
+            </tbody>
+          `;
+          expContainer.appendChild(expTable);
+
+          const actionsRow = el('div', {
+            style: 'display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;'
+          });
+
+          const toggleListBtn = el('button', {
+            classes: ['btn-secondary'],
+            style: 'padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 8px; display: flex; align-items: center; gap: 0.3rem;',
+            text: `👁️ Ver Detalles (${op.checks.length})`
+          });
+          toggleListBtn.onclick = () => {
+            const isHidden = expContainer.style.display === 'none';
+            expContainer.style.display = isHidden ? 'block' : 'none';
+            toggleListBtn.textContent = isHidden ? `🙈 Ocultar Detalles` : `👁️ Ver Detalles (${op.checks.length})`;
+          };
+          actionsRow.appendChild(toggleListBtn);
+
+          const opActions = el('div', { style: 'display: flex; gap: 0.4rem;' });
+
+          const printBtn = el('button', {
+            style: 'padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 8px; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35); color: #818cf8; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; transition: all 0.2s;',
+            html: '🖨️ Imprimir'
+          });
+          printBtn.onclick = () => {
+            printSaleOperationReport(op.id, op.contactName, op.date, op.checks, contacts);
+          };
+
+          const excelBtn = el('button', {
+            style: 'padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 8px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #34d399; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; transition: all 0.2s;',
+            html: '📥 Excel'
+          });
+          excelBtn.onclick = () => {
+            generateSaleOperationExcel(op.id, op.contactName, op.date, op.checks, contacts);
+          };
+
+          const undoBtn = el('button', {
+            style: 'padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 8px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: var(--danger); cursor: pointer; display: flex; align-items: center; gap: 0.25rem; transition: all 0.2s;',
+            html: '↩️ Deshacer Venta'
+          });
+          undoBtn.onclick = () => {
+            if (typeof onUndoSale === 'function') {
+              onUndoSale(op.id);
+            }
+          };
+
+          opActions.appendChild(printBtn);
+          opActions.appendChild(excelBtn);
+          opActions.appendChild(undoBtn);
+          actionsRow.appendChild(opActions);
+
+          [printBtn, excelBtn, undoBtn].forEach(btn => {
+            btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.05)'; btn.style.filter = 'brightness(1.2)'; });
+            btn.addEventListener('mouseleave', () => { btn.style.transform = 'scale(1)'; btn.style.filter = 'none'; });
+          });
+
+          card.appendChild(headerRow);
+          card.appendChild(kpisRow);
+          card.appendChild(expContainer);
+          card.appendChild(actionsRow);
+          groupedListContainer.appendChild(card);
+        });
+      }
+    } else {
+      // Buy Groups
+      const buyGroups = {};
+      filteredChecks.forEach(c => {
+        if (c.buySide?.operationId) {
+          const opId = c.buySide.operationId;
+          if (!buyGroups[opId]) {
+            buyGroups[opId] = {
+              id: opId,
+              contactId: c.buySide?.contactId,
+              contactName: contacts.find(con => con.id === c.buySide?.contactId)?.name || c.buySide?.contactId || 'Desconocido',
+              date: c.buySide?.date || c.receptionDate || '',
+              checks: [],
+              totalNominal: 0,
+              totalNet: 0,
+              totalDiscount: 0
+            };
+          }
+          buyGroups[opId].checks.push(c);
+          buyGroups[opId].totalNominal += c.nominalValue;
+          buyGroups[opId].totalNet += c.buySide.netAmount;
+          buyGroups[opId].totalDiscount += c.purchaseDiscount;
+        }
+      });
+
+      const operationList = Object.values(buyGroups);
+      operationList.sort((a,b) => {
+        const dA = a.date ? new Date(a.date).getTime() : 0;
+        const dB = b.date ? new Date(b.date).getTime() : 0;
+        return dB - dA;
+      });
+
+      if (operationList.length === 0) {
+        groupedListContainer.innerHTML = `<div class="glass-card" style="padding: 2.5rem; text-align: center; color: var(--text-muted); font-weight: 600;">No se encontraron operaciones de compra en esta sección.</div>`;
+      } else {
+        operationList.forEach(op => {
+          const card = el('div', {
+            classes: ['glass-card'],
+            style: 'padding: 1.25rem 1.5rem; border-radius: 16px; border: 1px solid var(--border); background: rgba(255,255,255,0.015); display: flex; flex-direction: column; gap: 1rem; transition: all 0.2s ease;'
+          });
+          card.addEventListener('mouseenter', () => { card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; });
+          card.addEventListener('mouseleave', () => { card.style.transform = 'translateY(0)'; card.style.boxShadow = 'none'; });
+
+          const opDateStr = op.date ? new Date(op.date).toLocaleDateString('es-AR') : '-';
+          
+          const headerRow = el('div', {
+            style: 'display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;'
+          });
+          headerRow.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span style="padding: 0.25rem 0.65rem; border-radius: 8px; background: rgba(59,130,246,0.12); color: #60a5fa; font-size: 0.72rem; font-weight: 800; text-transform: uppercase;">Compra</span>
+              <strong style="font-family: monospace; font-size: 0.95rem; color: #ffffff;">${op.id}</strong>
+              <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">📅 ${opDateStr}</span>
+            </div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary);">
+              👤 <span style="color: var(--text-main);">${op.contactName}</span>
+            </div>
+          `;
+
+          const kpisRow = el('div', {
+            style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; background: rgba(0,0,0,0.15); border-radius: 12px; padding: 0.85rem 1.25rem; border: 1px solid rgba(255,255,255,0.02);'
+          });
+          kpisRow.innerHTML = `
+            <div>
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Total Nominal</div>
+              <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: #ffffff; margin-top: 0.15rem;">${formatCurrency(op.totalNominal)}</div>
+            </div>
+            ${!filters?.onlyNominal ? `
+            <div>
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Neto Pagado</div>
+              <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: #60a5fa; margin-top: 0.15rem;">${formatCurrency(op.totalNet)}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Desc. Compra</div>
+              <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: #34d399; margin-top: 0.15rem;">+${formatCurrency(op.totalDiscount)}</div>
+            </div>
+            ` : ''}
+            <div>
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Cheques</div>
+              <div style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); margin-top: 0.15rem;">${op.checks.length} uds.</div>
+            </div>
+          `;
+
+          const expContainer = el('div', {
+            style: 'display: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.15); margin-top: 0.5rem;'
+          });
+          const expTable = el('table', {
+            style: 'width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;'
+          });
+          expTable.innerHTML = `
+            <thead>
+              <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">
+                <th style="padding: 0.5rem 0.75rem;">Banco</th>
+                <th style="padding: 0.5rem 0.75rem;">Nº Cheque</th>
+                <th style="padding: 0.5rem 0.75rem;">Vencimiento</th>
+                <th style="padding: 0.5rem 0.75rem; text-align: right;">Nominal</th>
+                ${!filters?.onlyNominal ? `
+                <th style="padding: 0.5rem 0.75rem; text-align: right;">Neto Compra</th>
+                <th style="padding: 0.5rem 0.75rem; text-align: right;">Descuento</th>
+                ` : ''}
+              </tr>
+            </thead>
+            <tbody>
+              ${op.checks.map(c => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
+                  <td style="padding: 0.5rem 0.75rem; font-weight: 700; color: #ffffff;">${c.bank || '-'}</td>
+                  <td style="padding: 0.5rem 0.75rem; color: var(--text-muted); font-weight: 600;">${c.checkNumber || '-'}</td>
+                  <td style="padding: 0.5rem 0.75rem; font-weight: 600;">${formatDateLocal(c.dueDate)} <span style="font-size:10px; color:var(--text-muted);">(${c.days}d)</span></td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; font-weight: 700; color: #ffffff;">${formatCurrency(c.nominalValue)}</td>
+                  ${!filters?.onlyNominal ? `
+                  <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; color: #60a5fa; font-weight: 700;">${formatCurrency(c.buySide?.netAmount)}</td>
+                  <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; color: #34d399; font-weight: 700;">+${formatCurrency(c.purchaseDiscount)}</td>
+                  ` : ''}
+                </tr>
+              `).join('')}
+            </tbody>
+          `;
+          expContainer.appendChild(expTable);
+
+          const actionsRow = el('div', {
+            style: 'display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;'
+          });
+
+          const toggleListBtn = el('button', {
+            classes: ['btn-secondary'],
+            style: 'padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 8px; display: flex; align-items: center; gap: 0.3rem;',
+            text: `👁️ Ver Detalles (${op.checks.length})`
+          });
+          toggleListBtn.onclick = () => {
+            const isHidden = expContainer.style.display === 'none';
+            expContainer.style.display = isHidden ? 'block' : 'none';
+            toggleListBtn.textContent = isHidden ? `🙈 Ocultar Detalles` : `👁️ Ver Detalles (${op.checks.length})`;
+          };
+          actionsRow.appendChild(toggleListBtn);
+
+          card.appendChild(headerRow);
+          card.appendChild(kpisRow);
+          card.appendChild(expContainer);
+          card.appendChild(actionsRow);
+          groupedListContainer.appendChild(card);
+        });
+      }
+    }
+
+    container.appendChild(groupedListContainer);
   }
 }
 
@@ -574,7 +1016,7 @@ function getCheckStatusBadge(op) {
  * @param {Function} [onSelectionChange=null] - Callback ejecutado al seleccionar o deseleccionar algún checkbox.
  * @returns {HTMLElement} El elemento contenedor div ('glass-card table-responsive') con la tabla renderizada.
  */
-function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false, selectable = false, selectedIds = null, onSelectionChange = null) {
+function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false, selectable = false, selectedIds = null, onSelectionChange = null, onlyNominal = false) {
   const tableWrapper = el('div', { 
     classes: ['glass-card', 'table-responsive'], 
     style: 'padding: 0; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; border: 1px solid var(--border);' 
@@ -589,7 +1031,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       <th style="padding: 1rem 1.25rem;">Cobro / Vencimiento</th>
       <th style="padding: 1rem 1.25rem; text-align: right;">Valor Nominal</th>
       <th style="padding: 1rem 1.25rem; text-align: left;">Flujo Origen/Destino</th>
-      <th style="padding: 1rem 1.25rem; text-align: right;">${selectable ? 'Desc. Compra' : 'Ganancia'}</th>
+      ${onlyNominal ? '' : `<th style="padding: 1rem 1.25rem; text-align: right;">${selectable ? 'Desc. Compra' : 'Ganancia'}</th>`}
       <th style="padding: 1rem 1.25rem; text-align: right;">Acciones</th>
     </tr>
   `});
@@ -641,6 +1083,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
           ${op.sellSide?.status === 'BACK' && op.sellSide?.backReason ? `<div style="font-size: 0.72rem; color: #f43f5e; margin-top: 0.25rem; font-weight: 600; font-style: italic;">📝 Motivo: ${op.sellSide.backReason}</div>` : ''}
           <div style="margin-top: 0.45rem;">${getCheckStatusBadge(op)}</div>
         </td>
+        ${onlyNominal ? '' : `
         <td style="padding: 1rem 1.25rem; font-weight: 800; text-align: right; font-family: monospace; font-size: 0.95rem;">
           ${(() => {
             if (isSold) {
@@ -649,9 +1092,10 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
             if (op.purchaseDiscount > 0) {
               return `<span style="color: #34d399;">+${formatCurrency(op.purchaseDiscount)}</span><div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; font-weight: 600;">${op.purchaseDiscountPercentage.toFixed(2)}% desc.</div>`;
             }
-            return '<span style="color: var(--text-muted); font-weight: 500;">-</span>';
+            return '<span style="color: var(--text-muted); font-weight: 550;">-</span>';
           })()}
         </td>
+        `}
         <td style="padding: 1rem 1.25rem; text-align: right; white-space: nowrap;">
           <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
             <button class="icon-btn edit-btn" style="padding: 0.35rem 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Editar Cheque">✏️</button>
@@ -687,9 +1131,9 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       if (selectable && selectedIds !== null) {
         const cb = tr.querySelector('.portfolio-check-cb');
         if (cb) {
-          if (selectedIds.has(op.id)) cb.checked = true;
+          if (selectedIds.has(String(op.id))) cb.checked = true;
           cb.addEventListener('change', () => {
-            if (cb.checked) selectedIds.add(op.id); else selectedIds.delete(op.id);
+            if (cb.checked) selectedIds.add(String(op.id)); else selectedIds.delete(String(op.id));
             if (onSelectionChange) onSelectionChange();
           });
         }
@@ -717,7 +1161,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
         allCb.addEventListener('change', () => {
           table.querySelectorAll('.portfolio-check-cb').forEach(cb => {
             cb.checked = allCb.checked;
-            const id = cb.dataset.id;
+            const id = String(cb.dataset.id);
             if (allCb.checked) selectedIds.add(id); else selectedIds.delete(id);
           });
           if (onSelectionChange) onSelectionChange();

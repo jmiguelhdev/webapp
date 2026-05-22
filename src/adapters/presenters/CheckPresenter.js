@@ -21,7 +21,8 @@ export class CheckPresenter {
       endDate: _toISO(_plus30),
       dateFilterType: 'DUE',
       searchTerm: '',
-      sortPortfolioAsc: true
+      sortPortfolioAsc: true,
+      onlyNominal: false
     };
     this.pagination = {
       portfolioPage: 1,
@@ -167,7 +168,14 @@ export class CheckPresenter {
     this.ui.generateChecksExcel(filtered, this.contacts);
   }
 
-  printList(checksToPrint) {
+  /**
+   * Envía una lista de cheques al servicio de impresión de reportes en el navegador.
+   *
+   * @param {Array<Check>} checksToPrint - Lista de entidades de cheques a imprimir.
+   * @param {string|null} [customTitle=null] - Título personalizado para el encabezado del reporte.
+   * @returns {void}
+   */
+  printList(checksToPrint, customTitle = null) {
     if (!checksToPrint || checksToPrint.length === 0) {
       this.ui.showError("No hay cheques en esta lista para imprimir.");
       return;
@@ -178,7 +186,13 @@ export class CheckPresenter {
     if (this.filters.startDate) fromDate = new Date(this.filters.startDate + 'T00:00:00');
     if (this.filters.endDate) toDate = new Date(this.filters.endDate + 'T23:59:59');
 
-    this.ui.printChecksReport(checksToPrint, this.contacts, { fromDate, toDate });
+    const options = { fromDate, toDate };
+    if (customTitle) {
+      options.title = customTitle;
+      options.subtitle = 'Cheques Seleccionados';
+    }
+
+    this.ui.printChecksReport(checksToPrint, this.contacts, options);
   }
 
   async saveOperation(operationData) {
@@ -279,7 +293,13 @@ export class CheckPresenter {
   async saveBatchBuy(operationsArray) {
     this.ui.showLoading();
     try {
+      const buyOperationId = 'CMP-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+      const buyDate = new Date().toISOString();
       for (const op of operationsArray) {
+        if (!op.buySide) op.buySide = {};
+        op.buySide.operationId = buyOperationId;
+        op.buySide.date = buyDate;
+        
         const processed = this.calculateOperation(op);
         const checkId = await this.checkRepository.saveCheck(this.currentUserUid, processed);
         processed.id = processed.id || checkId;
@@ -296,10 +316,20 @@ export class CheckPresenter {
   async saveBatchSell(sellData, checkIds) {
     this.ui.showLoading();
     try {
+      const sellOperationId = 'VTA-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+      const sellDate = new Date().toISOString();
       for (const id of checkIds) {
         const check = this.checks.find(c => c.id === id);
         if (!check) continue;
-        const updated = { ...check, sellSide: { ...check.sellSide, ...sellData } };
+        const updated = {
+          ...check,
+          sellSide: {
+            ...check.sellSide,
+            ...sellData,
+            operationId: sellOperationId,
+            date: sellDate
+          }
+        };
         const processed = this.calculateOperation(updated);
         const checkId = await this.checkRepository.saveCheck(this.currentUserUid, processed);
         processed.id = processed.id || checkId;
@@ -308,6 +338,44 @@ export class CheckPresenter {
       await this.loadData();
     } catch (e) {
       this.ui.showError('Error al guardar venta masiva: ' + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
+  async undoSaleOperation(operationId) {
+    if (!confirm(`¿Está seguro de deshacer la venta con ID ${operationId}? Los cheques volverán a cartera y se eliminarán sus registros contables.`)) {
+      return;
+    }
+    this.ui.showLoading();
+    try {
+      const checksToRevert = this.checks.filter(c => c.sellSide?.operationId === operationId);
+      if (checksToRevert.length === 0) {
+        throw new Error("No se encontraron cheques asociados a esta operación de venta.");
+      }
+
+      for (const check of checksToRevert) {
+        const updated = {
+          ...check,
+          sellSide: {
+            status: 'PENDING',
+            contactId: '',
+            pesificacionRate: 0,
+            monthlyInterest: 0,
+            netAmount: 0,
+            backReason: '',
+            operationId: '',
+            date: null
+          }
+        };
+        const processed = this.calculateOperation(updated);
+        await this.checkRepository.saveCheck(this.currentUserUid, processed);
+        await this.syncTransactions(processed);
+      }
+      await this.loadData();
+      alert("Venta deshecha con éxito. Los cheques volvieron a estar en cartera.");
+    } catch (e) {
+      this.ui.showError("Error al deshacer la venta: " + e.message);
     } finally {
       this.ui.hideLoading();
     }
@@ -335,6 +403,7 @@ export class CheckPresenter {
       onPrint: this.printList.bind(this),
       onBatchBuy: this.saveBatchBuy.bind(this),
       onBatchSell: this.saveBatchSell.bind(this),
+      onUndoSale: this.undoSaleOperation.bind(this),
       onPortfolioPageChange: this.setPortfolioPage.bind(this),
       onHistoryPageChange: this.setHistoryPage.bind(this)
     });

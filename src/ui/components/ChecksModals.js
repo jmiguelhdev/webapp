@@ -7,6 +7,8 @@
  */
 import { el } from '../../utils/dom.js';
 import { formatCurrency, formatDateLocal } from '../../utils/formatters.js';
+import { Check } from '../../domain/entities/Check.js';
+import { printSaleOperationReport, generateSaleOperationExcel } from '../reports/ReportService.js';
 
 function getSelectStyle(accentColor) {
   const isDark = document.body.classList.contains('dark');
@@ -526,7 +528,7 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
 // ─────────────────────────────────────────────────────────────────
 // VENTA MASIVA
 // ─────────────────────────────────────────────────────────────────
-export function showBatchSellModal(contacts, checkIds, onBatchSell, onDone) {
+export function showBatchSellModal(contacts, selectedChecks, onBatchSell, onDone, isNominalOnly = false) {
   const modal = el('div', {
     classes: ['modal-overlay'],
     style: 'position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:2000;padding:clamp(0.5rem,3vw,2rem);'
@@ -534,18 +536,52 @@ export function showBatchSellModal(contacts, checkIds, onBatchSell, onDone) {
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width:100%;max-width:700px;padding:0;overflow:hidden;border-radius:20px;'
+    style: 'width:100%;max-width:1150px;padding:0;overflow:hidden;border-radius:20px;display:flex;flex-direction:column;max-height:90vh;'
   });
 
   content.innerHTML = `
-    <div style="background:var(--card-bg);border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0;">
-      <h2 style="margin:0;font-size:1.2rem;font-weight:700;">📤 Venta de ${checkIds.length} Cheque${checkIds.length > 1 ? 's' : ''}</h2>
+    <div style="background:var(--card-bg);border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0;flex-shrink:0;">
+      <h2 style="margin:0;font-size:1.2rem;font-weight:700;">📤 Venta de ${selectedChecks.length} Cheque${selectedChecks.length > 1 ? 's' : ''}</h2>
       <button type="button" class="btn-close-modal" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-main);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
-    <div style="padding:1.5rem 2rem;">
-      <p style="margin:0 0 1.25rem;color:var(--text-muted);font-size:0.9rem;">Los datos de venta se aplicarán a los <strong>${checkIds.length}</strong> cheque(s) seleccionados.</p>
+    <div style="padding:1.5rem 2rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:1.25rem;">
+      <p style="margin:0;color:var(--text-muted);font-size:0.9rem;">Los datos de venta se aplicarán a los <strong>${selectedChecks.length}</strong> cheque(s) seleccionados.</p>
 
-      <div style="display:grid;grid-template-columns:1fr;gap:1rem;">
+      <!-- Resumen de Cheques Seleccionados -->
+      <div>
+        <h3 style="margin:0 0 0.5rem;font-size:0.9rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">📋 Detalle Completo de la Selección</h3>
+        <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,0.15);scrollbar-width:thin;">
+          <table style="width:100%;border-collapse:collapse;font-size:0.82rem;text-align:left;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,0.03);color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.72rem;letter-spacing:0.5px;">
+                <th style="padding:0.6rem 0.85rem;">Banco / Nº</th>
+                <th style="padding:0.6rem 0.85rem;">Librador / CUIT</th>
+                <th style="padding:0.6rem 0.85rem;">Fechas / Días</th>
+                <th style="padding:0.6rem 0.85rem;text-align:right;">Nominal</th>
+                ${!isNominalOnly ? `
+                <th style="padding:0.6rem 0.85rem;text-align:right;color:#fbbf24;">Neto Compra</th>
+                <th style="padding:0.6rem 0.85rem;text-align:right;color:#60a5fa;">Neto Venta</th>
+                <th style="padding:0.6rem 0.85rem;text-align:right;color:#34d399;">Ganancia</th>
+                ` : ''}
+              </tr>
+            </thead>
+            <tbody id="bsell-checks-tbody"></tbody>
+            <tfoot>
+              <tr style="border-top:1px solid var(--border);font-weight:800;background:rgba(255,255,255,0.03);font-size:0.85rem;color:#ffffff;">
+                <td colspan="3" style="padding:0.65rem 0.85rem;text-transform:uppercase;">TOTALES</td>
+                <td id="bsell-total-nominal" style="padding:0.65rem 0.85rem;text-align:right;font-family:monospace;color:#ffffff;">$0.00</td>
+                ${!isNominalOnly ? `
+                <td id="bsell-total-buy-net" style="padding:0.65rem 0.85rem;text-align:right;font-family:monospace;color:#fbbf24;">$0.00</td>
+                <td id="bsell-total-net" style="padding:0.65rem 0.85rem;text-align:right;font-family:monospace;color:#60a5fa;">$0.00</td>
+                <td id="bsell-total-profit" style="padding:0.65rem 0.85rem;text-align:right;font-family:monospace;color:#34d399;">$0.00</td>
+                ` : ''}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr;gap:1.25rem;">
         <div class="form-group" style="margin:0;">
           <label>Comprador / Destinatario</label>
           <input type="text" id="bsell-buyer-input" list="bsell-contacts-dl" placeholder="🔎 Buscar..." autocomplete="off">
@@ -553,7 +589,7 @@ export function showBatchSellModal(contacts, checkIds, onBatchSell, onDone) {
             ${contacts.map(c => `<option value="${c.name}"></option>`).join('')}
           </datalist>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
           <div class="form-group" style="margin:0;">
             <label>Pesificación (%)</label>
             <input type="number" step="0.01" id="bsell-pesif" placeholder="0.00">
@@ -579,9 +615,15 @@ export function showBatchSellModal(contacts, checkIds, onBatchSell, onDone) {
         </div>
       </div>
 
-      <div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:1.75rem;flex-wrap:wrap;">
-        <button type="button" class="btn-cancel" style="padding:0.85rem 2rem;border-radius:12px;background:rgba(255,255,255,0.06);color:var(--text-main);font-size:1rem;font-weight:600;border:1px solid var(--outline);cursor:pointer;">Cancelar</button>
-        <button type="button" id="bsell-save-btn" style="padding:0.85rem 2.5rem;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:1rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);">Aplicar Venta</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.25rem;flex-wrap:wrap;gap:1rem;flex-shrink:0;">
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button type="button" id="bsell-print-btn" style="padding:0.75rem 1.25rem;border-radius:12px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.35);color:#818cf8;font-size:0.85rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;">🖨️ Imprimir</button>
+          <button type="button" id="bsell-excel-btn" style="padding:0.75rem 1.25rem;border-radius:12px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);color:#34d399;font-size:0.85rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;">📥 Excel</button>
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <button type="button" class="btn-cancel" style="padding:0.75rem 1.75rem;border-radius:12px;background:rgba(255,255,255,0.06);color:var(--text-main);font-size:0.88rem;font-weight:600;border:1px solid var(--outline);cursor:pointer;transition:all 0.2s;">Cancelar</button>
+          <button type="button" id="bsell-save-btn" style="padding:0.75rem 2.25rem;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:0.88rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.4);transition:all 0.2s;">Aplicar Venta</button>
+        </div>
       </div>
     </div>
   `;
@@ -595,6 +637,95 @@ export function showBatchSellModal(contacts, checkIds, onBatchSell, onDone) {
     backReasonGrp.style.display = statusSel.value === 'BACK' ? 'block' : 'none';
   });
 
+  let projectedChecks = [];
+
+  const updateCalculations = () => {
+    const pesifRate = parseFloat(content.querySelector('#bsell-pesif').value) || 0;
+    const intRate = parseFloat(content.querySelector('#bsell-interest').value) || 0;
+
+    let sumNominal = 0;
+    let sumBuyNet = 0;
+    let sumNet = 0;
+    let sumProfit = 0;
+
+    const tbody = content.querySelector('#bsell-checks-tbody');
+    tbody.innerHTML = '';
+
+    projectedChecks = selectedChecks.map(c => {
+      const op = new Check(JSON.parse(JSON.stringify(c)));
+      if (!op.sellSide) op.sellSide = {};
+      op.sellSide.status = 'SOLD';
+      op.sellSide.pesificacionRate = pesifRate;
+      op.sellSide.monthlyInterest = intRate;
+      op.calculate();
+
+      sumNominal += op.nominalValue;
+      sumBuyNet += op.buySide?.netAmount || 0;
+      sumNet += op.sellSide.netAmount;
+      sumProfit += op.profit;
+
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.02)';
+      tr.innerHTML = `
+        <td style="padding:0.55rem 0.85rem;">
+          <div style="font-weight:700;color:#ffffff;">${op.bank || '-'}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">Nº ${op.checkNumber || '-'}</div>
+        </td>
+        <td style="padding:0.55rem 0.85rem;">
+          <div style="font-weight:600;color:#ffffff;">${op.issuerName || '-'}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">CUIT ${op.issuerCuit || '-'}</div>
+        </td>
+        <td style="padding:0.55rem 0.85rem;">
+          <div style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">Rec: ${formatDateLocal(op.receptionDate)}</div>
+          <div style="font-weight:700;color:#ffffff;font-size:0.85rem;">Venc: ${formatDateLocal(op.dueDate)}</div>
+          <div style="font-size:10px;color:var(--text-muted);font-weight:600;">${op.days || 0}d (Clear: ${op.clearing || 0}d)</div>
+        </td>
+        <td style="padding:0.55rem 0.85rem;text-align:right;font-family:monospace;font-weight:700;color:#ffffff;">${formatCurrency(op.nominalValue)}</td>
+        ${!isNominalOnly ? `
+        <td style="padding:0.55rem 0.85rem;text-align:right;font-family:monospace;color:#fbbf24;font-weight:700;">${formatCurrency(op.buySide?.netAmount || 0)}</td>
+        <td style="padding:0.55rem 0.85rem;text-align:right;font-family:monospace;color:#60a5fa;font-weight:700;">${formatCurrency(op.sellSide.netAmount)}</td>
+        <td style="padding:0.55rem 0.85rem;text-align:right;font-family:monospace;color:#34d399;font-weight:700;">+${formatCurrency(op.profit)}</td>
+        ` : ''}
+      `;
+      tbody.appendChild(tr);
+
+      return op;
+    });
+
+    content.querySelector('#bsell-total-nominal').textContent = formatCurrency(sumNominal);
+    if (!isNominalOnly) {
+      content.querySelector('#bsell-total-buy-net').textContent = formatCurrency(sumBuyNet);
+      content.querySelector('#bsell-total-net').textContent = formatCurrency(sumNet);
+      content.querySelector('#bsell-total-profit').textContent = formatCurrency(sumProfit);
+    }
+  };
+
+  content.querySelector('#bsell-pesif').addEventListener('input', updateCalculations);
+  content.querySelector('#bsell-interest').addEventListener('input', updateCalculations);
+  updateCalculations();
+
+  // Button transitions and event attachments
+  content.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      btn.style.transform = 'scale(1.03)';
+      btn.style.filter = 'brightness(1.15)';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = 'scale(1)';
+      btn.style.filter = 'none';
+    });
+  });
+
+  content.querySelector('#bsell-print-btn').onclick = () => {
+    const buyerName = content.querySelector('#bsell-buyer-input').value.trim() || 'PROFORMA';
+    printSaleOperationReport('PROFORMA', buyerName, new Date().toISOString(), projectedChecks, contacts);
+  };
+
+  content.querySelector('#bsell-excel-btn').onclick = () => {
+    const buyerName = content.querySelector('#bsell-buyer-input').value.trim() || 'PROFORMA';
+    generateSaleOperationExcel('PROFORMA', buyerName, new Date().toISOString(), projectedChecks, contacts);
+  };
+
   content.querySelector('#bsell-save-btn').onclick = () => {
     const buyerName = content.querySelector('#bsell-buyer-input').value.trim();
     const matched = contacts.find(c => c.name.toLowerCase() === buyerName.toLowerCase());
@@ -606,6 +737,8 @@ export function showBatchSellModal(contacts, checkIds, onBatchSell, onDone) {
       monthlyInterest: content.querySelector('#bsell-interest').value,
       backReason: content.querySelector('#bsell-backreason').value || ''
     };
+    // Pass mapped Check IDs
+    const checkIds = selectedChecks.map(c => c.id);
     onBatchSell(sellData, checkIds);
     if (onDone) onDone();
     modal.remove();

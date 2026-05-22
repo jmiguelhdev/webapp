@@ -19,7 +19,9 @@ export class Check {
       contactId: data.buySide.contactId || '',
       pesificacionRate: parseFloat(data.buySide.pesificacionRate) || 0,
       monthlyInterest: parseFloat(data.buySide.monthlyInterest) || 0,
-      netAmount: parseFloat(data.buySide.netAmount) || 0
+      netAmount: parseFloat(data.buySide.netAmount) || 0,
+      operationId: data.buySide.operationId || '',
+      date: data.buySide.date || null
     } : null;
 
     this.sellSide = data.sellSide ? {
@@ -28,7 +30,9 @@ export class Check {
       monthlyInterest: parseFloat(data.sellSide.monthlyInterest) || 0,
       netAmount: parseFloat(data.sellSide.netAmount) || 0,
       status: data.sellSide.status || 'PENDING',
-      backReason: data.sellSide.backReason || ''
+      backReason: data.sellSide.backReason || '',
+      operationId: data.sellSide.operationId || '',
+      date: data.sellSide.date || null
     } : null;
 
     this.profit = parseFloat(data.profit) || 0;

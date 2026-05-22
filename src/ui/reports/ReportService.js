@@ -211,10 +211,19 @@ export async function generateChecksExcel(checks, contacts) {
 }
 
 /**
- * Print Formatted Checks Report directly via Browser
+ * Imprime un reporte formateado de cheques directamente usando la funcionalidad de impresión nativa del navegador.
+ *
+ * @param {Array<Check>} checks - Colección de cheques a listar en el reporte.
+ * @param {Array<Object>} contacts - Catálogo de contactos registrados.
+ * @param {Object} options - Parámetros de personalización y filtrado.
+ * @param {Date|null} options.fromDate - Fecha de inicio del filtro aplicado (opcional).
+ * @param {Date|null} options.toDate - Fecha de fin del filtro aplicado (opcional).
+ * @param {string} [options.title] - Título personalizado para el reporte (opcional).
+ * @param {string} [options.subtitle] - Subtítulo descriptivo de la selección (opcional).
+ * @returns {void}
  */
 export function printChecksReport(checks, contacts, options) {
-  const { fromDate, toDate } = options;
+  const { fromDate, toDate, title, subtitle } = options;
   const printWindow = window.open('', '_blank', 'width=1000,height=900');
   
   const fromStr = fromDate ? fromDate.toLocaleDateString('es-AR') : 'Inicio';
@@ -268,7 +277,7 @@ export function printChecksReport(checks, contacts, options) {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Reporte de Cheques</title>
+      <title>${title || 'Reporte de Cheques'}</title>
       <style>
         body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #111; line-height: 1.4; margin: 0; background: #fff; }
         .receipt-card { max-width: 900px; margin: 0 auto; border: 1px solid #eee; padding: 30px; border-radius: 8px; }
@@ -301,15 +310,15 @@ export function printChecksReport(checks, contacts, options) {
             <h1 class="company-name">FRIGORÍFICO PAMPA</h1>
           </div>
           <div class="receipt-info">
-            <div class="receipt-label">Reporte de Cheques</div>
+            <div class="receipt-label">${title || 'Reporte de Cheques'}</div>
             <div class="receipt-date">${nowStr}</div>
           </div>
         </div>
         
         <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
-          <h3 style="margin: 0 0 10px 0;">Filtro de Reporte</h3>
-          <p style="margin: 0;">Periodo: <strong>${fromStr}</strong> al <strong>${toStr}</strong></p>
-          <p style="margin: 5px 0 0 0;">Total de Registros: <strong>${checks.length}</strong></p>
+          <h3 style="margin: 0 0 10px 0;">${subtitle || 'Filtro de Reporte'}</h3>
+          ${subtitle ? '' : `<p style="margin: 0;">Periodo: <strong>${fromStr}</strong> al <strong>${toStr}</strong></p>`}
+          <p style="${subtitle ? 'margin: 0;' : 'margin: 5px 0 0 0;'}">Total de Registros: <strong>${checks.length}</strong></p>
         </div>
 
         <table class="table">
@@ -593,3 +602,186 @@ export function printDispatchPreparation(data) {
   printWindow.document.write(html);
   printWindow.document.close();
 }
+
+/**
+ * Print Formatted Sale Operation Report proforma or saved
+ */
+export function printSaleOperationReport(operationId, buyerName, dateStr, checks, contacts) {
+  const printWindow = window.open('', '_blank', 'width=1000,height=900');
+  const nowStr = new Date().toLocaleString('es-AR');
+  const dateFormatted = dateStr ? new Date(dateStr).toLocaleString('es-AR') : nowStr;
+  
+  const totalNominal = checks.reduce((sum, c) => sum + (parseFloat(c.nominalValue) || 0), 0);
+  const totalNetCompra = checks.reduce((sum, c) => sum + (parseFloat(c.buySide?.netAmount) || 0), 0);
+  const totalNetVenta = checks.reduce((sum, c) => sum + (parseFloat(c.sellSide?.netAmount) || 0), 0);
+  const totalProfit = totalNetVenta - totalNetCompra;
+
+  const rowsHtml = checks.map(op => {
+    const seller = contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Desconocido';
+    return `
+      <tr>
+        <td>
+          <div style="font-weight:600;">${op.bank || '-'}</div>
+          <div style="font-size:11px; color:#666;">#${op.checkNumber || '-'}</div>
+        </td>
+        <td>
+          <div>${op.dueDate ? new Date(op.dueDate).toLocaleDateString('es-AR') : '-'}</div>
+          <div style="font-size:10px; color:#888;">Clear: ${op.clearing || 0}d · Plazo: ${op.days || 0}d</div>
+        </td>
+        <td>
+          <div style="font-weight:600;">${op.issuerName || '-'}</div>
+          <div style="font-size:10px; color:#666;">${op.issuerCuit || ''}</div>
+        </td>
+        <td>
+          <div style="font-size:11px;"><span style="color:#666;">De:</span> ${seller}</div>
+          <div style="font-size:10px; color:#888;">Tasa C: ${op.buySide?.monthlyInterest}% · P: ${op.buySide?.pesificacionRate}%</div>
+        </td>
+        <td class="amount">${(parseFloat(op.nominalValue) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td class="amount">${(parseFloat(op.sellSide?.netAmount) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        <td class="amount" style="color: #2e7d32; font-weight:600;">+${(parseFloat(op.profit) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+      </tr>
+      ${op.notes ? `<tr><td colspan="7" style="font-size:10px; color:#777; border-top:none; padding-top:0;">📝 Nota: ${op.notes}</td></tr>` : ''}
+    `;
+  }).join('');
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Operación de Venta de Cheques</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #111; line-height: 1.4; margin: 0; background: #fff; }
+        .receipt-card { max-width: 900px; margin: 0 auto; border: 1px solid #eee; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #10b981; padding-bottom: 15px; margin-bottom: 20px; }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        .logo { width: 150px; height: auto; max-height: 80px; object-fit: contain; border-radius: 4px; }
+        .company-name { font-size: 24px; font-weight: 800; color: #10b981; margin: 0; }
+        .receipt-info { text-align: right; }
+        .receipt-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+        .receipt-date { font-weight: 600; font-size: 16px; }
+        .table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 20px; }
+        .table th { background: #f4f4f4; padding: 10px 5px; text-align: left; border-bottom: 2px solid #ddd; }
+        .table td { padding: 8px 5px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .amount { text-align: right; white-space: nowrap; }
+        .totals { margin-top: 30px; border-top: 2px solid #10b981; padding-top: 15px; display: flex; justify-content: flex-end; gap: 40px; }
+        .totals div { text-align: right; }
+        .totals h4 { margin: 0 0 5px 0; color: #555; }
+        .totals .value { font-size: 18px; font-weight: bold; }
+        @media print {
+          body { padding: 0; margin: 0; }
+          .receipt-card { border: none; padding: 0; width: 100%; max-width: none; box-shadow: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="receipt-card">
+        <div class="header">
+          <div class="logo-area">
+            <img src="/logo.jpg" class="logo" alt="Logo">
+            <h1 class="company-name">FRIGORÍFICO PAMPA</h1>
+          </div>
+          <div class="receipt-info">
+            <div class="receipt-label">Comprobante de Venta de Cheques</div>
+            <div class="receipt-date">${operationId || 'PROFORMA'}</div>
+            <div style="font-size:11px; color:#555; margin-top:5px;">Fecha: ${dateFormatted}</div>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;">
+          <div>
+            <h3 style="margin: 0 0 5px 0;">Comprador / Destinatario:</h3>
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #10b981;">${buyerName || 'No especificado'}</p>
+          </div>
+          <div style="text-align: right;">
+            <p style="margin: 0;">Cantidad de Cheques: <strong>${checks.length}</strong></p>
+            <p style="margin: 5px 0 0 0;">Condiciones promedio: <strong>Tasa Venta: ${checks[0]?.sellSide?.monthlyInterest || 0}% · Pesif Venta: ${checks[0]?.sellSide?.pesificacionRate || 0}%</strong></p>
+          </div>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Banco / #</th>
+              <th>F. Pago / Plazo</th>
+              <th>Librador (CUIT)</th>
+              <th>Origen / Tasas C.</th>
+              <th class="amount">V. Nominal ($)</th>
+              <th class="amount">Neto Venta ($)</th>
+              <th class="amount">Ganancia ($)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div>
+            <h4>Total Nominal</h4>
+            <div class="value">$${totalNominal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          <div>
+            <h4>Neto Venta Recibido</h4>
+            <div class="value" style="color: #10b981;">$${totalNetVenta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          <div>
+            <h4>Ganancia Realizada</h4>
+            <div class="value" style="color: #2e7d32;">$${totalProfit.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+        </div>
+        
+      </div>
+      <script>
+        window.onload = () => {
+          setTimeout(() => {
+            window.print();
+            window.onfocus = function() { window.close(); }
+          }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+/**
+ * Generate Excel for a specific Sale Operation
+ */
+export function generateSaleOperationExcel(operationId, buyerName, dateStr, checks, contacts) {
+  if (!checks || checks.length === 0) return;
+  const rows = checks.map(c => {
+    const seller = contacts.find(con => con.id === c.buySide?.contactId)?.name || c.buySide?.contactId || 'Desconocido';
+    return {
+      'Banco': c.bank || '-',
+      '# Cheque': c.checkNumber || '-',
+      'Librador': c.issuerName || '-',
+      'CUIT Librador': c.issuerCuit || '-',
+      'F. Recepción': c.receptionDate ? new Date(c.receptionDate).toLocaleDateString('es-AR') : '-',
+      'F. Pago': c.dueDate ? new Date(c.dueDate).toLocaleDateString('es-AR') : '-',
+      'Días': c.days || 0,
+      'Valor Nominal ($)': c.nominalValue || 0,
+      'Pesificación Venta (%)': c.sellSide?.pesificacionRate || 0,
+      'Interés Mensual Venta (%)': c.sellSide?.monthlyInterest || 0,
+      'Neto Compra ($)': c.buySide?.netAmount || 0,
+      'Neto Venta ($)': c.sellSide?.netAmount || 0,
+      'Ganancia Realizada ($)': c.profit || 0,
+      'Vendedor (Origen)': seller,
+      'Comprador (Destino)': buyerName || '-'
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Venta Cheques");
+
+  const wscols = [
+    { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 18 }
+  ];
+  worksheet['!cols'] = wscols;
+
+  XLSX.writeFile(workbook, `Venta_Cheques_${operationId || 'PROFORMA'}_${Date.now()}.xlsx`);
+}
+
