@@ -22,7 +22,8 @@ export class CheckPresenter {
       dateFilterType: 'DUE',
       searchTerm: '',
       sortPortfolioAsc: true,
-      onlyNominal: false
+      onlyNominal: false,
+      historyStatusFilter: 'ALL'
     };
     this.pagination = {
       portfolioPage: 1,

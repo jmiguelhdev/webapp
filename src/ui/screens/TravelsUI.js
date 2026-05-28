@@ -724,7 +724,12 @@ export function showTravelModal(travel, options) {
 
   // Form State
   let date = travel?.date || new Date().toISOString().split('T')[0];
-  let status = travel?.status || 'DRAFT';
+  let rawStatus = travel?.status || 'DRAFT';
+  let status = String(rawStatus).toUpperCase();
+  if (status === 'BORRADOR') status = 'DRAFT';
+  if (status === 'ACTIVO') status = 'ACTIVE';
+  if (status === 'FINALIZADO') status = 'COMPLETED';
+
   let description = travel?.description || '';
   let selectedTruckId = travel?.truck?.id || '';
   let kmOnOrigin = Number(travel?.kmOnOrigin || 0);
@@ -737,14 +742,39 @@ export function showTravelModal(travel, options) {
   let localExpenses = [...expArray];
 
   // Buy Commercial State
-  let localBuy = JSON.parse(JSON.stringify(travel?.buy || {
-    agent: { name: '', percent: 0 },
-    reduce: 0,
-    totalReduce: 0,
-    listOfProducers: []
-  }));
+  let localBuy;
+  if (travel?.buy) {
+    localBuy = {
+      id: travel.buy.id || '',
+      agent: travel.buy.agent ? { id: travel.buy.agent.id || '', name: travel.buy.agent.name || '', percent: Number(travel.buy.agent.percent) || 0 } : { name: '', percent: 0 },
+      reduce: travel.buy.reduce || 0,
+      totalReduce: travel.buy.totalReduce || travel.buy.reduce || 0,
+      listOfProducers: (travel.buy.listOfProducers || []).map(p => ({
+        producer: p.producer ? { id: p.producer.id || '', name: p.producer.name || '', cuit: p.producer.cuit || '', cbu: p.producer.cbu || '' } : { name: '', cuit: '', cbu: '' },
+        origin: p.origin || '',
+        manualIva: p.manualIva !== undefined ? p.manualIva : null,
+        listOfProducts: (p.listOfProducts || []).map(pr => ({
+          name: pr.name || '',
+          kg: Number(pr.kg || 0),
+          roughing: Number(pr.roughing || 0),
+          price: Number(pr.price || 0),
+          quantity: Number(pr.quantity || 0),
+          kgFaena: Number(pr.kgFaena || 0),
+          taxes: pr.taxes || { bill: { neto: 0, iva: 0, ganancias: 0 } }
+        }))
+      }))
+    };
+  } else {
+    localBuy = {
+      agent: { name: '', percent: 0 },
+      reduce: 0,
+      totalReduce: 0,
+      listOfProducers: []
+    };
+  }
   localBuy.reduce = localBuy.totalReduce || localBuy.reduce || 0;
   localBuy.totalReduce = localBuy.reduce;
+
 
   const renderModal = () => {
     // Generate simulated/computed entities

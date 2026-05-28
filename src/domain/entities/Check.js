@@ -15,6 +15,15 @@ export class Check {
     this.issuerName = data.issuerName || '';
     this.issuerCuit = data.issuerCuit || '';
 
+    // Rejected state check tracking fields
+    this.returned = data.returned || false;
+    this.returnedAt = data.returnedAt || null;
+    this.settledByCompany = data.settledByCompany || false;
+    this.settledByCompanyAt = data.settledByCompanyAt || null;
+    this.settledBySeller = data.settledBySeller || false;
+    this.settledBySellerAt = data.settledBySellerAt || null;
+
+
     this.buySide = data.buySide ? {
       contactId: data.buySide.contactId || '',
       pesificacionRate: parseFloat(data.buySide.pesificacionRate) || 0,

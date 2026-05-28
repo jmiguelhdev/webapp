@@ -170,7 +170,16 @@ export function renderChecks(container, options) {
 
   // Split precalculated datasets
   const currentPortfolio = filteredSummary.portfolioChecks || [];
-  const currentHistory = filteredSummary.historyChecks || [];
+  let currentHistory = filteredSummary.historyChecks || [];
+
+  // Filter history by SOLD / REJECTED status
+  const historyStatus = filters?.historyStatusFilter || 'ALL';
+  if (historyStatus === 'SOLD') {
+    currentHistory = currentHistory.filter(c => c.sellSide?.status === 'SOLD');
+  } else if (historyStatus === 'REJECTED') {
+    currentHistory = currentHistory.filter(c => c.sellSide?.status === 'REJECTED');
+  }
+
 
   // --- 3. SEARCH & DATE FILTER BAR ---
   const filtersBar = el('div', { 
@@ -513,9 +522,14 @@ export function renderChecks(container, options) {
   }
   container.appendChild(historyHeader);
 
+  // Parent Row for segmented selectors
+  const selectorsRow = el('div', {
+    style: 'display: flex; gap: 1rem; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem;'
+  });
+
   // Tab Selector Pilling
   const tabContainer = el('div', {
-    style: 'display: flex; gap: 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 0.25rem; border-radius: 12px; margin-bottom: 1.5rem; width: fit-content;'
+    style: 'display: flex; gap: 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 0.25rem; border-radius: 12px; width: fit-content;'
   });
   
   const listTabBtn = el('button', {
@@ -530,7 +544,40 @@ export function renderChecks(container, options) {
   
   tabContainer.appendChild(listTabBtn);
   tabContainer.appendChild(groupedTabBtn);
-  container.appendChild(tabContainer);
+  selectorsRow.appendChild(tabContainer);
+
+  // Status Filter for History
+  const statusFilterContainer = el('div', {
+    style: 'display: flex; gap: 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 0.25rem; border-radius: 12px; width: fit-content;'
+  });
+  
+  const currentStatusFilter = filters?.historyStatusFilter || 'ALL';
+  
+  const allStatusBtn = el('button', {
+    style: `padding: 0.5rem 1.25rem; border-radius: 9px; border: none; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; ${currentStatusFilter === 'ALL' ? 'background: var(--primary); color: var(--on-primary);' : 'background: transparent; color: var(--text-muted);' }`,
+    text: 'Todos'
+  });
+  allStatusBtn.onclick = () => onFilterChange({ historyStatusFilter: 'ALL' });
+  
+  const soldStatusBtn = el('button', {
+    style: `padding: 0.5rem 1.25rem; border-radius: 9px; border: none; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; ${currentStatusFilter === 'SOLD' ? 'background: rgba(16, 185, 129, 0.15); color: #34d399;' : 'background: transparent; color: var(--text-muted);' }`,
+    text: 'Vendidos'
+  });
+  soldStatusBtn.onclick = () => onFilterChange({ historyStatusFilter: 'SOLD' });
+  
+  const rejectedStatusBtn = el('button', {
+    style: `padding: 0.5rem 1.25rem; border-radius: 9px; border: none; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; ${currentStatusFilter === 'REJECTED' ? 'background: rgba(239, 68, 68, 0.15); color: #f87171;' : 'background: transparent; color: var(--text-muted);' }`,
+    text: 'Rechazados'
+  });
+  rejectedStatusBtn.onclick = () => onFilterChange({ historyStatusFilter: 'REJECTED' });
+
+  statusFilterContainer.appendChild(allStatusBtn);
+  statusFilterContainer.appendChild(soldStatusBtn);
+  statusFilterContainer.appendChild(rejectedStatusBtn);
+  selectorsRow.appendChild(statusFilterContainer);
+
+  container.appendChild(selectorsRow);
+
   
   listTabBtn.onclick = () => {
     localStorage.setItem('checks_history_tab', 'list');
@@ -1082,6 +1129,23 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
           <div style="font-size: 0.8rem; font-weight: 600; margin-top: 0.15rem;"><span style="color: #10b981; opacity: 0.8;">A:</span> ${isSold ? buyer : '<span style="color:var(--text-muted);font-weight:500;">(En Cartera)</span>'}</div>
           ${op.sellSide?.status === 'BACK' && op.sellSide?.backReason ? `<div style="font-size: 0.72rem; color: #f43f5e; margin-top: 0.25rem; font-weight: 600; font-style: italic;">📝 Motivo: ${op.sellSide.backReason}</div>` : ''}
           <div style="margin-top: 0.45rem;">${getCheckStatusBadge(op)}</div>
+          
+          ${op.sellSide?.status === 'REJECTED' ? `
+            <div class="rejected-states-box" style="margin-top: 0.75rem; padding: 0.55rem; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 10px; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.78rem;">
+              <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; color: var(--text-main); font-weight: 600; margin: 0; user-select: none;">
+                <input type="checkbox" class="state-volvio" data-id="${op.id}" ${op.returned ? 'checked disabled' : ''} style="width: 14px; height: 14px; cursor: pointer;">
+                🔄 ¿Volvió?
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; color: var(--text-main); font-weight: 600; margin: 0; user-select: none;">
+                <input type="checkbox" class="state-levantado-empresa" data-id="${op.id}" ${op.settledByCompany ? 'checked disabled' : ''} style="width: 14px; height: 14px; cursor: pointer;">
+                🏢 Levantado por la empresa
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; color: var(--text-main); font-weight: 600; margin: 0; user-select: none;">
+                <input type="checkbox" class="state-levantado-vendedor" data-id="${op.id}" ${op.settledBySeller ? 'checked disabled' : ''} style="width: 14px; height: 14px; cursor: pointer;">
+                👤 Levantado por vendedor (${seller})
+              </label>
+            </div>
+          ` : ''}
         </td>
         ${onlyNominal ? '' : `
         <td style="padding: 1rem 1.25rem; font-weight: 800; text-align: right; font-family: monospace; font-size: 0.95rem;">
@@ -1106,7 +1170,34 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
           </div>
         </td>
       `;
-      
+
+      // Rejected state checkboxes change events logic setup
+      const cbVolvio = tr.querySelector('.state-volvio');
+      const cbEmpresa = tr.querySelector('.state-levantado-empresa');
+      const cbVendedor = tr.querySelector('.state-levantado-vendedor');
+
+      const handleStateCheck = (checkbox, stateKey, title, promptMsg) => {
+        checkbox.addEventListener('change', (evt) => {
+          if (checkbox.checked) {
+            checkbox.checked = false; // Revert until confirmed
+            showStateConfirmationModal({
+              title,
+              promptMsg,
+              expectedValue: op.checkNumber,
+              onConfirm: () => {
+                op[stateKey] = true;
+                op[`${stateKey}At`] = Date.now();
+                onSave(op);
+              }
+            });
+          }
+        });
+      };
+
+      if (cbVolvio) handleStateCheck(cbVolvio, 'returned', '¿Volvió el Cheque?', `¿Tienes la Hoja del Cheque? Para continuar por favor ingresa el número del cheque:`);
+      if (cbEmpresa) handleStateCheck(cbEmpresa, 'settledByCompany', 'Levantado por la Empresa', `¿El cheque fue levantado por la empresa? Para continuar por favor ingresa el número del cheque:`);
+      if (cbVendedor) handleStateCheck(cbVendedor, 'settledBySeller', 'Levantado por Vendedor', `¿El cheque fue levantado por el vendedor (${seller})? Para continuar por favor ingresa el número del cheque:`);
+
       tr.addEventListener('click', (e) => {
         if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, contacts, onSave); return; }
         if (e.target.closest('.delete-btn')) { onDelete(op.id); return; }
@@ -1120,7 +1211,9 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
           return;
         }
         if (e.target.closest('.portfolio-check-cb')) return; // handled by change
+        if (e.target.closest('.state-volvio') || e.target.closest('.state-levantado-empresa') || e.target.closest('.state-levantado-vendedor')) return; // handled by change
       });
+
 
       // Add hover scales to tables action buttons
       tr.querySelectorAll('.icon-btn').forEach(btn => {
@@ -1208,3 +1301,76 @@ function createStatCard(label, value, color, emoji) {
 
   return card;
 }
+
+/**
+ * Muestra un diálogo elegante con efecto Glassmorphism solicitando la confirmación
+ * mediante el ingreso exacto del número del cheque correspondiente.
+ */
+function showStateConfirmationModal({ title, promptMsg, expectedValue, onConfirm }) {
+  const overlay = el('div', {
+    classes: ['modal-overlay', 'fade-in'],
+    style: 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 1100; padding: 1.5rem;'
+  });
+  
+  const modal = el('div', {
+    classes: ['glass-card'],
+    style: 'max-width: 480px; width: 100%; padding: 2rem; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 1.25rem;'
+  });
+  
+  modal.innerHTML = `
+    <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+      ⚠️ Confirmar Cambio de Estado
+    </h3>
+    <div style="font-size: 0.88rem; color: var(--text-main); font-weight: 550; line-height: 1.5;">
+      ${promptMsg}
+    </div>
+    
+    <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.78rem; color: #f87171; font-weight: 600;">
+      <strong>⚠️ Importante:</strong> Una vez confirmado este estado, no podrá ser desmarcado ni editado.
+    </div>
+    
+    <div class="form-group" style="margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
+      <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Número de Cheque</label>
+      <input type="text" id="confirm-check-num-input" placeholder="Ingresa el número de cheque..." style="width: 100%; padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 700; font-size: 1rem; text-align: center; letter-spacing: 1px;">
+      <div id="confirm-error-msg" style="color: #ef4444; font-size: 0.75rem; font-weight: 600; display: none; margin-top: 0.2rem;">El número ingresado no coincide.</div>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 0.5rem;">
+      <button type="button" class="btn-outline" id="btn-cancel-confirm" style="padding: 0.55rem 1.25rem; border-radius: 10px; font-weight: 600; font-size: 0.82rem; cursor: pointer; margin: 0;">Cancelar</button>
+      <button type="button" class="btn-primary" id="btn-submit-confirm" style="padding: 0.55rem 1.5rem; border-radius: 10px; font-weight: 750; font-size: 0.82rem; background: var(--primary); border: none; color: #ffffff; cursor: pointer; margin: 0;">Confirmar</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  const input = modal.querySelector('#confirm-check-num-input');
+  const errorMsg = modal.querySelector('#confirm-error-msg');
+  const cancelBtn = modal.querySelector('#btn-cancel-confirm');
+  const submitBtn = modal.querySelector('#btn-submit-confirm');
+  
+  input.focus();
+  
+  cancelBtn.onclick = () => overlay.remove();
+  
+  const handleConfirm = () => {
+    const entered = input.value.trim();
+    if (entered === String(expectedValue).trim()) {
+      overlay.remove();
+      onConfirm();
+    } else {
+      errorMsg.style.display = 'block';
+      input.style.borderColor = '#ef4444';
+      input.focus();
+    }
+  };
+  
+  submitBtn.onclick = handleConfirm;
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleConfirm();
+    }
+  };
+}
+

@@ -94,6 +94,23 @@ export async function updateTravel(db, uid, travelId, travelObject) {
   await updateDoc(docRef, dataToSave);
 }
 
+export async function saveTravel(db, uid, travelObject) {
+  if (!uid) throw new Error("UID is required to save data");
+  const docRef = doc(db, 'travels', String(travelObject.id));
+  const dataToSave = {
+    data: JSON.stringify(travelObject),
+    updatedAt: Date.now()
+  };
+  await setDoc(docRef, dataToSave);
+}
+
+export async function deleteTravel(db, uid, travelId) {
+  if (!uid) throw new Error("UID is required to delete data");
+  const docRef = doc(db, 'travels', String(travelId));
+  await deleteDoc(docRef);
+}
+
+
 /**
  * Save detailed faena/carcass data for a specific travel.
  */

@@ -17,6 +17,15 @@ export class FirebaseTravelRepository {
     await api.updateTravel(db, uid, travelId, travelObject);
   }
 
+  async saveTravel(uid, travelObject) {
+    await api.saveTravel(db, uid, travelObject);
+  }
+
+  async deleteTravel(uid, travelId) {
+    await api.deleteTravel(db, uid, travelId);
+  }
+
+
   async saveFaenaDetalle(uid, faenaRecords) {
     await api.saveFaenaDetalle(db, uid, faenaRecords);
   }
