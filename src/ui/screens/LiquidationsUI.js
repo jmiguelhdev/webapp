@@ -148,7 +148,7 @@ export function renderLiquidations(presenter, travels, drivers) {
             <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Reembolsos de Gastos</div>
             <div style="font-size: 1.8rem; font-weight: 800; color: var(--success); margin-top: 0.25rem;">$${liquidation.totalExpenses.toLocaleString()}</div>
           </div>
-          <div style="background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%); padding: 1.25rem; border-radius: 12px; color: white;">
+          <div style="background: var(--primary-container); color: var(--on-primary-container); border: 1px solid var(--border); padding: 1.25rem; border-radius: 12px;">
             <div style="font-size: 0.75rem; opacity: 0.85; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Total Neto a Liquidar</div>
             <div style="font-size: 1.8rem; font-weight: 800; margin-top: 0.25rem;">$${liquidation.grandTotal.toLocaleString()}</div>
           </div>

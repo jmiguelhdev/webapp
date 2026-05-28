@@ -214,7 +214,7 @@ function showEstablishmentModal(existingEst, presenter) {
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
         <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cancelar</button>
-        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: var(--primary); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer;">Guardar</button>
+        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: var(--primary); color: var(--on-primary); font-size: 1rem; font-weight: 700; border: none; cursor: pointer;">Guardar</button>
       </div>
     </form>
   `;
@@ -285,7 +285,7 @@ function showEmployeeModal(existingEmp, presenter) {
  
       <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem;">
         <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cancelar</button>
-        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: var(--primary); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer;">Guardar</button>
+        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: var(--primary); color: var(--on-primary); font-size: 1rem; font-weight: 700; border: none; cursor: pointer;">Guardar</button>
       </div>
     </form>
   `;

@@ -1337,7 +1337,7 @@ function showStateConfirmationModal({ title, promptMsg, expectedValue, onConfirm
     
     <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 0.5rem;">
       <button type="button" class="btn-outline" id="btn-cancel-confirm" style="padding: 0.55rem 1.25rem; border-radius: 10px; font-weight: 600; font-size: 0.82rem; cursor: pointer; margin: 0;">Cancelar</button>
-      <button type="button" class="btn-primary" id="btn-submit-confirm" style="padding: 0.55rem 1.5rem; border-radius: 10px; font-weight: 750; font-size: 0.82rem; background: var(--primary); border: none; color: #ffffff; cursor: pointer; margin: 0;">Confirmar</button>
+      <button type="button" class="btn-primary" id="btn-submit-confirm" style="padding: 0.55rem 1.5rem; border-radius: 10px; font-weight: 750; font-size: 0.82rem; background: var(--primary); border: none; color: var(--on-primary); cursor: pointer; margin: 0;">Confirmar</button>
     </div>
   `;
   

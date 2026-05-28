@@ -165,7 +165,7 @@ export function renderSettings(container, options) {
         <h4 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-main);">Precios por Categoría ($/kg vivo)</h4>
         <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.8rem;">Establece los precios base para la compra de hacienda. Estos alimentan las cotizaciones sugeridas.</p>
       </div>
-      <button id="gen-price-share-btn" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem; font-size: 0.82rem; margin: 0; background: linear-gradient(135deg, var(--primary), #b5152b); box-shadow: 0 4px 10px rgba(143, 0, 20, 0.2); display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
+      <button id="gen-price-share-btn" class="btn-primary" style="width: auto; padding: 0.65rem 1.5rem; font-size: 0.82rem; margin: 0; display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
         <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
         <span>📲 Generar Placa de Compartir</span>
       </button>
@@ -428,7 +428,7 @@ export function renderSettings(container, options) {
   });
   actionsRow.innerHTML = `
     <button id="reset-settings" class="btn-outline" style="padding: 0.85rem 2rem; font-weight: 700; border-radius: 12px; font-size: 0.9rem; border-width: 1.5px;">Restaurar Predeterminados</button>
-    <button id="save-settings" class="btn-primary" style="padding: 0.85rem 3.5rem; margin: 0; font-size: 0.9rem; font-weight: 700; border-radius: 12px; background: linear-gradient(135deg, var(--primary), #b5152b); box-shadow: 0 5px 15px rgba(143, 0, 20, 0.25); display: flex; align-items: center; gap: 0.5rem;">
+    <button id="save-settings" class="btn-primary" style="padding: 0.85rem 3.5rem; margin: 0; font-size: 0.9rem; font-weight: 700; border-radius: 12px; display: flex; align-items: center; gap: 0.5rem;">
       <span>💾 Guardar Cambios Globales</span>
     </button>
   `;

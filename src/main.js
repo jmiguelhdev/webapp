@@ -21,6 +21,29 @@ import { EstablishmentPresenter } from './adapters/presenters/EstablishmentPrese
 import { OperatorRepository } from './adapters/repositories/OperatorRepository.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
 
+// Render Git commit version badge in header dynamically
+try {
+  const logoDiv = document.querySelector('.logo');
+  if (logoDiv) {
+    const versionSpan = document.createElement('span');
+    versionSpan.style.fontSize = '0.62rem';
+    versionSpan.style.color = 'var(--text-muted)';
+    versionSpan.style.background = 'rgba(255, 255, 255, 0.04)';
+    versionSpan.style.border = '1px solid var(--border)';
+    versionSpan.style.padding = '0.2rem 0.5rem';
+    versionSpan.style.borderRadius = '6px';
+    versionSpan.style.marginLeft = '0.75rem';
+    versionSpan.style.fontFamily = 'monospace';
+    versionSpan.style.fontWeight = '600';
+    versionSpan.style.letterSpacing = '0.5px';
+    versionSpan.textContent = `v-${__COMMIT_HASH__}`;
+    versionSpan.title = `Commit de Git: ${__COMMIT_HASH__}`;
+    logoDiv.appendChild(versionSpan);
+  }
+} catch (e) {
+  console.warn("Failed to inject git version badge", e);
+}
+
 // Dependencies
 const travelRepository = new FirebaseTravelRepository();
 const clientRepository = new ClientRepository();

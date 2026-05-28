@@ -131,7 +131,7 @@ export function renderTravels(container, options) {
     const btn = el('button', { 
       classes: ['filter-btn'], 
       text: f,
-      style: `background: ${isActive ? 'var(--primary)' : 'transparent'}; color: ${isActive ? '#ffffff' : 'var(--text-muted)'}; border: none; padding: 0.5rem 1.15rem; border-radius: 8px; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;`
+      style: `background: ${isActive ? 'var(--primary)' : 'transparent'}; color: ${isActive ? 'var(--on-primary)' : 'var(--text-muted)'}; border: none; padding: 0.5rem 1.15rem; border-radius: 8px; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;`
     });
     btn.onclick = () => onFilter(f);
     filterGroup.appendChild(btn);
@@ -318,7 +318,7 @@ export function renderTravels(container, options) {
       const liqBtn = el('button', { 
         classes: ['btn-action'], 
         text: '📊 Liquidar',
-        style: 'background: var(--primary); color: #ffffff; border: none; border-radius: 8px; padding: 0.35rem 0.85rem; font-size: 0.72rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s ease;'
+        style: 'background: var(--primary); color: var(--on-primary); border: none; border-radius: 8px; padding: 0.35rem 0.85rem; font-size: 0.72rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s ease;'
       });
       liqBtn.onclick = (e) => {
         e.stopPropagation();
@@ -1022,7 +1022,7 @@ export function showTravelModal(travel, options) {
                   <div style="background: rgba(0,0,0,0.12); padding: 1rem; border-radius: 16px; border: 1px solid var(--border);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                       <strong style="font-size: 0.82rem; color: #ffffff; text-transform: uppercase; letter-spacing: 0.5px;">🥩 Lotes de Hacienda</strong>
-                      <button type="button" class="btn-add-lot" data-idx="${pIdx}" style="padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 700; background: var(--primary); color: #ffffff; border: none; border-radius: 6px; cursor: pointer; margin: 0;">
+                      <button type="button" class="btn-add-lot" data-idx="${pIdx}" style="padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 700; background: var(--primary); color: var(--on-primary); border: none; border-radius: 6px; cursor: pointer; margin: 0;">
                         + Agregar Lote
                       </button>
                     </div>
@@ -1287,7 +1287,7 @@ export function showTravelModal(travel, options) {
                 <input type="checkbox" id="e-reimb" checked style="cursor: pointer;"> Reemb.
               </label>
               
-              <button type="button" id="btn-add-exp" style="padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; font-weight: 800; background: var(--primary); color: #ffffff; border: none; cursor: pointer; transition: all 0.2s ease; margin: 0;">+</button>
+              <button type="button" id="btn-add-exp" style="padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; font-weight: 800; background: var(--primary); color: var(--on-primary); border: none; cursor: pointer; transition: all 0.2s ease; margin: 0;">+</button>
             </div>
           </div>
 
