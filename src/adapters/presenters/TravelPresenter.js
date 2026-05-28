@@ -273,18 +273,24 @@ export class TravelPresenter {
   async openTravelModal(travel = null) {
     try {
       this.ui.showLoading();
-      // We need trucks to assign to the travel
-      const rawTrucks = await this.logisticsRepository.getTrucks();
+      // Load trucks, producers and agents in parallel for the multi-tab editor
+      const [rawTrucks, rawProducers, rawAgents] = await Promise.all([
+        this.logisticsRepository.getTrucks(),
+        this.logisticsRepository.getProducers(),
+        this.logisticsRepository.getAgents()
+      ]);
       this.ui.hideLoading();
       
       this.ui.showTravelModal(travel, {
         trucks: rawTrucks,
+        producers: rawProducers,
+        agents: rawAgents,
         onSaveTravel: (payload) => this.handleSaveTravel(payload),
         onCancel: () => this.updateView()
       });
     } catch (e) {
       this.ui.hideLoading();
-      this.ui.showError("Error al cargar camiones: " + e.message);
+      this.ui.showError("Error al cargar datos del formulario: " + e.message);
     }
   }
 
