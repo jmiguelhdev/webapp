@@ -6,7 +6,7 @@ import { PdfFaenaService } from '../../services/PdfFaenaService.js';
 import { SHARED_DATA_SOURCE_UID } from '../../config.js';
 import { debounce } from '../../utils.js';
 import { Travel } from '../../domain/entities/LogisticsModels.js';
-
+import { Travel as CoreTravel } from '../../domain/entities/Travel.js';
 
 export class TravelPresenter {
   constructor(travelRepository, ui, logisticsRepository, clientRepository) {
@@ -19,6 +19,7 @@ export class TravelPresenter {
     this.pdfService = new PdfFaenaService();
     this.ui = ui;
     this.allTravels = [];
+    this.travelsUnsubscribe = null;
     
     // Performance optimization cache for dashboard Firebase queries
     this.stockItemsCache = null;
@@ -88,41 +89,60 @@ export class TravelPresenter {
   }
 
   async loadTravels(uid) {
+    if (this.travelsUnsubscribe) {
+      this.travelsUnsubscribe();
+      this.travelsUnsubscribe = null;
+    }
     this.ui.showLoading();
     try {
       this.invalidateDashboardCache();
-      const raw = await this.getTravelsUseCase.execute({ uid, filter: 'TODOS', sort: 'DESC' });
       
-      // Deduplicate by ID
-      const seen = new Set();
-      this.allTravels = raw.filter(t => {
-        if (!t || !t.id || seen.has(t.id)) return false;
-        seen.add(t.id);
-        return true;
-      });
+      this.travelsUnsubscribe = this.travelRepository.subscribeTravels(
+        uid,
+        (raw) => {
+          try {
+            this.invalidateDashboardCache();
+            
+            // Deduplicate by ID and instantiate core Travel entities
+            const seen = new Set();
+            this.allTravels = raw.map(t => new CoreTravel(t)).filter(t => {
+              if (!t || !t.id || seen.has(t.id)) return false;
+              seen.add(t.id);
+              return true;
+            });
 
-      // Cache completed travels and their categories to prevent recalculation on every filter change
-      this.completedTravelsCache = this.allTravels.filter(t => {
-        const s = String(t.status || '').toUpperCase();
-        const isComp = t.isCompleted === true || s === 'COMPLETED' || s === 'FINALIZADO';
-        return isComp && s !== 'DRAFT' && s !== 'BORRADOR';
-      });
+            // Cache completed travels and their categories to prevent recalculation on every filter change
+            this.completedTravelsCache = this.allTravels.filter(t => {
+              const s = String(t.status || '').toUpperCase();
+              const isComp = t.isCompleted === true || s === 'COMPLETED' || s === 'FINALIZADO' || s === 'ACTIVE' || s === 'ACTIVO';
+              return isComp && s !== 'DRAFT' && s !== 'BORRADOR';
+            });
 
-      const categoriesSet = new Set();
-      this.completedTravelsCache.forEach(t => {
-        if (t.buy && t.buy.categories) {
-          t.buy.categories.forEach(cat => {
-            if (cat) categoriesSet.add(cat);
-          });
+            const categoriesSet = new Set();
+            this.completedTravelsCache.forEach(t => {
+              if (t.buy && t.buy.categories) {
+                t.buy.categories.forEach(cat => {
+                  if (cat) categoriesSet.add(cat);
+                });
+              }
+            });
+            this.allCategoriesCache = ['TODOS', ...Array.from(categoriesSet).sort()];
+
+            this.ui.hideLoading();
+            this.refresh();
+          } catch (error) {
+            console.error("Error in travels subscription callback:", error);
+            this.ui.showError("Error al procesar actualización de viajes: " + error.message);
+          }
+        },
+        (error) => {
+          console.error("Critical error in travels subscription:", error);
+          this.ui.showError("Error de suscripción a Firebase: " + error.message);
         }
-      });
-      this.allCategoriesCache = ['TODOS', ...Array.from(categoriesSet).sort()];
-
-      this.refresh();
+      );
     } catch (error) {
-      console.error("Critical error in loadTravels:", error);
+      console.error("Critical error in loadTravels setup:", error);
       this.ui.showError(error.message);
-    } finally {
       this.ui.hideLoading();
     }
   }
@@ -536,7 +556,8 @@ export class TravelPresenter {
     let toExport = this.allTravels
       .filter(t => {
         const s = String(t.status || '').toUpperCase();
-        return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+        const isComp = t.isCompleted === true || s === 'COMPLETED' || s === 'FINALIZADO' || s === 'ACTIVE' || s === 'ACTIVO';
+        return isComp && s !== 'DRAFT' && s !== 'BORRADOR';
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date));
     
@@ -558,7 +579,8 @@ export class TravelPresenter {
     let toExport = this.allTravels
       .filter(t => {
         const s = String(t.status || '').toUpperCase();
-        return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+        const isComp = t.isCompleted === true || s === 'COMPLETED' || s === 'FINALIZADO' || s === 'ACTIVE' || s === 'ACTIVO';
+        return isComp && s !== 'DRAFT' && s !== 'BORRADOR';
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date));
     

@@ -1,3 +1,7 @@
+import './ui/components/kmp-status-chip.js';
+import './ui/components/kmp-metric-card.js';
+import './ui/components/kmp-sidebar.js';
+
 import { renderTravels, renderSettlementModal, showTravelModal } from './ui/screens/TravelsUI.js';
 import { renderSimulator } from './ui/screens/SimulatorUI.js';
 import { renderDashboard } from './ui/screens/DashboardUI.js';

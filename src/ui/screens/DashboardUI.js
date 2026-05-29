@@ -194,141 +194,147 @@ export function renderDashboard(container, options) {
         style: 'margin-bottom: 2rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.25rem;' 
       });
 
-      // Avg Price cards
-      const avgPriceNode = renderStatCard(`Compra Prom. [${labelSuffix}]`, `$${(categoryStats.avgPrice || 0).toFixed(2)}`, '💰');
-      avgPriceNode.innerHTML = `
-        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">💰</div>
-        <div class="stat-info">
-          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Compra Promedio</p>
-          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">$${(categoryStats.avgPrice || 0).toFixed(2)}</h3>
-        </div>
-      `;
-      statsGrid.appendChild(avgPriceNode);
+      // 1. Avg Price Card
+      const avgPriceCard = el('kmp-metric-card', {
+        attrs: {
+          title: `Compra Promedio`,
+          value: `$${(categoryStats.avgPrice || 0).toFixed(2)}`,
+          icon: '💰',
+          subtitle: `Filtro: [${labelSuffix}]`
+        }
+      });
+      statsGrid.appendChild(avgPriceCard);
 
-      const commPriceNode = renderStatCard('Compra c/Comis.', `$${(categoryStats.avgPriceWithCommission || 0).toFixed(2)}`, '💸');
-      commPriceNode.innerHTML = `
-        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">💸</div>
-        <div class="stat-info">
-          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Compra con Comis.</p>
-          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">$${(categoryStats.avgPriceWithCommission || 0).toFixed(2)}</h3>
-        </div>
-      `;
-      statsGrid.appendChild(commPriceNode);
+      // 2. Comm Price Card
+      const commPriceCard = el('kmp-metric-card', {
+        attrs: {
+          title: `Compra con Comis.`,
+          value: `$${(categoryStats.avgPriceWithCommission || 0).toFixed(2)}`,
+          icon: '💸',
+          subtitle: `Precio c/ comisiones`
+        }
+      });
+      statsGrid.appendChild(commPriceCard);
       
       // Hook simulator cost metrics (Available when exactly 1 category is selected)
       if (selectedCategories.length === 1) {
         const cat = selectedCategories[0];
         const { realCostGancho, sellPriceRef, margin, marginPct, yieldVal } = categoryStats;
 
-        const realCostNode = renderStatCard('Costo Real en Gancho', `$${(realCostGancho || 0).toFixed(2)}`, '🏗️', `Rend: ${((yieldVal || 0) * 100).toFixed(1)}% | Incl. Flete, Comis. e IIBB`);
-        realCostNode.innerHTML = `
-          <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🏗️</div>
-          <div class="stat-info" style="flex: 1;">
-            <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Costo Real Gancho</p>
-            <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: #fbbf24; font-family: monospace;">$${(realCostGancho || 0).toFixed(2)}</h3>
-            <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600; margin-top: 0.25rem;">Rend: ${((yieldVal || 0) * 100).toFixed(1)}% &bull; Incl. flete, comis. e IIBB</div>
-          </div>
-        `;
-        statsGrid.appendChild(realCostNode);
+        const realCostCard = el('kmp-metric-card', {
+          attrs: {
+            title: `Costo Real Gancho`,
+            value: `$${(realCostGancho || 0).toFixed(2)}`,
+            icon: '🏗️',
+            subtitle: `Rend: ${((yieldVal || 0) * 100).toFixed(1)}% | Incl. Flete, Comis. e IIBB`
+          }
+        });
+        statsGrid.appendChild(realCostCard);
 
         if (sellPriceRef > 0) {
-          const marginColor = margin >= 0 ? '#34d399' : '#f87171';
+          const sellRefCard = el('kmp-metric-card', {
+            attrs: {
+              title: `Venta Config [${cat}]`,
+              value: `$${(sellPriceRef || 0).toFixed(2)}`,
+              icon: '🏷️'
+            }
+          });
+          statsGrid.appendChild(sellRefCard);
 
-          const sellRefNode = renderStatCard(`Venta Config [${cat}]`, `$${(sellPriceRef || 0).toFixed(2)}`, '🏷️');
-          sellRefNode.innerHTML = `
-            <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🏷️</div>
-            <div class="stat-info">
-              <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Venta Config [${cat}]</p>
-              <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">$${(sellPriceRef || 0).toFixed(2)}</h3>
-            </div>
-          `;
-          statsGrid.appendChild(sellRefNode);
-
-          const diffCard = renderStatCard('Utilidad $/Kg (Real)', `${margin >= 0 ? '+' : ''}$${(margin || 0).toFixed(2)}`, '⚖️');
-          diffCard.innerHTML = `
-            <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">⚖️</div>
-            <div class="stat-info">
-              <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Utilidad $/Kg</p>
-              <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: ${marginColor}; font-family: monospace;">${margin >= 0 ? '+' : ''}$${(margin || 0).toFixed(2)}</h3>
-            </div>
-          `;
+          const marginValueStr = `${margin >= 0 ? '+' : ''}$${(margin || 0).toFixed(2)}`;
+          const diffCard = el('kmp-metric-card', {
+            attrs: {
+              title: `Utilidad $/Kg`,
+              value: marginValueStr,
+              icon: '⚖️',
+              'value-color': margin >= 0 ? '#34d399' : '#f87171',
+              subtitle: 'Margen de spread neto'
+            }
+          });
           statsGrid.appendChild(diffCard);
 
-          const pctCard = renderStatCard('Rendimiento Final', `${marginPct >= 0 ? '+' : ''}${(marginPct || 0).toFixed(2)}%`, '📊');
-          pctCard.innerHTML = `
-            <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">📊</div>
-            <div class="stat-info">
-              <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rentabilidad Final</p>
-              <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: ${marginColor}; font-family: monospace;">${marginPct >= 0 ? '+' : ''}${(marginPct || 0).toFixed(2)}%</h3>
-            </div>
-          `;
+          const pctCard = el('kmp-metric-card', {
+            attrs: {
+              title: `Rentabilidad Final`,
+              value: `${marginPct >= 0 ? '+' : ''}${(marginPct || 0).toFixed(2)}%`,
+              icon: '📊',
+              'value-color': marginPct >= 0 ? '#34d399' : '#f87171',
+              subtitle: 'Retorno sobre costo real'
+            }
+          });
           statsGrid.appendChild(pctCard);
         }
       }
 
-      const travelsNode = renderStatCard('Viajes Incluidos', `${categoryStats.travelCount || 0}`, '🚛');
-      travelsNode.innerHTML = `
-        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🚛</div>
-        <div class="stat-info">
-          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Viajes Completados</p>
-          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main);">${categoryStats.travelCount || 0} viajes</h3>
-        </div>
-      `;
-      statsGrid.appendChild(travelsNode);
+      // 3. Travels Card
+      const travelsCard = el('kmp-metric-card', {
+        attrs: {
+          title: `Viajes Completados`,
+          value: `${categoryStats.travelCount || 0} viajes`,
+          icon: '🚛',
+          subtitle: 'Historial cargado'
+        }
+      });
+      statsGrid.appendChild(travelsCard);
 
-      const weightNode = renderStatCard('Peso Media Res (Prom.)', `${(categoryStats.avgKgMediaRes || 0).toFixed(2)} kg`, '🥩');
-      weightNode.innerHTML = `
-        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🥩</div>
-        <div class="stat-info">
-          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Peso Res (Prom.)</p>
-          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">${(categoryStats.avgKgMediaRes || 0).toFixed(2)} kg</h3>
-        </div>
-      `;
-      statsGrid.appendChild(weightNode);
+      // 4. Weight Card
+      const weightCard = el('kmp-metric-card', {
+        attrs: {
+          title: `Peso Media Res (Prom.)`,
+          value: `${(categoryStats.avgKgMediaRes || 0).toFixed(2)} kg`,
+          icon: '🥩',
+          subtitle: 'Peso promedio de reses'
+        }
+      });
+      statsGrid.appendChild(weightCard);
 
-      const headsNode = renderStatCard('Cabezas Totales', `${categoryStats.totalQuantity || 0}`, '🐂');
-      headsNode.innerHTML = `
-        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🐂</div>
-        <div class="stat-info">
-          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Cabezas Faenadas</p>
-          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main);">${categoryStats.totalQuantity || 0} cabezas</h3>
-        </div>
-      `;
-      statsGrid.appendChild(headsNode);
+      // 5. Heads Card
+      const headsCard = el('kmp-metric-card', {
+        attrs: {
+          title: `Cabezas Faenadas`,
+          value: `${categoryStats.totalQuantity || 0} cabezas`,
+          icon: '🐂',
+          subtitle: 'Volumen total'
+        }
+      });
+      statsGrid.appendChild(headsCard);
 
-      const yieldNode = renderStatCard('Rendimiento Promedio', `${((categoryStats.avgYield || 0) * 100).toFixed(2)}%`, '📈');
-      yieldNode.innerHTML = `
-        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">📈</div>
-        <div class="stat-info">
-          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rendimiento Prom.</p>
-          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: #34d399; font-family: monospace;">${((categoryStats.avgYield || 0) * 100).toFixed(2)}%</h3>
-        </div>
-      `;
-      statsGrid.appendChild(yieldNode);
+      // 6. Yield Card
+      const yieldCard = el('kmp-metric-card', {
+        attrs: {
+          title: `Rendimiento Promedio`,
+          value: `${((categoryStats.avgYield || 0) * 100).toFixed(2)}%`,
+          icon: '📈',
+          'value-color': '#34d399',
+          subtitle: 'Porcentaje promedio de rinde'
+        }
+      });
+      statsGrid.appendChild(yieldCard);
       
+      // 7. Max Yield Card
       const maxYieldLabel = categoryStats.maxYield > 0 ? `${(categoryStats.maxYield * 100).toFixed(2)}%` : 'N/A';
-      const maxYNode = renderStatCard('Rendimiento Máximo', maxYieldLabel, '👑', categoryStats.maxYieldEntity || '');
-      maxYNode.innerHTML = `
-        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">👑</div>
-        <div class="stat-info">
-          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Rendimiento Máx.</p>
-          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: #fbbf24; font-family: monospace;">${maxYieldLabel}</h3>
-          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 650; margin-top: 0.15rem;">${categoryStats.maxYieldEntity || 'N/A'}</div>
-        </div>
-      `;
-      statsGrid.appendChild(maxYNode);
+      const maxYCard = el('kmp-metric-card', {
+        attrs: {
+          title: `Rendimiento Máximo`,
+          value: maxYieldLabel,
+          icon: '👑',
+          'value-color': '#fbbf24',
+          subtitle: categoryStats.maxYieldEntity || 'N/A'
+        }
+      });
+      statsGrid.appendChild(maxYCard);
 
+      // 8. Total Kg Card
       const totalCostoFaenados = (categoryStats.totalKgFaena || 0) * (categoryStats.avgPriceWithCommission || 0);
-      const totalKgNode = renderStatCard('Kilos Faenados', `${(categoryStats.totalKgFaena || 0).toLocaleString()} kg`, '🔪', `Costo: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
-      totalKgNode.innerHTML = `
-        <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🔪</div>
-        <div class="stat-info">
-          <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Kilos Faenados</p>
-          <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">${(categoryStats.totalKgFaena || 0).toLocaleString()} kg</h3>
-          <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 650; margin-top: 0.15rem;">Costo: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-        </div>
-      `;
-      statsGrid.appendChild(totalKgNode);
+      const totalKgCard = el('kmp-metric-card', {
+        attrs: {
+          title: `Kilos Faenados`,
+          value: `${(categoryStats.totalKgFaena || 0).toLocaleString()} kg`,
+          icon: '🔪',
+          subtitle: `Costo: $${totalCostoFaenados.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+        }
+      });
+      statsGrid.appendChild(totalKgCard);
 
       // MAG Reference market indices
       const selectedCat = selectedCategories.length === 1 ? selectedCategories[0] : null;
@@ -337,29 +343,26 @@ export function renderDashboard(container, options) {
           const ref = prices[selectedCat];
           if (ref) {
             const gap = MarketService.calculateGap(categoryStats.avgPrice, ref);
-            const gapColor = gap > 0 ? '#f87171' : '#34d399';
-            const sign = gap > 0 ? '+' : '';
-            
-            const gapCard = renderStatCard('Vs Mercado (MAG)', `${sign}${gap.toFixed(1)}%`, '📈');
-            gapCard.innerHTML = `
-              <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">📈</div>
-              <div class="stat-info">
-                <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Vs Mercado (MAG)</p>
-                <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 850; color: ${gapColor}; font-family: monospace;">${sign}${gap.toFixed(1)}%</h3>
-              </div>
-            `;
+            const gapCard = el('kmp-metric-card', {
+              attrs: {
+                title: `Vs Mercado (MAG)`,
+                value: `${gap > 0 ? '+' : ''}${gap.toFixed(1)}%`,
+                icon: '📈',
+                'value-color': gap > 0 ? '#f87171' : '#34d399',
+                subtitle: gap > 0 ? 'Por encima de ref MAG' : 'Precio de oportunidad'
+              }
+            });
             statsGrid.appendChild(gapCard);
 
-            const magRefNode = renderStatCard('Precio MAG (+IVA)', `$${ref.toLocaleString()}`, '🏷️', 'Fuente: MAG');
-            magRefNode.innerHTML = `
-              <div class="stat-icon" style="font-size: 1.5rem; background: rgba(255, 255, 255, 0.03); padding: 0.6rem; border-radius: 12px;">🏛️</div>
-              <div class="stat-info">
-                <p style="margin: 0; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Precio Ref MAG</p>
-                <h3 style="margin: 0.25rem 0 0 0; font-size: 1.35rem; font-weight: 800; color: var(--text-main); font-family: monospace;">$${ref.toLocaleString()}</h3>
-                <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500; margin-top: 0.15rem;">Fuente: Mercado MAG</div>
-              </div>
-            `;
-            statsGrid.appendChild(magRefNode);
+            const magRefCard = el('kmp-metric-card', {
+              attrs: {
+                title: `Precio Ref MAG`,
+                value: `$${ref.toLocaleString()}`,
+                icon: '🏛️',
+                subtitle: 'Índice de referencia MAG'
+              }
+            });
+            statsGrid.appendChild(magRefCard);
           }
         });
       }

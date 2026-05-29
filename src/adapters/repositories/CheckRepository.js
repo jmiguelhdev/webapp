@@ -24,4 +24,8 @@ export class CheckRepository {
   async getTravels(uid) {
     return api.fetchTravels(db, uid);
   }
+
+  subscribeChecks(uid, callback, onError) {
+    return api.subscribeToCheckOperations(db, uid, callback, onError);
+  }
 }

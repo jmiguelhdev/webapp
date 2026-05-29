@@ -14,7 +14,8 @@ export class CalculateCategoryStats {
 
     const completedTravels = travels.filter(t => {
       const s = String(t.status || '').toUpperCase();
-      return t.isCompleted === true && s !== 'DRAFT' && s !== 'BORRADOR';
+      const isComp = t.isCompleted === true || s === 'COMPLETED' || s === 'FINALIZADO' || s === 'ACTIVE' || s === 'ACTIVO';
+      return isComp && s !== 'DRAFT' && s !== 'BORRADOR';
     });
     const catsToFilter = Array.isArray(categories) ? categories : [categories];
     const isAll = catsToFilter.length === 0 || catsToFilter.includes('TODOS');

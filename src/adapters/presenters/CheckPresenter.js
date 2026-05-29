@@ -13,6 +13,7 @@ export class CheckPresenter {
     this.buyContacts = [];
     this.operators = [];
     this.currentUserUid = null;
+    this.checksUnsubscribe = null;
     const _today = new Date();
     const _toISO = (d) => d.toISOString().split('T')[0];
     const _plus30 = new Date(_today); _plus30.setDate(_plus30.getDate() + 30);
@@ -37,13 +38,16 @@ export class CheckPresenter {
   }
 
   async loadData() {
+    if (this.checksUnsubscribe) {
+      this.checksUnsubscribe();
+      this.checksUnsubscribe = null;
+    }
     this.ui.showLoading();
     // Migrate old contacts cache key (if any) to the shared 'client_clients' key
     if (localStorage.getItem('checks_contacts')) {
       localStorage.removeItem('checks_contacts');
     }
     try {
-      this.checks = await this.checkRepository.fetchChecks(this.currentUserUid);
       const clients = await this.checkRepository.getContacts();
       const travels = await this.checkRepository.getTravels(this.currentUserUid);
       const producers = this.extractUniqueProducers(travels);
@@ -71,10 +75,21 @@ export class CheckPresenter {
       });
       this.contacts = Array.from(unifiedContactsMap.values()).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
 
-      this.render();
+      // Sintonizar la suscripción reactiva en tiempo real para cheques
+      this.checksUnsubscribe = this.checkRepository.subscribeChecks(
+        this.currentUserUid,
+        (checksList) => {
+          this.checks = checksList;
+          this.ui.hideLoading();
+          this.render();
+        },
+        (error) => {
+          console.error("Checks subscription error:", error);
+          this.ui.showError("Error de suscripción a cheques: " + error.message);
+        }
+      );
     } catch (e) {
       this.ui.showError("Error al cargar cheques: " + e.message);
-    } finally {
       this.ui.hideLoading();
     }
   }

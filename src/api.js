@@ -1,5 +1,5 @@
 // webApp/src/api.js
-import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion, writeBatch, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion, writeBatch, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 /** Helper to fetch and parse a root collection */
 async function fetchAndParseRootCollection(db, uid, collName) {
@@ -670,4 +670,37 @@ export async function deleteEmployee(db, establishmentId, employeeId) {
   if (!establishmentId || !employeeId) throw new Error("establishmentId and employeeId are required");
   const docRef = doc(db, 'establishments', establishmentId, 'employees', employeeId);
   await deleteDoc(docRef);
+}
+
+/** Subscribe in real-time to travels collection */
+export function subscribeToTravels(db, uid, callback, onError) {
+  if (!uid) throw new Error("UID is required to subscribe to travels");
+  const collRef = collection(db, 'travels');
+  
+  return onSnapshot(collRef, (snapshot) => {
+    const travels = snapshot.docs.map(docSnap => {
+      const dto = docSnap.data();
+      try {
+        const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
+        if (rawData && typeof rawData === 'string') {
+          const parsed = JSON.parse(rawData);
+          return { ...topLevelFields, ...parsed, firebaseId: docSnap.id };
+        }
+        return { id: docSnap.id, ...dto };
+      } catch (e) {
+        console.warn(`Error parsing travel id ${docSnap.id}:`, e);
+        return { id: docSnap.id, ...dto };
+      }
+    });
+    callback(travels);
+  }, onError);
+}
+
+/** Subscribe in real-time to check operations collection */
+export function subscribeToCheckOperations(db, uid, callback, onError) {
+  const collRef = collection(db, 'check_operations');
+  return onSnapshot(collRef, (snapshot) => {
+    const checks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(checks);
+  }, onError);
 }

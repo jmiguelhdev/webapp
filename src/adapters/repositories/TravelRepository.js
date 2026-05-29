@@ -71,4 +71,8 @@ export class FirebaseTravelRepository {
   async consumeAchuras(uid, quantity) {
     await api.consumeAchuras(db, uid, quantity);
   }
+
+  subscribeTravels(uid, callback, onError) {
+    return api.subscribeToTravels(db, uid, callback, onError);
+  }
 }

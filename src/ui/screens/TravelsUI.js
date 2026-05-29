@@ -30,176 +30,218 @@ export function renderTravels(container, options) {
   const selectionStart = document.activeElement ? document.activeElement.selectionStart : null;
   const selectionEnd = document.activeElement ? document.activeElement.selectionEnd : null;
 
-  container.innerHTML = '';
+  let list;
+  const oldList = container.querySelector('.card-list');
+  const isFirstRender = !oldList;
 
-  // Premium Header Card
-  const mainHeader = el('div', { 
-    classes: ['settings-header-container', 'glass-card'], 
-    style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; padding: 1.5rem 2rem; border-radius: 20px;' 
-  });
-  mainHeader.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 1.25rem;">
-      <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard" style="border: 1px solid var(--border); background: var(--bg-main);">
-        <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
-      </button>
-      <div>
-        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-main);">🚛 Gestión de Viajes</h2>
-        <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.85rem;">Monitorea remisiones, rendimiento de faena y liquidaciones de productores.</p>
+  if (isFirstRender) {
+    container.innerHTML = '';
+
+    // Premium Header Card
+    const mainHeader = el('div', { 
+      classes: ['settings-header-container', 'glass-card'], 
+      style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; padding: 1.5rem 2rem; border-radius: 20px;' 
+    });
+    mainHeader.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 1.25rem;">
+        <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard" style="border: 1px solid var(--border); background: var(--bg-main);">
+          <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
+        </button>
+        <div>
+          <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-main);"></h2>
+          <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.85rem;"></p>
+        </div>
       </div>
-    </div>
-    <button id="btn-add-travel" class="btn-primary" style="margin: 0; padding: 0.7rem 1.4rem; border-radius: 12px; font-weight: 600;">+ Nuevo Viaje</button>
-  `;
-  container.appendChild(mainHeader);
-  mainHeader.querySelector('#back-to-dash').onclick = options.onBack;
-  mainHeader.querySelector('#btn-add-travel').onclick = () => {
-    if (options.onAddTravel) options.onAddTravel();
-  };
+      <button id="btn-add-travel" class="btn-primary" style="margin: 0; padding: 0.7rem 1.4rem; border-radius: 12px; font-weight: 600;">+ Nuevo Viaje</button>
+    `;
+    // Force direct text assignment to respect security guidelines
+    mainHeader.querySelector('h2').textContent = '🚛 Gestión de Viajes';
+    mainHeader.querySelector('p').textContent = 'Monitorea remisiones, rendimiento de faena y liquidaciones de productores.';
+    container.appendChild(mainHeader);
+    mainHeader.querySelector('#back-to-dash').onclick = options.onBack;
+    mainHeader.querySelector('#btn-add-travel').onclick = () => {
+      if (options.onAddTravel) options.onAddTravel();
+    };
 
-  // Filters and Categories Glass Card
-  const statsArea = el('div', { 
-    classes: ['glass-card', 'settings-card'], 
-    style: 'margin-bottom: 2rem; padding: 1.75rem 2rem; border-radius: 20px; display: flex; flex-direction: column; gap: 1.25rem;' 
-  });
-  
-  // 1. Time Filters Sub-component
-  const timeRow = renderTimeFilterUI(options);
-  statsArea.appendChild(timeRow);
-  
-  // 2. Categories selection selector row
-  const selectorRow = el('div', { 
-    classes: ['selector-row'],
-    style: 'display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.25rem; flex-wrap: wrap;' 
-  });
-  
-  const chipsLeft = el('div', { 
-    style: 'display: flex; align-items: center; gap: 1rem; flex: 1; flex-wrap: wrap;' 
-  });
-  chipsLeft.innerHTML = `<span style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Categorías:</span>`;
-  
-  const chipsContainer = el('div', { 
-    classes: ['category-chips-container'],
-    style: 'display: flex; gap: 0.5rem; flex-wrap: wrap;'
-  });
-  
-  categories.forEach(cat => {
-    const isTodos = cat === 'TODOS';
-    const isSelected = isTodos 
-      ? selectedCategories.length === 0 
-      : selectedCategories.includes(cat);
-      
-    const chip = el('button', { 
-      classes: ['category-chip', isSelected ? 'active' : 'inactive'], 
-      text: cat 
+    // Filters and Categories Glass Card
+    const statsArea = el('div', { 
+      classes: ['glass-card', 'settings-card'], 
+      style: 'margin-bottom: 2rem; padding: 1.75rem 2rem; border-radius: 20px; display: flex; flex-direction: column; gap: 1.25rem;' 
     });
-    chip.onclick = () => onCategoryToggle(cat);
-    chipsContainer.appendChild(chip);
-  });
-  chipsLeft.appendChild(chipsContainer);
-  
-  // Modern custom toggle for "Con Comisión"
-  const commToggle = el('label', { 
-    classes: ['comm-toggle'], 
-    style: 'display: flex; align-items: center; gap: 0.75rem; cursor: pointer; background: rgba(255,255,255,0.02); padding: 0.6rem 1rem; border-radius: 12px; border: 1px solid var(--border); transition: all 0.2s ease;',
-    html: `
-      <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-main);">Con Comisión</span>
-      <label class="switch-container-m3" style="margin: 0;">
-        <input type="checkbox" ${includeCommission ? 'checked' : ''}>
-        <span class="switch-slider-m3"></span>
-      </label>
-    ` 
-  });
-  commToggle.querySelector('input').onchange = (e) => onCommissionToggle(e.target.checked);
-  
-  selectorRow.appendChild(chipsLeft);
-  selectorRow.appendChild(commToggle);
-  statsArea.appendChild(selectorRow);
-  container.appendChild(statsArea);
-  
-  // Dashboard Toolbar Section
-  const toolbar = el('div', { 
-    classes: ['toolbar', 'glass-card'], 
-    style: 'margin-bottom: 2rem; padding: 1.25rem 1.75rem; border-radius: 18px; display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;' 
-  });
-  
-  // A. Segmented Controls Capsule for Status Filters
-  const filterGroup = el('div', { 
-    classes: ['segmented-control-container'],
-    style: 'display: flex; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 4px; border-radius: 12px;' 
-  });
-  ['TODOS', 'ACTIVO', 'BORRADOR'].forEach(f => {
-    const isActive = currentFilter === f;
-    const btn = el('button', { 
-      classes: ['filter-btn'], 
-      text: f,
-      style: `background: ${isActive ? 'var(--primary)' : 'transparent'}; color: ${isActive ? 'var(--on-primary)' : 'var(--text-muted)'}; border: none; padding: 0.5rem 1.15rem; border-radius: 8px; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;`
+    
+    // 1. Time Filters Sub-component
+    const timeRow = renderTimeFilterUI(options);
+    statsArea.appendChild(timeRow);
+    
+    // 2. Categories selection selector row
+    const selectorRow = el('div', { 
+      classes: ['selector-row'],
+      style: 'display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.25rem; flex-wrap: wrap;' 
     });
-    btn.onclick = () => onFilter(f);
-    filterGroup.appendChild(btn);
-  });
+    
+    const chipsLeft = el('div', { 
+      style: 'display: flex; align-items: center; gap: 1rem; flex: 1; flex-wrap: wrap;' 
+    });
+    chipsLeft.innerHTML = `<span style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Categorías:</span>`;
+    
+    const chipsContainer = el('div', { 
+      classes: ['category-chips-container'],
+      style: 'display: flex; gap: 0.5rem; flex-wrap: wrap;'
+    });
+    
+    categories.forEach(cat => {
+      const isTodos = cat === 'TODOS';
+      const isSelected = isTodos 
+        ? selectedCategories.length === 0 
+        : selectedCategories.includes(cat);
+        
+      const chip = el('button', { 
+        classes: ['category-chip', isSelected ? 'active' : 'inactive'], 
+        text: cat 
+      });
+      chip.onclick = () => onCategoryToggle(cat);
+      chipsContainer.appendChild(chip);
+    });
+    chipsLeft.appendChild(chipsContainer);
+    
+    // Modern custom toggle for "Con Comisión"
+    const commToggle = el('label', { 
+      classes: ['comm-toggle'], 
+      style: 'display: flex; align-items: center; gap: 0.75rem; cursor: pointer; background: rgba(255,255,255,0.02); padding: 0.6rem 1rem; border-radius: 12px; border: 1px solid var(--border); transition: all 0.2s ease;',
+      html: `
+        <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-main);">Con Comisión</span>
+        <label class="switch-container-m3" style="margin: 0;">
+          <input type="checkbox" ${includeCommission ? 'checked' : ''}>
+          <span class="switch-slider-m3"></span>
+        </label>
+      ` 
+    });
+    commToggle.querySelector('input').onchange = (e) => onCommissionToggle(e.target.checked);
+    
+    selectorRow.appendChild(chipsLeft);
+    selectorRow.appendChild(commToggle);
+    statsArea.appendChild(selectorRow);
+    container.appendChild(statsArea);
+    
+    // Dashboard Toolbar Section
+    const toolbar = el('div', { 
+      classes: ['toolbar', 'glass-card'], 
+      style: 'margin-bottom: 2rem; padding: 1.25rem 1.75rem; border-radius: 18px; display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;' 
+    });
+    
+    // A. Segmented Controls Capsule for Status Filters
+    const filterGroup = el('div', { 
+      classes: ['segmented-control-container'],
+      style: 'display: flex; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 4px; border-radius: 12px;' 
+    });
+    ['TODOS', 'ACTIVO', 'BORRADOR'].forEach(f => {
+      const isActive = currentFilter === f;
+      const btn = el('button', { 
+        classes: ['filter-btn'], 
+        text: f,
+        style: `background: ${isActive ? 'var(--primary)' : 'transparent'}; color: ${isActive ? 'var(--on-primary)' : 'var(--text-muted)'}; border: none; padding: 0.5rem 1.15rem; border-radius: 8px; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;`
+      });
+      btn.onclick = () => onFilter(f);
+      filterGroup.appendChild(btn);
+    });
+    
+    // B. Interactive Search Box
+    const searchInput = el('input', { 
+      classes: ['form-input'], 
+      attrs: { id: 'travel-search', type: 'text', placeholder: '🔍 Buscar productor, patente, chofer...', value: options.searchQuery || '' },
+      style: 'flex: 1; min-width: 250px; padding: 0.65rem 1.25rem; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-size: 0.85rem;'
+    });
+    searchInput.oninput = (e) => options.onSearch(e.target.value);
   
-  // B. Interactive Search Box
-  const searchInput = el('input', { 
-    classes: ['form-input'], 
-    attrs: { id: 'travel-search', type: 'text', placeholder: '🔍 Buscar productor, patente, chofer...', value: options.searchQuery || '' },
-    style: 'flex: 1; min-width: 250px; padding: 0.65rem 1.25rem; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-size: 0.85rem;'
-  });
-  searchInput.oninput = (e) => options.onSearch(e.target.value);
+    // C. Modern Action File Pickers
+    const pdfUploadContainer = el('div', { style: 'display: flex; align-items: center; gap: 0.65rem;' });
+    
+    const pdfInput = el('input', { attrs: { type: 'file', accept: '.pdf', id: 'pdf-faena-input' }, style: 'display: none;' });
+    const uploadBtn = el('button', { 
+      classes: ['btn-primary'], 
+      text: '📄 Subir PDF', 
+      style: 'margin: 0; white-space: nowrap; background: #2563eb; border: none; font-size: 0.82rem; padding: 0.65rem 1.15rem; border-radius: 10px; font-weight: 600;' 
+    });
+    uploadBtn.onclick = () => pdfInput.click();
+    pdfInput.onchange = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        options.onPdfUpload(e.target.files[0]);
+      }
+    };
+    
+    const scanInput = el('input', { attrs: { type: 'file', webkitdirectory: '', directory: '', multiple: '' }, style: 'display: none;' });
+    const scanBtn = el('button', { 
+      classes: ['btn-primary'], 
+      text: '📁 Escanear Carpeta', 
+      title: 'Escanear una carpeta local en busca de PDFs no procesados',
+      style: 'margin: 0; white-space: nowrap; background: #10b981; border: none; font-size: 0.82rem; padding: 0.65rem 1.15rem; border-radius: 10px; font-weight: 600;' 
+    });
+    scanBtn.onclick = () => scanInput.click();
+    scanInput.onchange = (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        options.onScanDirectory(Array.from(e.target.files));
+      }
+      scanInput.value = '';
+    };
+  
+    const sortBtn = el('button', { 
+      classes: ['sort-toggle'], 
+      style: 'background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); color: var(--text-main); font-size: 0.82rem; padding: 0.65rem 1.15rem; border-radius: 10px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.35rem;',
+      html: `📅 Fecha ${currentSort === 'DESC' ? '▼' : '▲'}` 
+    });
+    sortBtn.onclick = () => onSort(currentSort === 'DESC' ? 'ASC' : 'DESC');
+  
+    pdfUploadContainer.appendChild(pdfInput);
+    pdfUploadContainer.appendChild(uploadBtn);
+    pdfUploadContainer.appendChild(scanInput);
+    pdfUploadContainer.appendChild(scanBtn);
+  
+    toolbar.appendChild(filterGroup);
+    toolbar.appendChild(searchInput);
+    toolbar.appendChild(pdfUploadContainer);
+    toolbar.appendChild(sortBtn);
+    container.appendChild(toolbar);
+  
+    // Cards List Container
+    list = el('div', { 
+      classes: ['card-list'],
+      style: 'display: flex; flex-direction: column; gap: 2rem; margin-bottom: 2rem;'
+    });
+    container.appendChild(list);
+  } else {
+    list = oldList;
+    list.innerHTML = '';
 
-  // C. Modern Action File Pickers
-  const pdfUploadContainer = el('div', { style: 'display: flex; align-items: center; gap: 0.65rem;' });
-  
-  const pdfInput = el('input', { attrs: { type: 'file', accept: '.pdf', id: 'pdf-faena-input' }, style: 'display: none;' });
-  const uploadBtn = el('button', { 
-    classes: ['btn-primary'], 
-    text: '📄 Subir PDF', 
-    style: 'margin: 0; white-space: nowrap; background: #2563eb; border: none; font-size: 0.82rem; padding: 0.65rem 1.15rem; border-radius: 10px; font-weight: 600;' 
-  });
-  uploadBtn.onclick = () => pdfInput.click();
-  pdfInput.onchange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      options.onPdfUpload(e.target.files[0]);
+    // Update active toolbar controls values statefully
+    container.querySelectorAll('.filter-btn').forEach(btn => {
+      const f = btn.textContent;
+      const isActive = currentFilter === f;
+      btn.style.background = isActive ? 'var(--primary)' : 'transparent';
+      btn.style.color = isActive ? 'var(--on-primary)' : 'var(--text-muted)';
+    });
+
+    const sortBtn = container.querySelector('.sort-toggle');
+    if (sortBtn) {
+      sortBtn.innerHTML = `📅 Fecha ${currentSort === 'DESC' ? '▼' : '▲'}`;
     }
-  };
-  
-  const scanInput = el('input', { attrs: { type: 'file', webkitdirectory: '', directory: '', multiple: '' }, style: 'display: none;' });
-  const scanBtn = el('button', { 
-    classes: ['btn-primary'], 
-    text: '📁 Escanear Carpeta', 
-    title: 'Escanear una carpeta local en busca de PDFs no procesados',
-    style: 'margin: 0; white-space: nowrap; background: #10b981; border: none; font-size: 0.82rem; padding: 0.65rem 1.15rem; border-radius: 10px; font-weight: 600;' 
-  });
-  scanBtn.onclick = () => scanInput.click();
-  scanInput.onchange = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      options.onScanDirectory(Array.from(e.target.files));
-    }
-    scanInput.value = '';
-  };
 
-  const sortBtn = el('button', { 
-    classes: ['sort-toggle'], 
-    style: 'background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); color: var(--text-main); font-size: 0.82rem; padding: 0.65rem 1.15rem; border-radius: 10px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.35rem;',
-    html: `📅 Fecha ${currentSort === 'DESC' ? '▼' : '▲'}` 
-  });
-  sortBtn.onclick = () => onSort(currentSort === 'DESC' ? 'ASC' : 'DESC');
+    container.querySelectorAll('.category-chip').forEach(chip => {
+      const cat = chip.textContent;
+      const isTodos = cat === 'TODOS';
+      const isSelected = isTodos 
+        ? selectedCategories.length === 0 
+        : selectedCategories.includes(cat);
+      chip.className = `category-chip ${isSelected ? 'active' : 'inactive'}`;
+    });
 
-  pdfUploadContainer.appendChild(pdfInput);
-  pdfUploadContainer.appendChild(uploadBtn);
-  pdfUploadContainer.appendChild(scanInput);
-  pdfUploadContainer.appendChild(scanBtn);
+    const commInput = container.querySelector('.comm-toggle input');
+    if (commInput) commInput.checked = includeCommission;
 
-  toolbar.appendChild(filterGroup);
-  toolbar.appendChild(searchInput);
-  toolbar.appendChild(pdfUploadContainer);
-  toolbar.appendChild(sortBtn);
-  container.appendChild(toolbar);
+    const oldPagin = container.querySelector('.pagination');
+    if (oldPagin) oldPagin.remove();
+  }
 
-  // Cards List Container
-  const list = el('div', { 
-    classes: ['card-list'],
-    style: 'display: flex; flex-direction: column; gap: 2rem; margin-bottom: 2rem;'
-  });
-  
+  // Cards render loops
   data.forEach(travel => {
     const buy = travel.buy || {};
     const agentName = buy.agent?.name;
@@ -224,7 +266,7 @@ export function renderTravels(container, options) {
         </div>
         <div class="header-status" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
           ${agentName ? `<span class="agent-badge" style="background: rgba(255,255,255,0.04); color: var(--text-main); font-weight: 600; font-size: 0.75rem; padding: 0.3rem 0.75rem; border-radius: 8px; border: 1px solid var(--border);">👤 ${agentName}</span>` : ''}
-          <span class="status-badge ${travel.status?.toLowerCase() || 'borrador'}" style="font-weight: 750; font-size: 0.7rem; padding: 0.35rem 0.8rem; border-radius: 8px; letter-spacing: 0.5px;">${travel.status === 'DRAFT' ? 'BORRADOR' : (travel.status || 'BORRADOR')}</span>
+          <kmp-status-chip status="${travel.status || 'DRAFT'}"></kmp-status-chip>
           <div class="travel-actions" style="display: flex; gap: 0.4rem;">
             <button class="btn-icon btn-edit-travel" data-id="${travel.id}" title="Editar Logística" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: #60a5fa; padding: 0.5rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">${editSvg}</button>
             <button class="btn-icon btn-delete-travel" data-id="${travel.id}" title="Eliminar Viaje" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: #f87171; padding: 0.5rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">${delSvg}</button>
@@ -822,7 +864,7 @@ export function showTravelModal(travel, options) {
               <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z" /></svg>
               ${isEdit ? 'Editar Viaje Operacional' : 'Nuevo Viaje Operacional'}
             </h3>
-            <span class="status-badge ${status.toLowerCase()}" style="font-weight: 750; font-size: 0.75rem; padding: 0.4rem 0.9rem; border-radius: 8px;">${status}</span>
+            <kmp-status-chip status="${status}"></kmp-status-chip>
           </div>
 
           <!-- Modern Compose-like Tab Bar -->
@@ -947,8 +989,8 @@ export function showTravelModal(travel, options) {
       tDate.oninput = (e) => { date = e.target.value; };
       tStatus.onchange = (e) => { 
         status = e.target.value; 
-        container.querySelector('.status-badge').className = `status-badge ${status.toLowerCase()}`;
-        container.querySelector('.status-badge').textContent = status;
+        const chip = container.querySelector('kmp-status-chip');
+        if (chip) chip.setAttribute('status', status);
       };
       tDesc.oninput = (e) => { description = e.target.value; };
       tTruck.onchange = (e) => { selectedTruckId = e.target.value; };

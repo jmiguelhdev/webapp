@@ -62,10 +62,16 @@ let currentUserRole = null; // 'ADMIN', 'OPERARIO', or 'VISOR'
 
 
 // UI elements
-const entityList = document.getElementById('entity-list');
+const kmpSidebar = document.getElementById('kmp-sidebar');
 const content = document.getElementById('content');
 const themeToggle = document.getElementById('theme-toggle');
 const menuToggle = document.getElementById('menu-toggle');
+
+if (kmpSidebar) {
+  kmpSidebar.addEventListener('navigate', (e) => {
+    navigateTo(e.detail.view);
+  });
+}
 
 // Unified UI Interface for Presenter
 const uiInterface = {
@@ -174,13 +180,12 @@ onAuthStateChanged(auth, async (user) => {
     frigorificoPresenter.setUid(user.uid);
 
     try {
-      uiLib.renderSidebar(
-        document.getElementById('entity-list'),
-        (view) => navigateTo(view, currentUserRole),
-        currentUserRole
-      );
+      if (kmpSidebar) {
+        kmpSidebar.setAttribute('role', currentUserRole);
+        kmpSidebar.setAttribute('active', 'dashboard');
+      }
     } catch (e) {
-      console.error("Error rendering sidebar:", e);
+      console.error("Error setting kmp-sidebar attributes:", e);
     }
 
     // Default view: Dashboard for everyone
@@ -255,12 +260,8 @@ function enforcePermissions(role) {
 
 // Navigation Utility
 const navigateTo = (view, role = currentUserRole) => {
-  // Clear any existing active classes in sidebar if it exists
-  const sidebar = document.getElementById('entity-list');
-  if (sidebar) {
-    sidebar.querySelectorAll('li').forEach(li => {
-      li.classList.toggle('active', li.dataset.view === view);
-    });
+  if (kmpSidebar) {
+    kmpSidebar.setAttribute('active', view);
   }
   
   if (view === 'logout') {
@@ -640,10 +641,7 @@ const navigateTo = (view, role = currentUserRole) => {
   }
 }
 
-entityList.addEventListener('click', e => {
-  const li = e.target.closest('li[data-view]');
-  if (li) navigateTo(li.dataset.view);
-});
+
 
 themeToggle.addEventListener('click', () => {
   document.body.classList.toggle('dark');
