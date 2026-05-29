@@ -14,12 +14,9 @@ export class CheckPresenter {
     this.operators = [];
     this.currentUserUid = null;
     this.checksUnsubscribe = null;
-    const _today = new Date();
-    const _toISO = (d) => d.toISOString().split('T')[0];
-    const _plus30 = new Date(_today); _plus30.setDate(_plus30.getDate() + 30);
     this.filters = {
-      startDate: _toISO(_today),
-      endDate: _toISO(_plus30),
+      startDate: '',
+      endDate: '',
       dateFilterType: 'DUE',
       searchTerm: '',
       sortPortfolioAsc: true,
