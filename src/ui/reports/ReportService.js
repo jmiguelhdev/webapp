@@ -183,6 +183,7 @@ export async function generateChecksExcel(checks, contacts) {
     return {
       'Banco': op.bank || '-',
       '# Cheque': op.checkNumber || '-',
+      'Tipo': op.isECheck ? 'E-Cheque' : 'Físico',
       'Librador': op.issuerName || '-',
       'CUIT Librador': op.issuerCuit || '-',
       'F. Emisión': op.issueDate ? new Date(op.issueDate).toLocaleDateString('es-AR') : '-',
@@ -250,7 +251,10 @@ export function printChecksReport(checks, contacts, options) {
     return `
       <tr>
         <td>
-          <div style="font-weight:600;">${op.bank || '-'}</div>
+          <div style="font-weight:600; display:flex; align-items:center; gap:4px;">
+            ${op.bank || '-'}
+            <span style="font-size: 8px; font-weight: 800; background: ${op.isECheck ? '#e0e7ff' : '#fef3c7'}; color: ${op.isECheck ? '#4f46e5' : '#d97706'}; padding: 1px 4px; border-radius: 3px; font-family: sans-serif; text-transform: uppercase;">${op.isECheck ? 'E-Cheq' : 'Físico'}</span>
+          </div>
           <div style="font-size:11px; color:#666;">#${op.checkNumber || '-'}</div>
         </td>
         <td>

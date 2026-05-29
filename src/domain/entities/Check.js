@@ -14,6 +14,7 @@ export class Check {
     this.notes = data.notes || '';
     this.issuerName = data.issuerName || '';
     this.issuerCuit = data.issuerCuit || '';
+    this.isECheck = data.isECheck === true || data.isECheck === 'true';
 
     // Rejected state check tracking fields
     this.returned = data.returned || false;

@@ -24,7 +24,8 @@ export class CheckPresenter {
       searchTerm: '',
       sortPortfolioAsc: true,
       onlyNominal: false,
-      historyStatusFilter: 'ALL'
+      historyStatusFilter: 'ALL',
+      checkType: 'ALL'
     };
     this.pagination = {
       portfolioPage: 1,
@@ -141,6 +142,16 @@ export class CheckPresenter {
           if (dateStr < this.filters.startDate || dateStr > this.filters.endDate) {
             match = false;
           }
+        }
+      }
+
+      // Check Type Filter
+      if (match && this.filters.checkType && this.filters.checkType !== 'ALL') {
+        const isE = !!c.isECheck;
+        if (this.filters.checkType === 'ECHECK' && !isE) {
+          match = false;
+        } else if (this.filters.checkType === 'PAPER' && isE) {
+          match = false;
         }
       }
       
@@ -298,6 +309,7 @@ export class CheckPresenter {
     check.calculate();
     return {
       ...op,
+      isECheck: check.isECheck,
       days: check.days,
       expireAt: check.expireAt,
       buySide: check.buySide ? { ...check.buySide } : null,

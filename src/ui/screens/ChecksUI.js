@@ -235,6 +235,27 @@ export function renderChecks(container, options) {
     `;
     dateTypeGroup.appendChild(dateTypeSelect);
 
+    const checkTypeGroup = el('div', { classes: ['form-group'], style: 'margin-bottom: 0;' });
+    checkTypeGroup.appendChild(el('label', { 
+      text: 'Tipo de Cheque',
+      style: 'font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; display: block;'
+    }));
+    const checkTypeSelect = el('select', { 
+      attrs: { id: 'checks-type-select' },
+      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); color: var(--text-main); outline: none; font-family: inherit; font-weight: 600;' 
+    });
+    checkTypeSelect.innerHTML = `
+      <option value="ALL" ${filters?.checkType === 'ALL' ? 'selected' : ''}>Todos</option>
+      <option value="PAPER" ${filters?.checkType === 'PAPER' ? 'selected' : ''}>Físico (Papel)</option>
+      <option value="ECHECK" ${filters?.checkType === 'ECHECK' ? 'selected' : ''}>E-Cheque (Electrónico)</option>
+    `;
+    checkTypeSelect.addEventListener('change', () => {
+      if (container._options && typeof container._options.onFilterChange === 'function') {
+        container._options.onFilterChange({ checkType: checkTypeSelect.value });
+      }
+    });
+    checkTypeGroup.appendChild(checkTypeSelect);
+
     const startField = makeDateField('Desde', filters?.startDate || '', 'checks-start-date');
     const endField   = makeDateField('Hasta',  filters?.endDate  || '', 'checks-end-date');
 
@@ -295,6 +316,7 @@ export function renderChecks(container, options) {
     });
 
     filtersGrid.appendChild(searchGroup);
+    filtersGrid.appendChild(checkTypeGroup);
     filtersGrid.appendChild(dateTypeGroup);
     filtersGrid.appendChild(startField.group);
     filtersGrid.appendChild(endField.group);
@@ -593,7 +615,8 @@ export function renderChecks(container, options) {
 
   // Update stats cards in stats grid
   const statsGrid = container.querySelector('#checks-stats-grid');
-  const { totalProfit = 0, totalPortfolioDiscount = 0, totalInPortfolio = 0, portfolioChecksCount = 0, expiringChecks = [] } = globalSummary;
+  const { totalProfit = 0, totalPortfolioDiscount = 0, totalInPortfolio = 0, portfolioChecksCount = 0 } = filteredSummary;
+  const { expiringChecks = [] } = globalSummary;
   if (statsGrid) {
     const cards = statsGrid.querySelectorAll('kmp-metric-card');
     if (cards.length >= 4) {
@@ -658,6 +681,8 @@ export function renderChecks(container, options) {
   if (startInput && document.activeElement !== startInput) startInput.value = filters?.startDate || '';
   if (endInput && document.activeElement !== endInput) endInput.value = filters?.endDate || '';
   if (typeSelect && document.activeElement !== typeSelect) typeSelect.value = filters?.dateFilterType || 'DUE';
+  const checkTypeSelect = container.querySelector('#checks-type-select');
+  if (checkTypeSelect && document.activeElement !== checkTypeSelect) checkTypeSelect.value = filters?.checkType || 'ALL';
 
   const nominalCb = container.querySelector('#filter-only-nominal');
   if (nominalCb) {
@@ -1307,7 +1332,7 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       return sortAsc ? tA - tB : tB - tA;
     }).forEach(op => {
       const tr = el('tr', { 
-        classes: ['check-card-row'],
+        classes: op.isECheck ? ['check-card-row', 'echeck-row'] : ['check-card-row'],
         style: 'box-shadow: var(--elevation-1);' 
       });
       
@@ -1339,7 +1364,14 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       tr.innerHTML = `
         ${cbCell}
         <td style="${selectable ? '' : 'border-radius: 14px 0 0 14px;'}">
-          <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; letter-spacing: 0.3px;">Nº ${op.checkNumber || 'S/N'}</div>
+          <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; letter-spacing: 0.3px; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            Nº ${op.checkNumber || 'S/N'}
+            ${op.isECheck ? `
+              <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.4rem; border-radius: 4px; background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); letter-spacing: 0.5px;">E-CHEQ</span>
+            ` : `
+              <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.4rem; border-radius: 4px; background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); letter-spacing: 0.5px;">FÍSICO</span>
+            `}
+          </div>
           ${op.issuerName ? `<div style="font-size: 0.82rem; color: var(--primary); font-weight: 700; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.3rem;"><span style="font-size: 0.85rem;">👤</span> ${op.issuerName}</div>` : ''}
           <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 0.25rem;"><span style="font-size: 0.8rem;">🏛️</span> ${op.bank || 'SIN BANCO'}</div>
         </td>

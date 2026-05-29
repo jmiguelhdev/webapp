@@ -69,6 +69,13 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
             <label>Fecha de Pago</label>
             <input type="date" name="dueDate" value="${existingOp?.dueDate || ''}" required>
           </div>
+          <div class="form-group" style="margin:0;">
+            <label>Tipo de Cheque</label>
+            <select name="isECheck" style="width:100%;height:38px;padding:0 0.75rem;border-radius:8px;background:rgba(0,0,0,0.2);border:1px solid var(--border);color:var(--text-main);font-family:inherit;outline:none;font-weight:600;">
+              <option value="false" ${existingOp?.isECheck ? '' : 'selected'}>Físico (Papel)</option>
+              <option value="true" ${existingOp?.isECheck ? 'selected' : ''}>E-Cheque (Electrónico)</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -250,6 +257,7 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
       issuerName: formData.get('issuerName'),
       issuerCuit: formData.get('issuerCuit'),
       notes: formData.get('notes'),
+      isECheck: formData.get('isECheck') === 'true',
       buySide: {
         contactId: buySideContactId,
         pesificacionRate: formData.get('buySide_pesificacionRate'),
@@ -444,7 +452,7 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
           <span class="row-net-preview" style="font-size:0.85rem;font-weight:700;color:var(--primary);background:rgba(99,102,241,0.15);padding:0.4rem 0.8rem;border-radius:6px;border:1px solid rgba(99,102,241,0.3);white-space:nowrap;display:inline-block;min-width:120px;text-align:center;">Neto: $0,00</span>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;align-items:end;padding-top:0.15rem;border-top:1px solid rgba(255,255,255,0.06);">
+      <div style="display:grid;grid-template-columns:1.2fr 1.2fr 0.8fr;gap:0.75rem;align-items:end;padding-top:0.15rem;border-top:1px solid rgba(255,255,255,0.06);">
         <div class="form-group" style="margin:0;">
           <label style="font-size:0.78rem;">👤 Librador</label>
           <input type="text" class="row-issuer-name" placeholder="Nombre del librador" style="font-size:0.9rem;">
@@ -455,6 +463,13 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
             <input type="text" class="row-issuer-cuit" placeholder="20-XXXXXXXX-X" style="font-size:0.9rem;flex:1;">
             <button type="button" class="row-bcra-btn" title="Consultar Central de Deudores BCRA" style="padding:0 0.8rem;border-radius:8px;background:#2563eb;color:white;border:none;cursor:pointer;font-size:0.75rem;font-weight:700;white-space:nowrap;flex-shrink:0;">🔍 BCRA</button>
           </div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size:0.78rem;">Tipo</label>
+          <select class="row-isecheck" style="width:100%;height:38px;padding:0 0.5rem;border-radius:8px;background:rgba(0,0,0,0.2);border:1px solid var(--border);color:var(--text-main);font-family:inherit;outline:none;font-size:0.85rem;font-weight:600;">
+            <option value="false">Físico</option>
+            <option value="true">E-Cheque</option>
+          </select>
         </div>
       </div>
     `;
@@ -498,6 +513,7 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
       const dueDate = row.querySelector('.row-duedate').value;
       const issuerName = row.querySelector('.row-issuer-name').value.trim();
       const issuerCuit = row.querySelector('.row-issuer-cuit').value.trim();
+      const isECheck = row.querySelector('.row-isecheck').value === 'true';
       if (!nv || !dueDate) return; // skip empty rows
       ops.push({
         bank,
@@ -510,6 +526,7 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
         issuerName,
         issuerCuit,
         notes: batchNotes,
+        isECheck,
         buySide: { contactId: sellerId, pesificacionRate: pesif, monthlyInterest: interest },
         sellSide: { status: 'PENDING', contactId: null, pesificacionRate: '', monthlyInterest: '', backReason: '' }
       });
