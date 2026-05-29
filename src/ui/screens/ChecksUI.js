@@ -1278,8 +1278,11 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
     classes: ['glass-card', 'table-responsive'], 
     style: 'padding: 0; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; border: 1px solid var(--border);' 
   });
-  
-  const table = el('table', { style: 'width: 100%; min-width: 850px; border-collapse: collapse; font-size: 0.88rem;' });
+
+  const table = el('table', { 
+    classes: ['card-style-table'],
+    style: 'width: 100%; min-width: 850px; font-size: 0.88rem;' 
+  });
   
   const thead = el('thead', { html: `
     <tr style="background: rgba(255,255,255,0.03); border-bottom: 2px solid var(--border); text-align: left; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -1304,8 +1307,8 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       return sortAsc ? tA - tB : tB - tA;
     }).forEach(op => {
       const tr = el('tr', { 
-        classes: ['ranking-row-hover'],
-        style: 'border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.2s;' 
+        classes: ['check-card-row'],
+        style: 'box-shadow: var(--elevation-1);' 
       });
       
       const isSold = op.sellSide && op.sellSide.status === 'SOLD';
@@ -1319,26 +1322,50 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       const _daysLabel = _daysToVenc < 0 ? `Vencido hace ${Math.abs(_daysToVenc)}d`
         : `${_daysToVenc}d restantes`;
 
-      const cbCell = selectable ? `<td style="padding: 1rem; width: 40px; text-align: center;"><input type="checkbox" class="portfolio-check-cb" data-id="${op.id}" style="width: 17px; height: 17px; cursor: pointer;"></td>` : '';
+      const cbCell = selectable ? `<td style="padding: 1rem; width: 40px; text-align: center; border-radius: 14px 0 0 14px;"><input type="checkbox" class="portfolio-check-cb" data-id="${op.id}" style="width: 17px; height: 17px; cursor: pointer;"></td>` : '';
       
+      const _badgeBg = _daysToVenc < 0 ? 'rgba(239, 68, 68, 0.15)'
+        : _daysToVenc <= 10 ? 'rgba(249, 115, 22, 0.15)'
+        : 'rgba(255, 255, 255, 0.05)';
+      const _badgeBorder = _daysToVenc < 0 ? 'rgba(239, 68, 68, 0.3)'
+        : _daysToVenc <= 10 ? 'rgba(249, 115, 22, 0.3)'
+        : 'rgba(255, 255, 255, 0.1)';
+
+      const _daysBadge = _daysLabel ? `
+        <div style="display: inline-flex; align-items: center; margin-top: 0.45rem; padding: 0.2rem 0.55rem; border-radius: 6px; background: ${_badgeBg}; border: 1px solid ${_badgeBorder}; color: ${_daysColor}; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.2px;">
+          ${_daysToVenc < 0 ? '⚠️' : '⏳'} ${_daysLabel.toUpperCase()}
+        </div>` : '';
+
       tr.innerHTML = `
         ${cbCell}
-        <td style="padding: 1rem 1.25rem;">
-          <div style="font-size: 0.92rem; font-weight: 800; color: #ffffff;">Nº ${op.checkNumber || 'S/N'}</div>
-          ${op.issuerName ? `<div style="font-size: 0.82rem; color: var(--primary); font-weight: 700; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">👤 ${op.issuerName}</div>` : ''}
-          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; font-weight: 600; text-transform: uppercase;">${op.bank || 'S/B'}</div>
+        <td style="${selectable ? '' : 'border-radius: 14px 0 0 14px;'}">
+          <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; letter-spacing: 0.3px;">Nº ${op.checkNumber || 'S/N'}</div>
+          ${op.issuerName ? `<div style="font-size: 0.82rem; color: var(--primary); font-weight: 700; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.3rem;"><span style="font-size: 0.85rem;">👤</span> ${op.issuerName}</div>` : ''}
+          <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 0.25rem;"><span style="font-size: 0.8rem;">🏛️</span> ${op.bank || 'SIN BANCO'}</div>
         </td>
-        <td style="padding: 1rem 1.25rem;">
-          <div style="font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.25rem;">💳 ${formatDateLocal(op.dueDate)}</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">Límite: ${formatDateLocal(addDays(op.dueDate, 30))}</div>
-          ${_daysLabel ? `<div style="font-size: 0.72rem; color: ${_daysColor}; font-weight: 700; margin-top: 0.25rem;">${_daysLabel}</div>` : ''}
+        <td>
+          <div style="font-weight: 750; color: #ffffff; display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem;">
+            <span style="color: var(--primary);">📅</span> ${formatDateLocal(op.dueDate)}
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; font-weight: 600;">Límite: ${formatDateLocal(addDays(op.dueDate, 30))}</div>
+          ${_daysBadge}
         </td>
-        <td style="padding: 1rem 1.25rem; font-weight: 800; text-align: right; font-family: monospace; font-size: 0.95rem; color: #ffffff;">${formatCurrency(op.nominalValue)}</td>
-        <td style="padding: 1rem 1.25rem;">
-          <div style="font-size: 0.8rem; font-weight: 600;"><span style="color: var(--primary); opacity: 0.8;">De:</span> ${seller}</div>
-          <div style="font-size: 0.8rem; font-weight: 600; margin-top: 0.15rem;"><span style="color: #10b981; opacity: 0.8;">A:</span> ${isSold ? buyer : '<span style="color:var(--text-muted);font-weight:500;">(En Cartera)</span>'}</div>
-          ${op.sellSide?.status === 'BACK' && op.sellSide?.backReason ? `<div style="font-size: 0.72rem; color: #f43f5e; margin-top: 0.25rem; font-weight: 600; font-style: italic;">📝 Motivo: ${op.sellSide.backReason}</div>` : ''}
-          <div style="margin-top: 0.45rem;">${getCheckStatusBadge(op)}</div>
+        <td style="font-weight: 900; text-align: right; font-family: monospace; font-size: 1.05rem; color: #ffffff; letter-spacing: 0.2px;">${formatCurrency(op.nominalValue)}</td>
+        <td>
+          <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <div style="font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
+              <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.35rem; border-radius: 4px; background: rgba(143,0,20,0.12); color: var(--primary); border: 1px solid rgba(143,0,20,0.25);">DE</span>
+              <span style="color: var(--text-main); font-weight: 700;">${seller}</span>
+            </div>
+            <div style="font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
+              <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.35rem; border-radius: 4px; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.25);">A</span>
+              <span style="color: var(--text-main); font-weight: 700;">${isSold ? buyer : '<span style="color:var(--text-muted);font-weight:600;font-style:italic;">(En Cartera)</span>'}</span>
+            </div>
+          </div>
+          ${op.sellSide?.status === 'BACK' && op.sellSide?.backReason ? `<div style="font-size: 0.72rem; color: #f43f5e; margin-top: 0.45rem; font-weight: 600; font-style: italic;">📝 Motivo: ${op.sellSide.backReason}</div>` : ''}
+          <div style="margin-top: 0.55rem; display: flex; align-items: center; gap: 0.35rem;">
+            ${getCheckStatusBadge(op)}
+          </div>
           
           ${op.sellSide?.status === 'REJECTED' ? `
             <div class="rejected-states-box" style="margin-top: 0.75rem; padding: 0.55rem; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 10px; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.78rem;">
@@ -1358,24 +1385,30 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
           ` : ''}
         </td>
         ${onlyNominal ? '' : `
-        <td style="padding: 1rem 1.25rem; font-weight: 800; text-align: right; font-family: monospace; font-size: 0.95rem;">
+        <td style="font-weight: 800; text-align: right; font-family: monospace; font-size: 1rem;">
           ${(() => {
             if (isSold) {
-              return `<span style="color: #34d399;">+${formatCurrency(op.profit)}</span>`;
+              return `<span style="color: #10b981; text-shadow: 0 1px 4px rgba(16,185,129,0.15);">+${formatCurrency(op.profit)}</span>`;
             }
             if (op.purchaseDiscount > 0) {
-              return `<span style="color: #34d399;">+${formatCurrency(op.purchaseDiscount)}</span><div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; font-weight: 600;">${op.purchaseDiscountPercentage.toFixed(2)}% desc.</div>`;
+              return `
+                <span style="color: #10b981;">+${formatCurrency(op.purchaseDiscount)}</span>
+                <div style="display: inline-block; font-size: 0.65rem; color: #fbbf24; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2); padding: 0.1rem 0.35rem; border-radius: 4px; margin-top: 0.2rem; font-weight: 700; letter-spacing: 0.2px;">
+                  ${op.purchaseDiscountPercentage.toFixed(2)}% DESC
+                </div>`;
             }
             return '<span style="color: var(--text-muted); font-weight: 550;">-</span>';
           })()}
         </td>
         `}
-        <td style="padding: 1rem 1.25rem; text-align: right; white-space: nowrap;">
-          <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
-            <button class="icon-btn edit-btn" style="padding: 0.35rem 0.5rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Editar Cheque">✏️</button>
-            ${op.issuerCuit ? `<button class="icon-btn bcra-list-btn" title="Consultar BCRA: ${op.issuerCuit}" style="background: rgba(37,99,235,0.12); border: 1px solid rgba(37,99,235,0.35); color: #60a5fa; border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.2s;">🔍 BCRA</button>` : ''}
-            <button class="icon-btn delete-btn" style="padding: 0.35rem 0.5rem; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Eliminar Cheque">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="pointer-events: none; vertical-align: middle;"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>
+        <td style="text-align: right; white-space: nowrap; border-radius: 0 14px 14px 0;">
+          <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+            <button class="icon-btn edit-btn" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Editar Cheque">
+              <span style="font-size: 0.85rem;">✏️</span>
+            </button>
+            ${op.issuerCuit ? `<button class="icon-btn bcra-list-btn" title="Consultar BCRA: ${op.issuerCuit}" style="height: 32px; display: flex; align-items: center; gap: 0.25rem; background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.3); color: #60a5fa; border-radius: 8px; padding: 0 0.65rem; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.2px;">🔍 BCRA</button>` : ''}
+            <button class="icon-btn delete-btn" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.18); color: var(--danger); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Eliminar Cheque">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="pointer-events: none; vertical-align: middle;"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>
             </button>
           </div>
         </td>

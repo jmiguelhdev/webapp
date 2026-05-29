@@ -694,3 +694,47 @@ canvas { width: 100% !important; height: 100% !important; }
 .dispatch-accordion-header:hover { background: rgba(255, 255, 255, 0.02) !important; }
 .ranking-row-hover { transition: background-color 0.18s ease; }
 .ranking-row-hover:hover { background-color: rgba(255, 255, 255, 0.03) !important; }
+
+/* ==========================================================================
+   Card-style tables (Floating Card-Rows)
+   ========================================================================== */
+.card-style-table {
+  border-collapse: separate !important;
+  border-spacing: 0 0.65rem !important;
+}
+
+.check-card-row {
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0.2, 1), filter 0.22s cubic-bezier(0.2, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.check-card-row td {
+  background: rgba(255, 255, 255, 0.012) !important;
+  border-top: 1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 1.1rem 1.25rem !important;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0.2, 1) !important;
+}
+
+.check-card-row td:first-child {
+  border-left: 1px solid var(--border) !important;
+  border-top-left-radius: 14px !important;
+  border-bottom-left-radius: 14px !important;
+}
+
+.check-card-row td:last-child {
+  border-right: 1px solid var(--border) !important;
+  border-top-right-radius: 14px !important;
+  border-bottom-right-radius: 14px !important;
+}
+
+/* Hover animations */
+.check-card-row:hover {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 6px 15px rgba(0, 0, 0, 0.25));
+}
+
+.check-card-row:hover td {
+  background: rgba(255, 255, 255, 0.035) !important;
+  border-color: var(--primary) !important;
+}

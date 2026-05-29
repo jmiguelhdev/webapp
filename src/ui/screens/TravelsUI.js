@@ -247,7 +247,18 @@ export function renderTravels(container, options) {
     const agentName = buy.agent?.name;
     const card = el('div', { 
       classes: ['glass-card', 'settings-card'],
-      style: 'padding: 2.25rem; border-radius: 24px; transition: all 0.25s ease;'
+      style: 'padding: 2.25rem; border-radius: 24px; transition: all 0.25s cubic-bezier(0.2, 0, 0.2, 1); border: 1px solid var(--border); background: rgba(255,255,255,0.015); box-shadow: var(--elevation-1);'
+    });
+
+    card.addEventListener('mouseenter', () => {
+      card.style.transform = 'translateY(-2px)';
+      card.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.2)';
+      card.style.borderColor = 'var(--primary)';
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'translateY(0)';
+      card.style.boxShadow = 'var(--elevation-1)';
+      card.style.borderColor = 'var(--border)';
     });
     
     const commission = buy.agentCommissionAmount || 0;
@@ -283,22 +294,24 @@ export function renderTravels(container, options) {
       <div class="grid-2-cols" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; margin-bottom: 1.5rem;">
         
         <!-- Column 1: Economy Subcard -->
-        <div class="metrics-column" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 1.25rem; border-radius: 16px;">
+        <div class="metrics-column" style="background: rgba(255,255,255,0.012); border: 1px solid var(--border); padding: 1.5rem; border-radius: 20px; transition: all 0.2s;">
           <h4 style="margin: 0 0 1rem 0; font-size: 0.9rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px;">💰 Economía</h4>
-          <div style="display: flex; flex-direction: column; gap: 0.65rem;">
-            <div class="detail-row"><span>Operación Total:</span> <strong>$${totalOp.toLocaleString()}</strong></div>
-            <div class="detail-row"><span>Comisión Agente:</span> <strong>$${commission.toLocaleString()}</strong></div>
-            <div class="detail-row highlight" style="border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.25rem;">
-              <span style="font-weight: 700; color: var(--text-main);">Total c/ Comisión:</span>
-              <strong style="color: #60a5fa;">$${totalOpWithComm.toLocaleString()}</strong>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Operación Total:</span> <strong style="color:var(--text-main); font-family:monospace;">$${totalOp.toLocaleString()}</strong></div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Comisión Agente:</span> <strong style="color:var(--text-main); font-family:monospace;">$${commission.toLocaleString()}</strong></div>
+            <div class="detail-row highlight" style="border-top: 1px solid var(--border); padding-top: 0.65rem; margin-top: 0.35rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight: 700; color: var(--text-main); font-size:0.88rem;">Total c/ Comisión:</span>
+              <strong style="color: #60a5fa; font-size:1.1rem; font-family:monospace; font-weight:800; text-shadow:0 0 8px rgba(96,165,250,0.15);">$${totalOpWithComm.toLocaleString()}</strong>
             </div>
             
-            <div class="detail-row" style="margin-top: 0.5rem; border-top: 1px dashed var(--border); padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Achique Total (Viaje):</span>
+            <div class="detail-row" style="margin-top: 0.65rem; border-top: 1px dashed var(--border); padding-top: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; text-transform:uppercase; letter-spacing:0.3px;">Achique Total (Viaje):</span>
               <div style="display: flex; gap: 0.35rem; align-items: center;">
-                <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">$</span>
+                <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700;">$</span>
                 <input type="number" class="compact-input" value="${buy.reduce || 0}" 
-                  style="width: 100px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-hover); color: var(--text-main); text-align: right; font-weight: 600;"
+                  style="width: 110px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); text-align: right; font-weight: 750; font-family:monospace; outline:none; transition:all 0.2s;"
+                  onfocus="this.style.borderColor='var(--primary)'"
+                  onblur="this.style.borderColor='var(--border)'"
                   onchange="this.dataset.id='${travel.id}'; window._ui_onReduceUpdate && window._ui_onReduceUpdate('${travel.id}', this.value)">
               </div>
             </div>
@@ -306,21 +319,21 @@ export function renderTravels(container, options) {
         </div>
         
         <!-- Column 2: Yield Subcard -->
-        <div class="metrics-column" style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); padding: 1.25rem; border-radius: 16px;">
+        <div class="metrics-column" style="background: rgba(255,255,255,0.012); border: 1px solid var(--border); padding: 1.5rem; border-radius: 20px; transition: all 0.2s;">
           <h4 style="margin: 0 0 1rem 0; font-size: 0.9rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">📈 Rendimiento</h4>
-          <div style="display: flex; flex-direction: column; gap: 0.65rem;">
-            <div class="detail-row"><span>Categoría(s):</span> <strong>${buyCategoryDisplay}</strong></div>
-            <div class="detail-row"><span>Cantidad:</span> <strong>${buy.totalQuantity || 0} cabezas</strong></div>
-            <div class="detail-row"><span>Kg Limpios:</span> <strong>${(buy.totalKgClean || 0).toLocaleString()} kg</strong></div>
-            <div class="detail-row highlight" style="border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.25rem;">
-              <span style="font-weight: 700; color: var(--text-main);">Rendimiento Gral:</span>
-              <strong style="color: #34d399;">${(yieldValue * 100).toFixed(2)}%</strong>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Categoría(s):</span> <span style="background:rgba(255,255,255,0.04); color:var(--text-main); font-weight:700; padding:0.15rem 0.45rem; border-radius:6px; font-size:0.75rem; text-transform:uppercase; border:1px solid rgba(255,255,255,0.06);">${buyCategoryDisplay}</span></div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Cantidad:</span> <strong style="color:var(--text-main);">${buy.totalQuantity || 0} cabezas</strong></div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Kg Limpios:</span> <strong style="color:var(--text-main); font-family:monospace;">${(buy.totalKgClean || 0).toLocaleString()} kg</strong></div>
+            <div class="detail-row highlight" style="border-top: 1px solid var(--border); padding-top: 0.65rem; margin-top: 0.35rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight: 700; color: var(--text-main); font-size:0.88rem;">Rendimiento Gral:</span>
+              <span style="background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); font-weight: 800; font-size: 0.95rem; padding: 0.2rem 0.6rem; border-radius: 6px; font-family:monospace;">${(yieldValue * 100).toFixed(2)}%</span>
             </div>
           </div>
         </div>
       </div>
       
-      <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.75rem; letter-spacing: 0.5px;">👤 Productores Asociados:</div>
+      <div style="font-size: 0.85rem; font-weight: 750; color: var(--text-muted); text-transform: uppercase; margin: 1.5rem 0 1rem 0; letter-spacing: 0.8px; display: flex; align-items: center; gap: 0.4rem;">👥 Productores Asociados</div>
     `;
 
     // Internal Global Reducer callback
@@ -337,7 +350,7 @@ export function renderTravels(container, options) {
     (buy.listOfProducers || []).forEach(p => {
       const pItem = el('div', { 
         classes: ['producer-sub-card'],
-        style: 'background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;' 
+        style: 'background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 16px; padding: 1.35rem; display: flex; flex-direction: column; gap: 0.85rem; transition: all 0.2s;' 
       });
       const iva = p.iva || 0;
       const ganancias = p.retencionGanancias || 0;
@@ -348,19 +361,19 @@ export function renderTravels(container, options) {
       
       const pHeader = el('div', { 
         classes: ['producer-header'], 
-        style: 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.65rem;' 
+        style: 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 0.75rem;' 
       });
       pHeader.innerHTML = `
-        <div style="flex: 1;">
-          <strong style="font-size: 0.95rem; color: var(--text-main);">👤 ${producerName}</strong>
-          <span style="margin-left: 0.5rem; font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">📍 ${p.origin || 'N/A'}</span>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <strong style="font-size: 1rem; color: #ffffff; letter-spacing:0.2px;">👤 ${producerName}</strong>
+          ${p.origin ? `<span style="background:rgba(255,255,255,0.03); color:var(--text-muted); font-size:0.7rem; font-weight:700; padding:0.15rem 0.45rem; border-radius:6px; border:1px solid rgba(255,255,255,0.05); text-transform:uppercase;">📍 ${p.origin}</span>` : ''}
         </div>
       `;
       
       const liqBtn = el('button', { 
         classes: ['btn-action'], 
         text: '📊 Liquidar',
-        style: 'background: var(--primary); color: var(--on-primary); border: none; border-radius: 8px; padding: 0.35rem 0.85rem; font-size: 0.72rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s ease;'
+        style: 'background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; border: none; border-radius: 8px; padding: 0.45rem 1rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; box-shadow: 0 2px 8px rgba(37,99,235,0.25); transition: all 0.2s;'
       });
       liqBtn.onclick = (e) => {
         e.stopPropagation();
@@ -373,45 +386,63 @@ export function renderTravels(container, options) {
       // CUIT / CBU metadata pills
       const pInfo = el('div', { 
         classes: ['producer-info'],
-        style: 'display: flex; gap: 0.5rem; flex-wrap: wrap;' 
+        style: 'display: flex; gap: 0.65rem; flex-wrap: wrap; margin-top: -0.25rem;' 
       });
       pInfo.innerHTML = `
-        ${cuit ? `<span class="info-badge" style="background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 6px; border: 1px solid var(--border);">CUIT: ${cuit}</span>` : ''}
-        ${cbu ? `<span class="info-badge" style="background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 6px; border: 1px solid var(--border);">CBU: ${cbu}</span>` : ''}
+        ${cuit ? `<span class="info-badge" style="background: rgba(255,255,255,0.015); color: var(--text-muted); font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); letter-spacing:0.3px;"><strong style="opacity:0.8;">CUIT:</strong> ${cuit}</span>` : ''}
+        ${cbu ? `<span class="info-badge" style="background: rgba(255,255,255,0.015); color: var(--text-muted); font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); letter-spacing:0.3px;"><strong style="opacity:0.8;">CBU:</strong> ${cbu}</span>` : ''}
       `;
       pItem.appendChild(pInfo);
 
       // Tax Ledger badges
       const pTaxes = el('div', { 
         classes: ['producer-taxes'], 
-        style: 'display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;' 
+        style: 'display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;' 
       });
       pTaxes.innerHTML = `
-        ${iva > 0 ? `<span class="tax-badge tax-iva" style="background: rgba(37, 99, 235, 0.08); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px;">IVA: $${iva.toLocaleString()}</span>` : ''}
-        ${ganancias > 0 ? `<span class="tax-badge tax-ganancias" style="background: rgba(245, 158, 11, 0.08); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px;">Ret. Gan.: $${ganancias.toLocaleString()}</span>` : ''}
-        <span class="tax-badge" style="margin-left: auto; background: rgba(16, 185, 129, 0.08); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); font-weight: 800; font-size: 0.75rem; padding: 0.25rem 0.75rem; border-radius: 6px;">Neto Pago: $${totalAPagar.toLocaleString()}</span>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          ${iva > 0 ? `<span class="tax-badge tax-iva" style="background: rgba(37, 99, 235, 0.08); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; letter-spacing:0.2px;">IVA: $${iva.toLocaleString()}</span>` : ''}
+          ${ganancias > 0 ? `<span class="tax-badge tax-ganancias" style="background: rgba(245, 158, 11, 0.08); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; letter-spacing:0.2px;">RET. GAN.: $${ganancias.toLocaleString()}</span>` : ''}
+        </div>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 0.4rem;">
+          <span style="font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px;">Neto Pago:</span>
+          <span class="tax-badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); font-weight: 850; font-size: 0.85rem; padding: 0.3rem 0.85rem; border-radius: 8px; font-family:monospace; text-shadow:0 0 6px rgba(52,211,153,0.15);">$${totalAPagar.toLocaleString()}</span>
+        </div>
       `;
       pItem.appendChild(pTaxes);
 
-      // Product item lists details
+      // Compact micro-table of livestock products
       const pMiniList = el('div', { 
         classes: ['product-mini-list'],
-        style: 'display: flex; flex-direction: column; gap: 0.35rem; background: rgba(0,0,0,0.12); padding: 0.65rem 0.95rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.02);' 
+        style: 'background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.02); overflow: hidden; margin-top: 0.25rem;' 
       });
-      (p.listOfProducts || []).forEach(pr => {
-        const row = el('div', { 
-          classes: ['product-mini-row'],
-          style: 'display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: var(--text-muted);',
-          html: `
-            <span>🥩 <strong>${pr.name}</strong> &bull; ${pr.quantity} cabezas</span>
-            <span>
-              ${pr.kgClean.toFixed(0).toLocaleString()} kg limpio (${pr.roughing}% desb.) | 
-              <strong style="color: var(--text-main); font-family: monospace;">$${pr.price.toLocaleString()}</strong>
-            </span>
-          ` 
-        });
-        pMiniList.appendChild(row);
+      
+      const pTable = el('table', {
+        style: 'width: 100%; border-collapse: collapse; font-size: 0.76rem; text-align: left;'
       });
+      pTable.innerHTML = `
+        <thead>
+          <tr style="border-bottom: 1.5px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.01); color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+            <th style="padding: 0.55rem 0.85rem;">Detalle Producto</th>
+            <th style="padding: 0.55rem 0.85rem; text-align: center; width: 80px;">Cabezas</th>
+            <th style="padding: 0.55rem 0.85rem; text-align: right;">Kilos Limpios</th>
+            <th style="padding: 0.55rem 0.85rem; text-align: center; width: 100px;">% Desbaste</th>
+            <th style="padding: 0.55rem 0.85rem; text-align: right; width: 120px;">Precio Vivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(p.listOfProducts || []).map(pr => `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.02); color: var(--text-main); font-weight: 600;">
+              <td style="padding: 0.5rem 0.85rem; font-weight: 700; color: #ffffff;">🥩 ${pr.name}</td>
+              <td style="padding: 0.5rem 0.85rem; text-align: center; color: var(--text-muted);">${pr.quantity} uds</td>
+              <td style="padding: 0.5rem 0.85rem; text-align: right; font-family: monospace;">${pr.kgClean.toFixed(0).toLocaleString()} kg</td>
+              <td style="padding: 0.5rem 0.85rem; text-align: center; color: var(--text-muted);">${pr.roughing}%</td>
+              <td style="padding: 0.5rem 0.85rem; text-align: right; font-family: monospace; color: var(--text-main); font-weight: 750;">$${pr.price.toLocaleString()}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      `;
+      pMiniList.appendChild(pTable);
       pItem.appendChild(pMiniList);
       producersList.appendChild(pItem);
     });
