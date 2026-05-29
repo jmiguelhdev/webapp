@@ -43,10 +43,12 @@ export class CalculateCategoryStats {
             const prodName = p.producer?.name || 'Productor';
             const entityKey = `${prodName} (ag. ${agentName})`;
             if (!entityYieldMap.has(entityKey)) {
-              entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgForYield: 0, kgFaena: 0 });
+              entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgForYield: 0, kgFaena: 0, maxTravelYield: 0, travelId: null });
             }
             const entityStats = entityYieldMap.get(entityKey);
             
+            let pClean = 0;
+            let pFaena = 0;
             p.listOfProducts.forEach(pr => {
               const cleanKg = pr.kgClean || 0;
               const faenaKg = pr.kgFaena || 0;
@@ -57,11 +59,21 @@ export class CalculateCategoryStats {
               if (faenaKg > 0) {
                 totalKgForYield += cleanKg;
                 entityStats.kgForYield += cleanKg;
+                pClean += cleanKg;
+                pFaena += faenaKg;
               }
  
               const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
               totalFactura += (bill.neto || 0) + (bill.iva || 0);
             });
+
+            if (pClean > 0 && pFaena > 0) {
+              const travelYield = pFaena / pClean;
+              if (travelYield > entityStats.maxTravelYield) {
+                entityStats.maxTravelYield = travelYield;
+                entityStats.travelId = t.id;
+              }
+            }
           });
           
           count++;
@@ -73,10 +85,12 @@ export class CalculateCategoryStats {
           const entityKey = `${prodName} (ag. ${agentName})`;
           
           if (!entityYieldMap.has(entityKey)) {
-            entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgForYield: 0, kgFaena: 0 });
+            entityYieldMap.set(entityKey, { name: entityKey, kg: 0, kgForYield: 0, kgFaena: 0, maxTravelYield: 0, travelId: null });
           }
           const entityStats = entityYieldMap.get(entityKey);
 
+          let pClean = 0;
+          let pFaena = 0;
           p.listOfProducts.forEach(pr => {
             if (catsToFilter.includes(pr.standardizedCategory)) {
               const kg = pr.kgClean;
@@ -98,6 +112,8 @@ export class CalculateCategoryStats {
                 if (faenaKg > 0) {
                   totalKgForYield += kg;
                   entityStats.kgForYield += kg;
+                  pClean += kg;
+                  pFaena += faenaKg;
                 }
 
                 const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
@@ -107,6 +123,14 @@ export class CalculateCategoryStats {
               }
             }
           });
+          
+          if (pClean > 0 && pFaena > 0) {
+            const travelYield = pFaena / pClean;
+            if (travelYield > entityStats.maxTravelYield) {
+              entityStats.maxTravelYield = travelYield;
+              entityStats.travelId = t.id;
+            }
+          }
         });
         if (foundInCategory) {
           count++;
@@ -130,13 +154,15 @@ export class CalculateCategoryStats {
 
     let maxYield = 0;
     let maxYieldEntity = '-';
-
+    let maxYieldTravelId = null;
+ 
     entityYieldMap.forEach(stats => {
       if (stats.kgForYield > 0) {
         const y = stats.kgFaena / stats.kgForYield;
         if (y > maxYield) {
           maxYield = y;
           maxYieldEntity = stats.name;
+          maxYieldTravelId = stats.travelId;
         }
       }
     });
@@ -222,6 +248,7 @@ export class CalculateCategoryStats {
       avgYield,
       maxYield,
       maxYieldEntity,
+      maxYieldTravelId,
       totalFreight,
       realCostGancho,
       sellPriceRef,

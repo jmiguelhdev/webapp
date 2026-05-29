@@ -320,8 +320,25 @@ export function renderDashboard(container, options) {
           icon: '👑',
           'value-color': '#fbbf24',
           subtitle: categoryStats.maxYieldEntity || 'N/A'
-        }
+        },
+        style: categoryStats.maxYieldTravelId ? 'cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;' : ''
       });
+      if (categoryStats.maxYieldTravelId) {
+        maxYCard.title = "Ver viaje correspondiente";
+        maxYCard.addEventListener('click', () => {
+          if (window.travelPresenter) {
+            window.travelPresenter.showTravelDetail(categoryStats.maxYieldTravelId);
+          }
+        });
+        maxYCard.addEventListener('mouseenter', () => {
+          maxYCard.style.transform = 'scale(1.03)';
+          maxYCard.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)';
+        });
+        maxYCard.addEventListener('mouseleave', () => {
+          maxYCard.style.transform = 'scale(1)';
+          maxYCard.style.boxShadow = 'none';
+        });
+      }
       statsGrid.appendChild(maxYCard);
 
       // 8. Total Kg Card

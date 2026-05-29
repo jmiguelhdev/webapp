@@ -197,6 +197,25 @@ export class TravelPresenter {
     }
   }
 
+  showTravelDetail(travelId) {
+    this.state.filter = 'TODOS';
+    this.state.selectedCategories = [];
+    this.state.searchQuery = String(travelId);
+    this.state.page = 1;
+    this.state.currentView = 'travels';
+    
+    const sidebar = document.getElementById('kmp-sidebar');
+    if (sidebar) {
+      sidebar.setAttribute('active', 'travels');
+    }
+    
+    if (window.navigateTo) {
+      window.navigateTo('travels');
+    } else {
+      this.updateView();
+    }
+  }
+
   updateView() {
     this.state.currentView = 'travels';
     
@@ -227,6 +246,9 @@ export class TravelPresenter {
     if (this.state.searchQuery) {
       const q = this.state.searchQuery.toLowerCase();
       filtered = filtered.filter(t => {
+        const travelId = String(t.id).toLowerCase();
+        if (travelId === q || travelId.includes(q)) return true;
+
         const truckName = (t.truck?.name || '').toLowerCase();
         const plate = (t.truck?.licensePlate || '').toLowerCase();
         const desc = (t.description || '').toLowerCase();

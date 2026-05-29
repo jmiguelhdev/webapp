@@ -658,3 +658,7 @@ document.getElementById('export-pdf').addEventListener('click', () => {
 
 // Event listener for in-screen navigation (like back buttons)
 window.addEventListener('nav:dashboard', () => navigateTo('dashboard'));
+
+// Expose routing and presenter globally for dashboard metrics interactions
+window.travelPresenter = travelPresenter;
+window.navigateTo = navigateTo;
