@@ -35,9 +35,9 @@ try {
     versionSpan.style.marginLeft = '0.75rem';
     versionSpan.style.fontFamily = 'monospace';
     versionSpan.style.fontWeight = '600';
-    versionSpan.style.letterSpacing = '0.5px';
-    versionSpan.textContent = `v-${__COMMIT_HASH__}`;
-    versionSpan.title = `Commit de Git: ${__COMMIT_HASH__}`;
+    const shortMsg = (__COMMIT_MESSAGE__ || '').substring(0, 10);
+    versionSpan.textContent = `v-${shortMsg}`;
+    versionSpan.title = `Commit de Git: ${__COMMIT_MESSAGE__} (${__COMMIT_HASH__})`;
     logoDiv.appendChild(versionSpan);
   }
 } catch (e) {

@@ -2,15 +2,18 @@ import { defineConfig } from 'vite';
 import { execSync } from 'child_process';
 
 let commitHash = 'unknown';
+let commitMsg = 'unknown';
 try {
   commitHash = execSync('git rev-parse --short HEAD').toString().trim();
+  commitMsg = execSync('git log -1 --format=%s').toString().trim();
 } catch (e) {
-  console.warn("Could not retrieve git commit hash", e);
+  console.warn("Could not retrieve git commit details", e);
 }
 
 export default defineConfig({
   define: {
-    __COMMIT_HASH__: JSON.stringify(commitHash)
+    __COMMIT_HASH__: JSON.stringify(commitHash),
+    __COMMIT_MESSAGE__: JSON.stringify(commitMsg)
   },
   root: './',
   server: {
