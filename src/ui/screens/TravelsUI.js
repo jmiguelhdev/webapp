@@ -273,7 +273,11 @@ export function renderTravels(container, options) {
       <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
         <div class="header-main">
           <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">🚚 ${travel.truck?.name || 'Viaje #' + travel.id}</h3>
-          <span class="card-subtitle" style="display: block; margin-top: 0.35rem; font-size: 0.82rem; color: var(--text-muted); font-weight: 500;">📅 ${travel.date || ''} &bull; 🏷️ ${travel.description || 'Sin descripción'}</span>
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap;">
+            <span style="font-size: 1.05rem; font-weight: 750; color: #60a5fa; display: flex; align-items: center; gap: 0.35rem;">📅 ${travel.date || ''}</span>
+            <span style="color: var(--text-muted); font-size: 0.85rem;">&bull;</span>
+            <span class="card-subtitle" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 550; display: flex; align-items: center; gap: 0.35rem;">🏷️ ${travel.description || 'Sin descripción'}</span>
+          </div>
         </div>
         <div class="header-status" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
           ${agentName ? `<span class="agent-badge" style="background: rgba(255,255,255,0.04); color: var(--text-main); font-weight: 600; font-size: 0.75rem; padding: 0.3rem 0.75rem; border-radius: 8px; border: 1px solid var(--border);">👤 ${agentName}</span>` : ''}
@@ -325,8 +329,13 @@ export function renderTravels(container, options) {
             <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Categoría(s):</span> <span style="background:rgba(255,255,255,0.04); color:var(--text-main); font-weight:700; padding:0.15rem 0.45rem; border-radius:6px; font-size:0.75rem; text-transform:uppercase; border:1px solid rgba(255,255,255,0.06);">${buyCategoryDisplay}</span></div>
             <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Cantidad:</span> <strong style="color:var(--text-main);">${buy.totalQuantity || 0} cabezas</strong></div>
             <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Kg Limpios:</span> <strong style="color:var(--text-main); font-family:monospace;">${(buy.totalKgClean || 0).toLocaleString()} kg</strong></div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Kg Faena:</span> <strong style="color:var(--text-main); font-family:monospace;">${(buy.totalKgFaena || 0).toLocaleString()} kg</strong></div>
+            <div class="detail-row" style="display:flex; justify-content:space-between; font-size:0.85rem;"><span style="color:var(--text-muted); font-weight:550;">Promedio por Cabeza:</span> <strong style="color:var(--text-main); font-family:monospace;" title="kg limpio / cantidad cabezas">${(buy.totalQuantity > 0 ? (buy.totalKgClean / buy.totalQuantity) : 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg/cab</strong></div>
             <div class="detail-row highlight" style="border-top: 1px solid var(--border); padding-top: 0.65rem; margin-top: 0.35rem; display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight: 700; color: var(--text-main); font-size:0.88rem;">Rendimiento Gral:</span>
+              <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 700; color: var(--text-main); font-size:0.88rem;">Rendimiento Gral:</span>
+                <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500;">(kg faena / kg limpios)</span>
+              </div>
               <span style="background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); font-weight: 800; font-size: 0.95rem; padding: 0.2rem 0.6rem; border-radius: 6px; font-family:monospace;">${(yieldValue * 100).toFixed(2)}%</span>
             </div>
           </div>
@@ -401,12 +410,13 @@ export function renderTravels(container, options) {
       });
       pTaxes.innerHTML = `
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-          ${iva > 0 ? `<span class="tax-badge tax-iva" style="background: rgba(37, 99, 235, 0.08); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; letter-spacing:0.2px;">IVA: $${iva.toLocaleString()}</span>` : ''}
-          ${ganancias > 0 ? `<span class="tax-badge tax-ganancias" style="background: rgba(245, 158, 11, 0.08); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; letter-spacing:0.2px;">RET. GAN.: $${ganancias.toLocaleString()}</span>` : ''}
+          <span class="tax-badge" style="background: rgba(255, 255, 255, 0.03); color: var(--text-main); border: 1px solid var(--border); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; letter-spacing:0.2px;">NETO: $${(p.neto || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+          ${iva > 0 ? `<span class="tax-badge tax-iva" style="background: rgba(37, 99, 235, 0.08); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; letter-spacing:0.2px;">IVA: $${iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
+          ${ganancias > 0 ? `<span class="tax-badge tax-ganancias" style="background: rgba(245, 158, 11, 0.08); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; letter-spacing:0.2px;">RET. GAN.: $${ganancias.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>` : ''}
         </div>
-        <div style="margin-left: auto; display: flex; align-items: center; gap: 0.4rem;">
-          <span style="font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px;">Neto Pago:</span>
-          <span class="tax-badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); font-weight: 850; font-size: 0.85rem; padding: 0.3rem 0.85rem; border-radius: 8px; font-family:monospace; text-shadow:0 0 6px rgba(52,211,153,0.15);">$${totalAPagar.toLocaleString()}</span>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+          <span style="font-size:0.72rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.3px;">FACTURA (Neto + IVA):</span>
+          <span class="tax-badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); font-weight: 850; font-size: 0.85rem; padding: 0.3rem 0.85rem; border-radius: 8px; font-family:monospace; text-shadow:0 0 6px rgba(52,211,153,0.15);">$${(p.totalFactura || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
         </div>
       `;
       pItem.appendChild(pTaxes);
@@ -674,17 +684,21 @@ export function renderSettlementModal(travel, producer, options) {
     });
     taxesArea.innerHTML = `
       <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
-        <span style="color: var(--text-muted); font-weight: 500;">Neto Imponible (1 / 1.105):</span> <strong style="font-family: monospace; color: var(--text-main); font-size: 0.9rem;">$${producer.neto.toLocaleString()}</strong>
+        <span style="color: var(--text-muted); font-weight: 500;">Neto:</span> <strong style="font-family: monospace; color: var(--text-main); font-size: 0.9rem;">$${producer.neto.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
       </div>
       <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
-        <span style="color: var(--text-muted); font-weight: 500;">IVA Consolidado (10.5%):</span> <strong style="font-family: monospace; color: var(--text-main); font-size: 0.9rem;">$${producer.iva.toLocaleString()}</strong>
+        <span style="color: var(--text-muted); font-weight: 500;">IVA Consolidado (10.5%):</span> <strong style="font-family: monospace; color: var(--text-main); font-size: 0.9rem;">$${producer.iva.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
       </div>
       <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
-        <span style="color: var(--text-muted); font-weight: 500;">Retención Ganancias (2% Neto):</span> <strong style="font-family: monospace; color: #f87171; font-size: 0.9rem;">- $${producer.retencionGanancias.toLocaleString()}</strong>
+        <span style="color: var(--text-muted); font-weight: 500;">Retención Ganancias (2% Neto) [Separada]:</span> <strong style="font-family: monospace; color: #f87171; font-size: 0.9rem;">- $${producer.retencionGanancias.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
       </div>
       <div style="display: flex; justify-content: space-between; font-size: 1.15rem; border-top: 1.5px solid var(--primary); padding-top: 1rem; margin-top: 0.5rem; align-items: center;">
-        <strong style="color: #ffffff; font-weight: 800;">TOTAL NETO A PAGAR:</strong> 
-        <strong style="color: #34d399; font-size: 1.35rem; font-weight: 850; text-shadow: 0 0 10px rgba(52,211,153,0.15);">$${producer.totalAPagar.toLocaleString()}</strong>
+        <strong style="color: #ffffff; font-weight: 800;">FACTURA (Neto + IVA):</strong> 
+        <strong style="color: #34d399; font-size: 1.35rem; font-weight: 850; text-shadow: 0 0 10px rgba(52,211,153,0.15);">$${producer.totalFactura.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 0.95rem; padding-top: 0.5rem; align-items: center;">
+        <span style="color: var(--text-muted); font-weight: 700;">TOTAL NETO A PAGAR (Factura - Retención):</span> 
+        <strong style="color: #fbbf24; font-size: 1.15rem; font-weight: 800;">$${producer.totalAPagar.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
       </div>
     `;
     modal.appendChild(taxesArea);
@@ -1461,7 +1475,8 @@ export function showTravelModal(travel, options) {
             <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem;">
               <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.5rem;">📈 Rendimiento de Faena</span>
               <strong style="font-size: 1.35rem; color: #10b981; font-weight: 850;">${generalYield.toFixed(2)}%</strong>
-              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; margin-top: 0.25rem;">Kg Faena: ${(computedBuy.totalKgFaena || 0).toLocaleString()} kg</div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; margin-top: 0.25rem;">(kg faena / kg limpios)</div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500; margin-top: 0.25rem;">Prom. Cabeza: ${(computedBuy.totalQuantity > 0 ? (computedBuy.totalKgClean / computedBuy.totalQuantity) : 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} kg/cab</div>
             </div>
 
             <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem;">
