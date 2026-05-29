@@ -1324,9 +1324,9 @@ function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'rece
       tr.innerHTML = `
         ${cbCell}
         <td style="padding: 1rem 1.25rem;">
-          <div style="font-weight: 750; color: #ffffff;">${op.bank || 'S/B'}</div>
-          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; font-weight: 600;">Nº ${op.checkNumber || 'S/N'}</div>
-          ${op.issuerName ? `<div style="font-size: 0.72rem; color: var(--primary); font-weight: 700; margin-top: 0.3rem; display: flex; align-items: center; gap: 0.25rem;">👤 ${op.issuerName}</div>` : ''}
+          <div style="font-size: 0.92rem; font-weight: 800; color: #ffffff;">Nº ${op.checkNumber || 'S/N'}</div>
+          ${op.issuerName ? `<div style="font-size: 0.82rem; color: var(--primary); font-weight: 700; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">👤 ${op.issuerName}</div>` : ''}
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; font-weight: 600; text-transform: uppercase;">${op.bank || 'S/B'}</div>
         </td>
         <td style="padding: 1rem 1.25rem;">
           <div style="font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.25rem;">💳 ${formatDateLocal(op.dueDate)}</div>
