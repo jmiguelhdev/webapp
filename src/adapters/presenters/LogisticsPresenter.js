@@ -13,6 +13,7 @@ export class LogisticsPresenter {
     this.ui.showLoading(true);
     try {
       const drivers = await this.repository.getDrivers();
+      drivers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
       this.ui.renderLogisticsMaster(this, 'choferes', drivers);
     } catch (e) {
       this.ui.showError("Error loading drivers: " + e.message);
@@ -22,6 +23,18 @@ export class LogisticsPresenter {
   async saveDriver(driverObj) {
     this.ui.showLoading(true);
     try {
+      const list = await this.repository.getDrivers();
+      const targetDni = String(driverObj.dni || '').replace(/\D/g, '');
+      const isDup = list.some(item => 
+        String(item.id) !== String(driverObj.id) && 
+        String(item.dni || '').replace(/\D/g, '') === targetDni && 
+        targetDni.length > 0
+      );
+      if (isDup) {
+        this.ui.hideLoading();
+        this.ui.showError(`❌ Ya existe un chofer registrado con el DNI ${driverObj.dni}.`);
+        return;
+      }
       await this.repository.saveDriver(driverObj);
       await this.loadDrivers();
     } catch (e) {
@@ -43,6 +56,7 @@ export class LogisticsPresenter {
     this.ui.showLoading(true);
     try {
       const trailers = await this.repository.getTrailers();
+      trailers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
       this.ui.renderLogisticsMaster(this, 'jaulas', trailers);
     } catch (e) {
       this.ui.showError("Error loading trailers: " + e.message);
@@ -52,6 +66,18 @@ export class LogisticsPresenter {
   async saveTrailer(trailerObj) {
     this.ui.showLoading(true);
     try {
+      const list = await this.repository.getTrailers();
+      const targetPlate = String(trailerObj.licensePlate || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const isDup = list.some(item => 
+        String(item.id) !== String(trailerObj.id) && 
+        String(item.licensePlate || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === targetPlate && 
+        targetPlate.length > 0
+      );
+      if (isDup) {
+        this.ui.hideLoading();
+        this.ui.showError(`❌ Ya existe una jaula registrada con la patente ${trailerObj.licensePlate}.`);
+        return;
+      }
       await this.repository.saveTrailer(trailerObj);
       await this.loadTrailers();
     } catch (e) {
@@ -77,6 +103,7 @@ export class LogisticsPresenter {
         this.repository.getDrivers(),
         this.repository.getTrailers()
       ]);
+      trucks.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
       this.ui.renderLogisticsMaster(this, 'camiones', trucks, { drivers, trailers });
     } catch (e) {
       this.ui.showError("Error loading trucks: " + e.message);
@@ -86,6 +113,18 @@ export class LogisticsPresenter {
   async saveTruck(truckObj) {
     this.ui.showLoading(true);
     try {
+      const list = await this.repository.getTrucks();
+      const targetPlate = String(truckObj.licensePlate || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const isDup = list.some(item => 
+        String(item.id) !== String(truckObj.id) && 
+        String(item.licensePlate || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === targetPlate && 
+        targetPlate.length > 0
+      );
+      if (isDup) {
+        this.ui.hideLoading();
+        this.ui.showError(`❌ Ya existe un camión registrado con la patente ${truckObj.licensePlate}.`);
+        return;
+      }
       await this.repository.saveTruck(truckObj);
       await this.loadTrucks();
     } catch (e) {
@@ -104,16 +143,12 @@ export class LogisticsPresenter {
   }
 
   // --- PRODUCERS ---
-  async loadProducers(lastVisible = null, isLoadMore = false) {
-    if (!isLoadMore) this.ui.showLoading(true);
+  async loadProducers() {
+    this.ui.showLoading(true);
     try {
-      const { producers, lastVisible: newLastVisible, hasMore } = await this.repository.getProducersPaginated(20, lastVisible);
-      this.ui.renderLogisticsMaster(this, 'productores', producers, { lastVisible: newLastVisible, hasMore, isLoadMore });
-      
-      // En paralelo, pre-calentar la caché completa para los selectores si no está en caché
-      if (!isLoadMore && !lastVisible) {
-        this.repository.getProducers().catch(e => console.warn("Background cache error:", e));
-      }
+      const producers = await this.repository.getProducers();
+      producers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
+      this.ui.renderLogisticsMaster(this, 'productores', producers);
     } catch (e) {
       this.ui.showError("Error loading producers: " + e.message);
     }
@@ -122,6 +157,18 @@ export class LogisticsPresenter {
   async saveProducer(producerObj) {
     this.ui.showLoading(true);
     try {
+      const list = await this.repository.getProducers();
+      const targetCuit = String(producerObj.cuit || '').replace(/\D/g, '');
+      const isDup = list.some(item => 
+        String(item.id) !== String(producerObj.id) && 
+        String(item.cuit || '').replace(/\D/g, '') === targetCuit && 
+        targetCuit.length > 0
+      );
+      if (isDup) {
+        this.ui.hideLoading();
+        this.ui.showError(`❌ Ya existe un productor registrado con el CUIT ${producerObj.cuit}.`);
+        return;
+      }
       await this.repository.saveProducer(producerObj);
       await this.loadProducers();
     } catch (e) {
@@ -144,6 +191,7 @@ export class LogisticsPresenter {
     this.ui.showLoading(true);
     try {
       const agents = await this.repository.getAgents();
+      agents.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
       this.ui.renderLogisticsMaster(this, 'comisionistas', agents);
     } catch (e) {
       this.ui.showError("Error loading agents: " + e.message);
@@ -153,6 +201,18 @@ export class LogisticsPresenter {
   async saveAgent(agentObj) {
     this.ui.showLoading(true);
     try {
+      const list = await this.repository.getAgents();
+      const targetName = String(agentObj.name || '').trim().toLowerCase();
+      const isDup = list.some(item => 
+        String(item.id) !== String(agentObj.id) && 
+        String(item.name || '').trim().toLowerCase() === targetName && 
+        targetName.length > 0
+      );
+      if (isDup) {
+        this.ui.hideLoading();
+        this.ui.showError(`❌ Ya existe un comisionista registrado con el nombre "${agentObj.name}".`);
+        return;
+      }
       await this.repository.saveAgent(agentObj);
       await this.loadAgents();
     } catch (e) {

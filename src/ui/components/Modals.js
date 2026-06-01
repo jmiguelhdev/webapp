@@ -128,9 +128,9 @@ export function renderScanResultsModal({ newCount, matchedCount, unmatchedCount,
   modal.querySelector('#modal-close').onclick = () => overlay.remove();
 }
 
-/** Render Date Range Modal (Reusable) */
+/** Render Date Range or Single Date Modal (Reusable) */
 export function renderDateModal(options) {
-  const { title = 'Seleccionar Fechas', description = '', submitText = 'Aceptar', onSubmit } = options;
+  const { title = 'Seleccionar Fechas', description = '', submitText = 'Aceptar', onSubmit, single = false, value = '' } = options;
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
   const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; padding: 2rem;' });
   
@@ -139,24 +139,41 @@ export function renderDateModal(options) {
   firstDayOfMonth.setDate(1);
   const fromDateVal = firstDayOfMonth.toISOString().split('T')[0];
 
-  modal.innerHTML = `
-    <h3 style="margin-bottom: 1.5rem;">${title}</h3>
-    <form id="date-modal-form">
-      ${description ? `<p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">${description}</p>` : ''}
-      <div class="form-group">
-        <label>Desde</label>
-        <input type="date" id="modal-from" class="form-input" value="${fromDateVal}" required>
-      </div>
-      <div class="form-group">
-        <label>Hasta</label>
-        <input type="date" id="modal-to" class="form-input" value="${today}" required>
-      </div>
-      <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-        <button type="button" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-main); cursor: pointer;">Cancelar</button>
-        <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 600; cursor: pointer;">${submitText}</button>
-      </div>
-    </form>
-  `;
+  if (single) {
+    modal.innerHTML = `
+      <h3 style="margin-bottom: 1.5rem; color: var(--text-main); font-weight: 700;">${title}</h3>
+      <form id="date-modal-form">
+        ${description ? `<p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">${description}</p>` : ''}
+        <div class="form-group">
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Fecha</label>
+          <input type="date" id="modal-date" class="form-input" value="${value || today}" required style="width: 100%; padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600;">
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+          <button type="button" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-main); cursor: pointer;">Cancelar</button>
+          <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 600; cursor: pointer;">${submitText}</button>
+        </div>
+      </form>
+    `;
+  } else {
+    modal.innerHTML = `
+      <h3 style="margin-bottom: 1.5rem; color: var(--text-main); font-weight: 700;">${title}</h3>
+      <form id="date-modal-form">
+        ${description ? `<p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem;">${description}</p>` : ''}
+        <div class="form-group">
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Desde</label>
+          <input type="date" id="modal-from" class="form-input" value="${value?.start || fromDateVal}" required style="width: 100%; padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600;">
+        </div>
+        <div class="form-group">
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Hasta</label>
+          <input type="date" id="modal-to" class="form-input" value="${value?.end || today}" required style="width: 100%; padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600;">
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+          <button type="button" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-main); cursor: pointer;">Cancelar</button>
+          <button type="submit" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 8px; border: none; background: var(--primary); color: var(--on-primary); font-weight: 600; cursor: pointer;">${submitText}</button>
+        </div>
+      </form>
+    `;
+  }
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
@@ -164,9 +181,14 @@ export function renderDateModal(options) {
   const form = modal.querySelector('#date-modal-form');
   form.onsubmit = (e) => {
     e.preventDefault();
-    const from = modal.querySelector('#modal-from').value;
-    const to = modal.querySelector('#modal-to').value;
-    if (onSubmit) onSubmit(from, to);
+    if (single) {
+      const selectedDate = modal.querySelector('#modal-date').value;
+      if (onSubmit) onSubmit(selectedDate);
+    } else {
+      const from = modal.querySelector('#modal-from').value;
+      const to = modal.querySelector('#modal-to').value;
+      if (onSubmit) onSubmit(from, to);
+    }
     overlay.remove();
   };
 

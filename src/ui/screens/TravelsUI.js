@@ -1,6 +1,7 @@
 import { el } from '../../utils/dom.js';
 import { renderTimeFilterUI } from '../components/Filters.js';
 import { Buy } from '../../domain/entities/Buy.js';
+import { renderDateModal } from '../components/Modals.js';
 
 
 /**
@@ -955,7 +956,10 @@ export function showTravelModal(travel, options) {
           <div class="responsive-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
             <div class="form-group" style="margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
               <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">📅 Fecha de Viaje</label>
-              <input type="date" id="t-date" value="${date}" required style="padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600; font-size: 0.85rem;">
+              <div style="display: flex; gap: 0.4rem; align-items: center; width: 100%;">
+                <input type="text" id="t-date" value="${date}" readonly style="flex: 1; padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600; font-size: 0.85rem; cursor: pointer;">
+                <button type="button" id="btn-t-date-picker" title="Seleccionar Fecha" style="padding: 0 0.85rem; height: 38px; border-radius: 10px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.35); color: var(--primary); cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; margin: 0;">📅</button>
+              </div>
             </div>
             <div class="form-group" style="margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
               <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">📌 Estado</label>
@@ -1023,6 +1027,7 @@ export function showTravelModal(travel, options) {
 
       // Setup Tab 0 listeners
       const tDate = panel.querySelector('#t-date');
+      const btnDatePicker = panel.querySelector('#btn-t-date-picker');
       const tStatus = panel.querySelector('#t-status');
       const tDesc = panel.querySelector('#t-desc');
       const tTruck = panel.querySelector('#t-truck');
@@ -1031,7 +1036,31 @@ export function showTravelModal(travel, options) {
       const tKmP = panel.querySelector('#t-km-p');
       const tLiters = panel.querySelector('#t-liters');
 
-      tDate.oninput = (e) => { date = e.target.value; };
+      const openDatePicker = () => {
+        renderDateModal({
+          title: '📅 Seleccionar Fecha de Viaje',
+          description: 'Selecciona la fecha para este viaje operativo.',
+          submitText: 'Aceptar',
+          single: true,
+          value: date,
+          onSubmit: (selectedDate) => {
+            date = selectedDate;
+            tDate.value = date;
+          }
+        });
+      };
+
+      tDate.onclick = openDatePicker;
+      btnDatePicker.onclick = openDatePicker;
+
+      btnDatePicker.addEventListener('mouseenter', () => {
+        btnDatePicker.style.transform = 'scale(1.05)';
+        btnDatePicker.style.background = 'rgba(99,102,241,0.25)';
+      });
+      btnDatePicker.addEventListener('mouseleave', () => {
+        btnDatePicker.style.transform = 'scale(1)';
+        btnDatePicker.style.background = 'rgba(99,102,241,0.15)';
+      });
       tStatus.onchange = (e) => { 
         status = e.target.value; 
         const chip = container.querySelector('kmp-status-chip');

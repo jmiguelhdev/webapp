@@ -83,6 +83,46 @@ export function renderLogisticsMaster(container, type, dataList, dependencies = 
 
       ${tabsHTML}
 
+      <!-- Custom EditText Search Input -->
+      <div class="search-container-m3 glass-card" style="
+        margin-bottom: 1.75rem; 
+        padding: 0.65rem 1.15rem; 
+        border-radius: 14px; 
+        display: flex; 
+        align-items: center; 
+        gap: 0.75rem; 
+        border: 1px solid var(--border); 
+        background: rgba(0,0,0,0.18);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: all 0.25s ease;
+      ">
+        <span style="font-size: 1.15rem; color: var(--primary); display: flex; align-items: center; user-select: none;">🔍</span>
+        <input type="text" id="master-search-input" placeholder="${getSearchPlaceholder(type)}" autocomplete="off" style="
+          flex: 1;
+          border: none;
+          background: transparent;
+          color: var(--text-main);
+          font-size: 0.95rem;
+          font-weight: 600;
+          outline: none;
+          padding: 0.25rem 0;
+          font-family: inherit;
+        ">
+        <button id="btn-clear-master-search" title="Limpiar búsqueda" style="
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          font-size: 1.1rem;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          padding: 0.25rem;
+          margin: 0;
+          transition: color 0.2s;
+        ">✕</button>
+      </div>
+
       <div style="margin-bottom: 1.5rem; animation: fadeIn 0.3s ease-out;">
         <h3 style="color: var(--text-main); font-size: 1.25rem; font-weight: 700; margin: 0 0 1rem 0;">${getTitle(type)}</h3>
         <div id="master-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
@@ -153,6 +193,107 @@ export function renderLogisticsMaster(container, type, dataList, dependencies = 
       }
     });
   });
+
+  // ----------------------------------------------------
+  // REAL-TIME SEARCH FILTER IMPLEMENTATION (EDITTEXT)
+  // ----------------------------------------------------
+  const searchInput = container.querySelector('#master-search-input');
+  const clearBtn = container.querySelector('#btn-clear-master-search');
+  const cardsGrid = container.querySelector('#master-cards-grid');
+
+  const filterItem = (itemType, item, query) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    
+    if (itemType === 'choferes') {
+      return (item.name || '').toLowerCase().includes(q) ||
+             (item.dni || '').toLowerCase().includes(q) ||
+             (item.license || '').toLowerCase().includes(q);
+    }
+    if (itemType === 'jaulas') {
+      return (item.name || '').toLowerCase().includes(q) ||
+             (item.licensePlate || '').toLowerCase().includes(q) ||
+             (item.type || '').toLowerCase().includes(q);
+    }
+    if (itemType === 'camiones') {
+      return (item.name || '').toLowerCase().includes(q) ||
+             (item.licensePlate || '').toLowerCase().includes(q) ||
+             (item.driver?.name || '').toLowerCase().includes(q) ||
+             (item.trailer?.name || '').toLowerCase().includes(q);
+    }
+    if (itemType === 'productores') {
+      return (item.name || '').toLowerCase().includes(q) ||
+             (item.cuit || '').toLowerCase().includes(q) ||
+             (item.phone || '').toLowerCase().includes(q) ||
+             (item.cbu || '').toLowerCase().includes(q);
+    }
+    if (itemType === 'comisionistas') {
+      return (item.name || '').toLowerCase().includes(q) ||
+             (item.phone || '').toLowerCase().includes(q);
+    }
+    return false;
+  };
+
+  const applySearchFilter = () => {
+    if (!searchInput || !cardsGrid) return;
+    const query = searchInput.value;
+    if (clearBtn) {
+      clearBtn.style.display = query ? 'flex' : 'none';
+    }
+    
+    const cards = cardsGrid.querySelectorAll('.master-card');
+    let visibleCount = 0;
+    
+    cards.forEach(card => {
+      const id = card.dataset.id;
+      const item = container._currentDataList.find(d => String(d.id) === String(id));
+      if (item) {
+        const isMatch = filterItem(type, item, query);
+        card.style.display = isMatch ? 'flex' : 'none';
+        if (isMatch) visibleCount++;
+      }
+    });
+    
+    let emptyMsg = cardsGrid.querySelector('#no-matches-msg');
+    if (visibleCount === 0 && cards.length > 0) {
+      if (!emptyMsg) {
+        cardsGrid.insertAdjacentHTML('beforeend', `
+          <div id="no-matches-msg" style="grid-column: 1 / -1; text-align: center; padding: 3rem 1.5rem; color: var(--text-muted); background: rgba(255,255,255,0.01); border-radius: 16px; border: 1px dashed var(--border); animation: fadeIn 0.2s ease;">
+            No se encontraron registros que coincidan con la búsqueda.
+          </div>
+        `);
+      }
+    } else if (emptyMsg) {
+      emptyMsg.remove();
+    }
+  };
+
+  if (searchInput) {
+    searchInput.addEventListener('input', applySearchFilter);
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        applySearchFilter();
+        searchInput.focus();
+      });
+    }
+    
+    const searchContainer = container.querySelector('.search-container-m3');
+    if (searchContainer) {
+      searchInput.addEventListener('focus', () => {
+        searchContainer.style.borderColor = 'var(--primary)';
+        searchContainer.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.2)';
+      });
+      searchInput.addEventListener('blur', () => {
+        searchContainer.style.borderColor = 'var(--border)';
+        searchContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+      });
+    }
+  }
+
+  if (dependencies.isLoadMore) {
+    applySearchFilter();
+  }
 }
 
 /**
@@ -169,6 +310,22 @@ function getTitle(type) {
     comisionistas: 'Comisionistas de Compra y Consignación' 
   };
   return titles[type] || 'Gestión de Maestros';
+}
+
+/**
+ * Obtiene un placeholder específico para el buscador de datos maestros.
+ * @param {string} type - Tipo de maestro.
+ * @returns {string} Texto descriptivo para el placeholder.
+ */
+function getSearchPlaceholder(type) {
+  const placeholders = {
+    choferes: 'Buscar chofer por nombre, DNI o licencia...',
+    jaulas: 'Buscar jaula por nombre, patente o tipo (Doble/Simple)...',
+    camiones: 'Buscar camión por nombre, patente o chofer/jaula asignados...',
+    productores: 'Buscar productor por nombre, CUIT, teléfono o CBU...',
+    comisionistas: 'Buscar comisionista por nombre o teléfono...'
+  };
+  return placeholders[type] || 'Buscar en datos maestros...';
 }
 
 /**
@@ -317,7 +474,7 @@ function getMasterCardHtml(type, item) {
   }
 
   return `
-    <div class="glass-card" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; height: 100%; border-radius: 16px; transition: all 0.25s ease;">
+    <div class="glass-card master-card" data-id="${item.id}" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; height: 100%; border-radius: 16px; transition: all 0.25s ease;">
       <div>${contentHtml}</div>
       ${actionHtml}
     </div>
@@ -444,6 +601,105 @@ function showMasterModal(type, item, dependencies) {
   document.getElementById('btn-cancel-modal').addEventListener('click', () => {
     container.innerHTML = '';
   });
+
+  // ----------------------------------------------------
+  // REAL-TIME MODAL INPUT VALIDATION (OPTION 3)
+  // ----------------------------------------------------
+  const mainContent = document.getElementById('content');
+  const currentDataList = (mainContent && mainContent._currentDataList) ? mainContent._currentDataList : [];
+  
+  let targetInput = null;
+  let validationType = ''; // 'dni', 'plate', 'cuit', 'name'
+  
+  if (type === 'choferes') {
+    targetInput = document.getElementById('m-dni');
+    validationType = 'dni';
+  } else if (type === 'jaulas' || type === 'camiones') {
+    targetInput = document.getElementById('m-plate');
+    validationType = 'plate';
+  } else if (type === 'productores') {
+    targetInput = document.getElementById('m-cuit');
+    validationType = 'cuit';
+  } else if (type === 'comisionistas') {
+    targetInput = document.getElementById('m-name');
+    validationType = 'name';
+  }
+
+  if (targetInput) {
+    // Append a small warning element right below the input
+    const warningEl = document.createElement('span');
+    warningEl.id = 'dup-error-msg';
+    warningEl.style.cssText = 'color: #f87171; font-size: 0.78rem; font-weight: 600; margin-top: 0.25rem; display: none;';
+    targetInput.parentNode.appendChild(warningEl);
+
+    const submitBtn = document.querySelector('#master-form button[type="submit"]');
+
+    const validateInput = () => {
+      const val = targetInput.value;
+      let isDuplicate = false;
+      let errorMsg = '';
+
+      if (validationType === 'dni') {
+        const cleanVal = val.replace(/\D/g, '');
+        isDuplicate = currentDataList.some(d => 
+          String(d.id) !== String(item?.id) && 
+          String(d.dni || '').replace(/\D/g, '') === cleanVal && 
+          cleanVal.length > 0
+        );
+        errorMsg = `Ya existe un chofer registrado con este DNI (${val}).`;
+      } else if (validationType === 'plate') {
+        const cleanVal = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        isDuplicate = currentDataList.some(d => 
+          String(d.id) !== String(item?.id) && 
+          String(d.licensePlate || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === cleanVal && 
+          cleanVal.length > 0
+        );
+        const nameType = type === 'jaulas' ? 'jaula' : 'camión';
+        errorMsg = `Ya existe un${type === 'jaulas' ? 'a' : ''} ${nameType} con esta patente (${val.toUpperCase()}).`;
+      } else if (validationType === 'cuit') {
+        const cleanVal = val.replace(/\D/g, '');
+        isDuplicate = currentDataList.some(d => 
+          String(d.id) !== String(item?.id) && 
+          String(d.cuit || '').replace(/\D/g, '') === cleanVal && 
+          cleanVal.length > 0
+        );
+        errorMsg = `Ya existe un productor registrado con este CUIT (${val}).`;
+      } else if (validationType === 'name') {
+        const cleanVal = val.trim().toLowerCase();
+        isDuplicate = currentDataList.some(d => 
+          String(d.id) !== String(item?.id) && 
+          String(d.name || '').trim().toLowerCase() === cleanVal && 
+          cleanVal.length > 0
+        );
+        errorMsg = `Ya existe un comisionista registrado con este nombre ("${val}").`;
+      }
+
+      if (isDuplicate) {
+        targetInput.style.borderColor = '#f87171';
+        targetInput.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
+        warningEl.textContent = `❌ ${errorMsg}`;
+        warningEl.style.display = 'block';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.5';
+          submitBtn.style.cursor = 'not-allowed';
+        }
+      } else {
+        targetInput.style.borderColor = '';
+        targetInput.style.boxShadow = '';
+        warningEl.style.display = 'none';
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.style.cursor = 'pointer';
+        }
+      }
+    };
+
+    targetInput.addEventListener('input', validateInput);
+    // Run validation immediately in case an existing duplicate was pre-loaded
+    validateInput();
+  }
 
   // Manejo del envío del formulario
   document.getElementById('master-form').addEventListener('submit', (e) => {
