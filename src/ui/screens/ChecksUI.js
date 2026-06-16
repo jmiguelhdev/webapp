@@ -10,6 +10,7 @@ import { el } from '../../utils/dom.js';
 import { renderDateModal } from '../components/Modals.js';
 import { showOperationModal, showBatchBuyModal, showBatchSellModal } from '../components/ChecksModals.js';
 import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../utils/formatters.js';
+import { printSaleOperationReport, generateSaleOperationExcel } from '../reports/ReportService.js';
 
 /**
  * Renderiza la interfaz principal del módulo de gestión de cheques.
@@ -945,39 +946,11 @@ export function renderChecks(container, options) {
             `;
 
             const expContainer = el('div', {
-              style: 'display: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.15); margin-top: 0.5rem;'
+              style: 'display: none; margin-top: 0.5rem;'
             });
-            const expTable = el('table', {
-              style: 'width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;'
-            });
-            expTable.innerHTML = `
-              <thead>
-                <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">
-                  <th style="padding: 0.5rem 0.75rem;">Banco</th>
-                  <th style="padding: 0.5rem 0.75rem;">Nº Cheque</th>
-                  <th style="padding: 0.5rem 0.75rem;">Vencimiento</th>
-                  <th style="padding: 0.5rem 0.75rem; text-align: right;">Nominal</th>
-                  ${!filters?.onlyNominal ? `
-                  <th style="padding: 0.5rem 0.75rem; text-align: right;">Neto Venta</th>
-                  <th style="padding: 0.5rem 0.75rem; text-align: right;">Ganancia</th>
-                  ` : ''}
-                </tr>
-              </thead>
-              <tbody>
-                ${op.checks.map(c => `
-                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
-                    <td style="padding: 0.5rem 0.75rem; font-weight: 700; color: #ffffff;">${c.bank || '-'}</td>
-                    <td style="padding: 0.5rem 0.75rem; color: var(--text-muted); font-weight: 600;">${c.checkNumber || '-'}</td>
-                    <td style="padding: 0.5rem 0.75rem; font-weight: 600;">${formatDateLocal(c.dueDate)} <span style="font-size:10px; color:var(--text-muted);">(${c.days}d)</span></td>
-                    <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; font-weight: 700; color: #ffffff;">${formatCurrency(c.nominalValue)}</td>
-                    ${!filters?.onlyNominal ? `
-                    <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; color: #60a5fa; font-weight: 700;">${formatCurrency(c.sellSide?.netAmount)}</td>
-                    <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; color: #34d399; font-weight: 700;">+${formatCurrency(c.profit)}</td>
-                    ` : ''}
-                  </tr>
-                `).join('')}
-              </tbody>
-            `;
+            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, false, null, null, filters?.onlyNominal);
+            expTable.style.marginBottom = '0';
+            expTable.style.borderRadius = '12px';
             expContainer.appendChild(expTable);
 
             const actionsRow = el('div', {
@@ -1125,39 +1098,11 @@ export function renderChecks(container, options) {
             `;
 
             const expContainer = el('div', {
-              style: 'display: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: rgba(0,0,0,0.15); margin-top: 0.5rem;'
+              style: 'display: none; margin-top: 0.5rem;'
             });
-            const expTable = el('table', {
-              style: 'width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;'
-            });
-            expTable.innerHTML = `
-              <thead>
-                <tr style="background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.5px;">
-                  <th style="padding: 0.5rem 0.75rem;">Banco</th>
-                  <th style="padding: 0.5rem 0.75rem;">Nº Cheque</th>
-                  <th style="padding: 0.5rem 0.75rem;">Vencimiento</th>
-                  <th style="padding: 0.5rem 0.75rem; text-align: right;">Nominal</th>
-                  ${!filters?.onlyNominal ? `
-                  <th style="padding: 0.5rem 0.75rem; text-align: right;">Neto Compra</th>
-                  <th style="padding: 0.5rem 0.75rem; text-align: right;">Descuento</th>
-                  ` : ''}
-                </tr>
-              </thead>
-              <tbody>
-                ${op.checks.map(c => `
-                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.02);">
-                    <td style="padding: 0.5rem 0.75rem; font-weight: 700; color: #ffffff;">${c.bank || '-'}</td>
-                    <td style="padding: 0.5rem 0.75rem; color: var(--text-muted); font-weight: 600;">${c.checkNumber || '-'}</td>
-                    <td style="padding: 0.5rem 0.75rem; font-weight: 600;">${formatDateLocal(c.dueDate)} <span style="font-size:10px; color:var(--text-muted);">(${c.days}d)</span></td>
-                    <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; font-weight: 700; color: #ffffff;">${formatCurrency(c.nominalValue)}</td>
-                    ${!filters?.onlyNominal ? `
-                    <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; color: #60a5fa; font-weight: 700;">${formatCurrency(c.buySide?.netAmount)}</td>
-                    <td style="padding: 0.5rem 0.75rem; text-align: right; font-family: monospace; color: #34d399; font-weight: 700;">+${formatCurrency(c.purchaseDiscount)}</td>
-                    ` : ''}
-                  </tr>
-                `).join('')}
-              </tbody>
-            `;
+            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, false, null, null, filters?.onlyNominal);
+            expTable.style.marginBottom = '0';
+            expTable.style.borderRadius = '12px';
             expContainer.appendChild(expTable);
 
             const actionsRow = el('div', {
