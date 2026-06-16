@@ -26,4 +26,16 @@ export class AccountingRepository {
   async getTravels(uid) {
     return api.fetchTravels(db, uid);
   }
+
+  async getEstablishments() {
+    return api.fetchEstablishments(db);
+  }
+
+  async getEmployees(establishmentId) {
+    return api.fetchEmployees(db, establishmentId);
+  }
+
+  async removeLinkedTransaction(entryId) {
+    return api.removeLinkedTransaction(db, entryId);
+  }
 }
