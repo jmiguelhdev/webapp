@@ -380,14 +380,19 @@ export function renderSettings(container, options) {
           const initials = String(u.email || u.uid || 'U').substring(0, 2).toUpperCase();
 
           card.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 0.85rem;">
-              <div class="user-avatar-circle" style="width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(143, 0, 20, 0.08); border: 1.5px solid rgba(143, 0, 20, 0.2); color: var(--primary); font-weight: 700; font-size: 0.9rem;">
-                ${initials}
+            <div style="display: flex; align-items: center; gap: 0.85rem; justify-content: space-between; width: 100%;">
+              <div style="display: flex; align-items: center; gap: 0.85rem; flex: 1; min-width: 0;">
+                <div class="user-avatar-circle" style="width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(143, 0, 20, 0.08); border: 1.5px solid rgba(143, 0, 20, 0.2); color: var(--primary); font-weight: 700; font-size: 0.9rem; flex-shrink: 0;">
+                  ${initials}
+                </div>
+                <div style="flex: 1; text-align: left; overflow: hidden;">
+                  <h4 style="margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.email || u.uid}">${u.email || u.uid}</h4>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">Registrado: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString('es-AR') : 'N/A'}</span>
+                </div>
               </div>
-              <div style="flex: 1; text-align: left; overflow: hidden;">
-                <h4 style="margin: 0; font-size: 0.9rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.email || u.uid}">${u.email || u.uid}</h4>
-                <span style="font-size: 0.75rem; color: var(--text-muted);">Registrado: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString('es-AR') : 'N/A'}</span>
-              </div>
+              <button class="btn-outline btn-delete-user icon-btn delete-btn" data-uid="${u.uid}" data-email="${u.email}" title="Eliminar Usuario" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger); border-radius: 8px; background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                🗑️
+              </button>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem; justify-content: space-between;">
               <select class="form-input rbac-select" data-uid="${u.uid}" style="padding: 0.45rem 1rem 0.45rem 0.5rem; font-size: 0.8rem; border-radius: 8px; flex: 1;">
@@ -415,6 +420,28 @@ export function renderSettings(container, options) {
             }
             btn.textContent = 'Actualizar';
             btn.disabled = false;
+          };
+        });
+
+        rbacListEl.querySelectorAll('.btn-delete-user').forEach(btn => {
+          btn.onclick = () => {
+            const uid = btn.dataset.uid;
+            const email = btn.dataset.email || 'usuario';
+            showConfirmDeleteUserModal(email, async () => {
+              btn.disabled = true;
+              btn.textContent = '...';
+              try {
+                if (options.onDeleteUser) {
+                  await options.onDeleteUser(uid);
+                  showMsg(`Usuario ${email} eliminado correctamente.`);
+                }
+              } catch (e) {
+                console.error("Error deleting user metadata:", e);
+                showMsg('Error al eliminar usuario: ' + e.message, true);
+                btn.disabled = false;
+                btn.textContent = '🗑️';
+              }
+            });
           };
         });
       }
@@ -544,4 +571,50 @@ export function renderSettings(container, options) {
 
   // Append the constructed settings wrapper to the view container
   container.appendChild(wrapper);
+}
+
+/**
+ * Muestra una modal de confirmación premium para eliminar un usuario.
+ * @param {string} email - Email del usuario a eliminar.
+ * @param {function} onConfirm - Callback ejecutado al confirmar.
+ */
+function showConfirmDeleteUserModal(email, onConfirm) {
+  const overlay = el('div', {
+    classes: ['modal-overlay'],
+    style: 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; animation: fadeIn 0.2s ease;'
+  });
+
+  const modal = el('div', {
+    classes: ['modal', 'glass-card'],
+    style: 'max-width: 420px; padding: 2rem; border-radius: 24px; border: 1px solid rgba(239, 68, 68, 0.2); background: var(--card-bg); box-shadow: var(--elevation-3); text-align: center;'
+  });
+
+  modal.innerHTML = `
+    <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto; border: 1.5px solid rgba(239, 68, 68, 0.3); color: var(--danger); font-size: 1.8rem;">
+      ⚠️
+    </div>
+    <h3 style="margin: 0 0 0.75rem 0; font-size: 1.25rem; font-weight: 700; color: var(--text-main);">¿Eliminar Usuario?</h3>
+    <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin: 0 0 2rem 0;">
+      Estás a punto de revocar todos los accesos del usuario <strong style="color: var(--danger); word-break: break-all;">${email}</strong>. Esta acción eliminará su registro de permisos en el sistema y no se puede deshacer.
+    </p>
+    <div style="display: flex; gap: 1rem; justify-content: stretch;">
+      <button id="cancel-delete-btn" class="btn-outline" style="flex: 1; padding: 0.75rem; border-radius: 12px; font-weight: 600; cursor: pointer; border-color: var(--border); color: var(--text-main); background: transparent;">
+        Cancelar
+      </button>
+      <button id="confirm-delete-btn" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 12px; font-weight: 700; cursor: pointer; background: var(--danger); border: none; color: #fff; margin: 0;">
+        Eliminar
+      </button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  modal.querySelector('#cancel-delete-btn').onclick = close;
+  modal.querySelector('#confirm-delete-btn').onclick = () => {
+    close();
+    onConfirm();
+  };
 }

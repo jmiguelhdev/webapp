@@ -377,6 +377,11 @@ export async function saveUserRole(db, uid, role) {
   await setDoc(docRef, { role, updatedAt: Date.now() }, { merge: true });
 }
 
+export async function deleteUserMetadata(db, uid) {
+  const docRef = doc(db, 'user_metadata', uid);
+  await deleteDoc(docRef);
+}
+
 /**
  * TRANSACTIONS API (Debt and Payments)
  */

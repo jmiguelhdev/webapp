@@ -345,6 +345,11 @@ const navigateTo = (view, role = currentUserRole) => {
             await api.saveUserRole(db, uid, role);
             window.usersListCache = null; // Clear cache on update
           },
+          onDeleteUser: async (uid) => {
+            await api.deleteUserMetadata(db, uid);
+            window.usersListCache = null; // Clear cache on delete
+            await loadSettingsData(); // Refresh the view
+          },
           onReloadClients: loadSettingsData,
           onPriceShare: () => navigateTo('price-share'),
           onBack: () => navigateTo('dashboard')
