@@ -92,6 +92,12 @@ export async function generateExcelReport(travels) {
       // Categorías del productor
       const pCategories = (p.listOfProducts || []).map(pr => pr.name).join(', ');
       
+      const kgClean = p.totalKgClean || 0;
+      const kgFaena = p.totalKgFaena || 0;
+      const totalWithComm = p.totalOpPlusComm || 0;
+      const avgPriceWithComm = kgClean > 0 ? totalWithComm / kgClean : 0;
+      const rendimiento = kgClean > 0 ? (kgFaena / kgClean) * 100 : 0;
+
       rows.push({
         'Fecha': t.date || '',
         'ID Viaje': t.id,
@@ -103,12 +109,15 @@ export async function generateExcelReport(travels) {
         'CUIT Productor': producerCuit,
         'Categorías': pCategories,
         'Cabezas': p.totalQuantity || 0,
-        'Kg Limpios': p.totalKgClean || 0,
-        'Precio Promedio': p.avgPrice?.toFixed(2) || '0.00',
-        'Neto ($)': p.totalOperation || 0,
+        'Kg Limpios': kgClean,
+        'Kg Faena': kgFaena,
+        'Rendimiento (%)': rendimiento.toFixed(2),
+        'Precio Prom. ($/kg)': avgPriceWithComm.toFixed(2),
+        'Total c/ Comisión ($)': totalWithComm,
+        'Neto ($)': p.neto || 0,
         'IVA ($)': p.totalIva || 0,
         'Ganancias ($)': p.totalGanancias || 0,
-        'Total Factura ($)': p.totalBillFactura || 0
+        'Factura ($)': p.totalFactura || 0
       });
     });
   });
