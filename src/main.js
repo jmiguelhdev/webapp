@@ -113,6 +113,7 @@ const uiInterface = {
   generateTravelReport: (data) => uiLib.generateTravelReport(data),
   generateExcelReport: (data) => uiLib.generateExcelReport(data),
   renderClientAccounts: (options) => uiLib.renderClientAccounts({ ...options, onBackToDashboard: () => navigateTo('dashboard') }),
+  renderSaleDetailModal: (sale, productsMap) => uiLib.renderSaleDetailModal(sale, productsMap),
   renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options),
   renderChecks: (options) => uiLib.renderChecks(content, options),
   renderAccounting: (options) => uiLib.renderAccounting(content, options),

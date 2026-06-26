@@ -64,4 +64,12 @@ export class ClientRepository {
   async getPriceAnalyses(clientId) {
     return api.fetchPriceAnalyses(db, clientId);
   }
+
+  async getSaleById(saleId) {
+    return api.fetchSaleById(db, saleId);
+  }
+
+  async getProducts() {
+    return api.fetchProducts(db);
+  }
 }

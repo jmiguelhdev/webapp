@@ -167,6 +167,7 @@ export class ClientPresenter {
       onAddSale: this.addSale.bind(this),
       onAnalyzePrice: this.openPriceAnalysis.bind(this),
       onSaveClient: this.saveClient.bind(this),
+      onViewSaleDetail: this.viewSaleDetail.bind(this),
       onTabChange: (tab) => { this.activeTab = tab; this.render(); },
       onBack: () => { 
         if (this.viewMode === 'analysis') {
@@ -270,5 +271,27 @@ export class ClientPresenter {
     this.analysisFaenas = []; 
     this.analysisPayments = [];
     this.render();
+  }
+
+  async viewSaleDetail(saleId) {
+    this.ui.showLoading();
+    try {
+      const sale = await this.clientRepository.getSaleById(saleId);
+      if (!sale) {
+        alert("No se encontró la venta con ID: " + saleId);
+        return;
+      }
+      const products = await this.clientRepository.getProducts();
+      const productsMap = {};
+      products.forEach(p => {
+        productsMap[p.id] = p;
+      });
+
+      this.ui.renderSaleDetailModal(sale, productsMap);
+    } catch (e) {
+      this.ui.showError("Error al cargar detalle de venta: " + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
   }
 }

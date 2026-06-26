@@ -132,17 +132,41 @@ export function renderClientAccounts(options) {
           transactions.map(t => {
             const isDebt = t.type === 'DEBT';
             const receivedInfo = t.receivedBy ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">📥 Recibido: ${t.receivedBy}</div>` : '';
+            
+            // Detect if description corresponds to a sale from other apps
+            const conceptText = t.description || '';
+            const isSale = conceptText.includes("Despacho Facturado") || conceptText.includes("Venta Mostrador");
+            let saleId = null;
+            if (isSale) {
+              if (conceptText.includes("RETAIL_")) {
+                const parts = conceptText.split("RETAIL_");
+                if (parts.length > 1) {
+                  saleId = "RETAIL_" + parts[1].trim();
+                }
+              } else if (conceptText.includes("SALE_")) {
+                const parts = conceptText.split("SALE_");
+                if (parts.length > 1) {
+                  saleId = "SALE_" + parts[1].trim();
+                }
+              }
+            }
+
+            const conceptTextHtml = saleId 
+              ? `<a href="#" class="sale-detail-link" data-sale-id="${saleId}" style="color: var(--primary); text-decoration: underline; font-weight: 500; cursor: pointer;">${conceptText}</a>`
+              : `<div style="font-weight: 500;">${t.description || (isDebt ? 'Despacho' : 'Pago')}</div>`;
+
             return `
               <tr style="border-bottom: 1px solid var(--border);">
                 <td style="padding: 1rem;">${new Date(t.date || t.createdAt).toLocaleDateString()}</td>
                 <td style="padding: 1rem;">
-                  <div style="font-weight: 500;">${t.description || (isDebt ? 'Despacho' : 'Pago')}</div>
+                  ${conceptTextHtml}
                   ${receivedInfo}
                 </td>
                 <td style="padding: 1rem; color: #ef4444; font-weight: 500;">${isDebt ? '$' + t.amount.toLocaleString() : '-'}</td>
                 <td style="padding: 1rem; color: #10b981; font-weight: 500;">${!isDebt ? '$' + t.amount.toLocaleString() : '-'}</td>
                 <td style="padding: 1rem;">
                   ${t.breakout ? `<button class="btn-outline view-detail-btn" data-id="${t.id}" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Ver Detalle</button>` : ''}
+                  ${saleId ? `<button class="btn-outline view-sale-detail-btn" data-sale-id="${saleId}" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Ver Detalle</button>` : ''}
                 </td>
               </tr>
             `;
@@ -173,6 +197,15 @@ export function renderClientAccounts(options) {
         const tx = transactions.find(t => t.id === btn.dataset.id);
         if (tx && tx.breakout) {
           renderTransactionDetailModal(tx, account);
+        }
+      };
+    });
+
+    wrapper.querySelectorAll('.view-sale-detail-btn, .sale-detail-link').forEach(elem => {
+      elem.onclick = (e) => {
+        e.preventDefault();
+        if (options.onViewSaleDetail) {
+          options.onViewSaleDetail(elem.dataset.saleId);
         }
       };
     });
@@ -699,4 +732,299 @@ function showClientModal(client, onSave, type = 'CLIENT') {
     }
     close();
   };
+}
+
+/**
+ * Creates and displays a floating modal with detailed itemized sales info.
+ *
+ * @param {Object} sale - The sale document fetched from Firestore.
+ * @param {Object} productsMap - Dictionary of products index by id.
+ */
+export function renderSaleDetailModal(sale, productsMap) {
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 550px; width: 100%; padding: 2rem; border-radius: 16px;' });
+  
+  const header = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;' });
+  
+  const isRetail = sale.id.startsWith("RETAIL_");
+  const titleText = isRetail ? "Detalle de Venta Minorista" : "Detalle de Despacho Mayorista";
+  const docNumber = sale.id.replace("RETAIL_", "").replace("SALE_", "");
+  
+  header.innerHTML = `
+    <h3 style="margin: 0; color: var(--primary); font-size: 1.25rem;">${titleText}</h3>
+    <button class="close-btn" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;">&times;</button>
+  `;
+  
+  const saleDate = new Date(sale.date || sale.updatedAt).toLocaleDateString('es-AR');
+  const saleTime = new Date(sale.date || sale.updatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const customerName = sale.consumerName || "Consumidor Final";
+  
+  const infoSection = el('div', { style: 'margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem;' });
+  infoSection.innerHTML = `
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+      <span style="color: var(--text-muted);">Comprobante:</span>
+      <span style="font-weight: 600;">N° ${docNumber}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+      <span style="color: var(--text-muted);">Fecha:</span>
+      <span style="font-weight: 500;">${saleDate} ${saleTime}</span>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+      <span style="color: var(--text-muted);">Cliente:</span>
+      <span style="font-weight: 600; text-align: right;">${customerName}</span>
+    </div>
+  `;
+  
+  const content = el('div');
+  
+  let rowsHtml = '';
+  let totalWeight = 0;
+  
+  if (sale.items && sale.items.length > 0) {
+    const tbodyHtml = sale.items.map(item => {
+      const weight = Number(item.weight) || 0;
+      const price = Number(item.pricePerKg) || 0;
+      const subtotal = Number(item.subtotal) || 0;
+      totalWeight += weight;
+      
+      const prodName = productsMap[item.productId]?.name || `Producto (PLU: ${productsMap[item.productId]?.plu || item.productId})`;
+      
+      return `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <td style="padding: 0.75rem 0.5rem; font-weight: 500;">${prodName}</td>
+          <td style="padding: 0.75rem 0.5rem; text-align: right;">${weight.toFixed(3)} kg</td>
+          <td style="padding: 0.75rem 0.5rem; text-align: right;">$${price.toLocaleString()}</td>
+          <td style="padding: 0.75rem 0.5rem; text-align: right; color: var(--primary); font-weight: 600;">$${subtotal.toLocaleString()}</td>
+        </tr>
+      `;
+    }).join('');
+    
+    rowsHtml = `
+      <div style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 8px;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+          <thead>
+            <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); color: var(--text-muted);">
+              <th style="padding: 0.5rem;">Producto</th>
+              <th style="padding: 0.5rem; text-align: right;">Peso</th>
+              <th style="padding: 0.5rem; text-align: right;">Precio/kg</th>
+              <th style="padding: 0.5rem; text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tbodyHtml}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    rowsHtml = '<p style="color: var(--text-muted); text-align: center; padding: 2rem;">No hay detalles de ítems registrados para esta venta.</p>';
+  }
+  
+  content.innerHTML = rowsHtml;
+  
+  const summarySection = el('div', { style: 'margin-bottom: 1.5rem; padding: 1rem; background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.15); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;' });
+  summarySection.innerHTML = `
+    <div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Peso Total</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-main);">${totalWeight.toFixed(3)} kg</div>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Importe Total</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #ef4444;">$${(sale.totalAmount || 0).toLocaleString()}</div>
+    </div>
+  `;
+  
+  const footer = el('div', { style: 'display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;' });
+  footer.innerHTML = `
+    <button class="btn-outline print-btn" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; border-radius: 8px;">
+      🖨️ Imprimir Ticket
+    </button>
+    <button class="btn-primary close-modal-btn" style="padding: 0.6rem 1.5rem; border-radius: 8px; margin: 0; background: var(--primary);">Cerrar</button>
+  `;
+  
+  modal.appendChild(header);
+  modal.appendChild(infoSection);
+  modal.appendChild(content);
+  modal.appendChild(summarySection);
+  modal.appendChild(footer);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  const close = () => document.body.removeChild(overlay);
+  header.querySelector('.close-btn').onclick = close;
+  footer.querySelector('.close-modal-btn').onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  
+  footer.querySelector('.print-btn').onclick = () => {
+    printSaleTicket(sale, productsMap);
+  };
+}
+
+/**
+ * Opens a print dialog formatted as an internal thermal receipt for the sale.
+ *
+ * @param {Object} sale - The sale document.
+ * @param {Object} productsMap - Dictionary of products index by id.
+ */
+function printSaleTicket(sale, productsMap) {
+  const printWindow = window.open('', '_blank', 'width=400,height=700');
+  
+  const isRetail = sale.id.startsWith("RETAIL_");
+  const docTitle = isRetail ? "TICKET VENTA MINORISTA" : "REMITO DE DESPACHO";
+  const docNumber = sale.id.replace("RETAIL_", "").replace("SALE_", "");
+  
+  const saleDate = new Date(sale.date || sale.updatedAt).toLocaleDateString('es-AR');
+  const saleTime = new Date(sale.date || sale.updatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const nowStr = new Date().toLocaleString('es-AR');
+  
+  const customerName = sale.consumerName || "Consumidor Final";
+  
+  let printRows = '';
+  let totalWeight = 0;
+  
+  if (sale.items && sale.items.length > 0) {
+    printRows = sale.items.map(item => {
+      const weight = Number(item.weight) || 0;
+      const price = Number(item.pricePerKg) || 0;
+      const subtotal = Number(item.subtotal) || 0;
+      totalWeight += weight;
+      
+      const prodName = productsMap[item.productId]?.name || `Producto (PLU: ${productsMap[item.productId]?.plu || item.productId})`;
+      
+      return `
+        <tr>
+          <td style="padding: 4px 0;">
+            <div style="font-weight: bold;">${prodName.toUpperCase()}</div>
+            <div style="font-size: 10px; color: #555;">${weight.toFixed(3)} kg x $${price.toLocaleString()}</div>
+          </td>
+          <td style="text-align: right; vertical-align: bottom; padding: 4px 0;">$${subtotal.toLocaleString()}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Ticket Venta - ${sale.id}</title>
+      <style>
+        body { 
+          font-family: 'Courier New', Courier, monospace; 
+          padding: 10px; 
+          color: #000; 
+          font-size: 12px; 
+          line-height: 1.3;
+          margin: 0;
+          background: #fff;
+        }
+        .header { 
+          text-align: center; 
+          border-bottom: 1px dashed #000; 
+          padding-bottom: 10px; 
+          margin-bottom: 10px; 
+        }
+        .company-name { 
+          font-size: 16px; 
+          font-weight: 800; 
+          margin: 0 0 5px 0; 
+        }
+        .info { 
+          margin-bottom: 10px; 
+          font-size: 11px;
+          border-bottom: 1px dashed #000;
+          padding-bottom: 10px;
+        }
+        .info-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 2px;
+        }
+        table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin-bottom: 10px;
+        }
+        th, td { 
+          border-bottom: 1px dotted #ccc; 
+        }
+        .totals {
+          border-top: 1px dashed #000;
+          padding-top: 8px;
+          margin-top: 10px;
+          font-size: 13px;
+        }
+        .total-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 4px;
+        }
+        .disclaimer { 
+          margin-top: 25px; 
+          text-align: center; 
+          font-size: 9px; 
+          color: #555; 
+          border-top: 1px dashed #000; 
+          padding-top: 10px; 
+        }
+        @media print { 
+          @page { margin: 0; } 
+          body { padding: 15px; } 
+        }
+      </style>
+    </head>
+    <body onload="window.print(); window.close();">
+      <div class="header">
+        <div class="company-name">FRIGORÍFICO PAMPA</div>
+        <div style="font-size: 11px;">Ruta Nac. 34 - Clucellas</div>
+        <div style="font-weight: bold; margin-top: 5px; font-size: 13px;">${docTitle}</div>
+      </div>
+      
+      <div class="info">
+        <div class="info-row">
+          <span>Nro. Comprobante:</span>
+          <strong>${docNumber}</strong>
+        </div>
+        <div class="info-row">
+          <span>Fecha:</span>
+          <span>${saleDate} ${saleTime}</span>
+        </div>
+        <div class="info-row">
+          <span>Cliente:</span>
+          <strong>${customerName.toUpperCase()}</strong>
+        </div>
+        <div class="info-row">
+          <span>Emisión:</span>
+          <span>${nowStr}</span>
+        </div>
+      </div>
+      
+      <table>
+        <tbody>
+          ${printRows}
+        </tbody>
+      </table>
+      
+      <div class="totals">
+        <div class="total-row">
+          <span>PESO TOTAL:</span>
+          <strong>${totalWeight.toFixed(3)} kg</strong>
+        </div>
+        <div class="total-row" style="font-size: 15px; font-weight: bold;">
+          <span>TOTAL COMPRA:</span>
+          <span>$${(sale.totalAmount || 0).toLocaleString()}</span>
+        </div>
+      </div>
+      
+      <div class="disclaimer">
+        *** DOCUMENTO DE USO INTERNO ***<br>
+        NO VALIDO COMO FACTURA<br>
+        ¡GRACIAS POR SU COMPRA!
+      </div>
+    </body>
+    </html>
+  `;
+  
+  printWindow.document.write(html);
+  printWindow.document.close();
 }

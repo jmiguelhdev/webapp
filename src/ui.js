@@ -6,7 +6,7 @@ import { renderTravels, renderSettlementModal, showTravelModal } from './ui/scre
 import { renderSimulator } from './ui/screens/SimulatorUI.js';
 import { renderDashboard } from './ui/screens/DashboardUI.js';
 import { renderFaenaConsumption } from './ui/screens/ConsumptionUI.js';
-import { renderClientAccounts } from './ui/screens/ClientsUI.js';
+import { renderClientAccounts, renderSaleDetailModal } from './ui/screens/ClientsUI.js';
 import { renderSettings } from './ui/screens/SettingsUI.js';
 import { renderPriceShare } from './ui/screens/PriceShareUI.js';
 import { renderChecks } from './ui/screens/ChecksUI.js';
@@ -31,6 +31,7 @@ export {
   renderDashboard,
   renderFaenaConsumption,
   renderClientAccounts,
+  renderSaleDetailModal,
   renderSettings,
   renderPriceShare,
   renderChecks,

@@ -709,3 +709,33 @@ export function subscribeToCheckOperations(db, uid, callback, onError) {
     callback(checks);
   }, onError);
 }
+
+/** Fetch a sale document by ID */
+export async function fetchSaleById(db, saleId) {
+  const docRef = doc(db, 'sales', saleId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() };
+  }
+  return null;
+}
+
+/** Fetch all products from master_data */
+export async function fetchProducts(db) {
+  const collRef = collection(db, 'master_data');
+  const q = query(collRef, where('type', '==', 'PRODUCT'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(docSnap => {
+    const dto = docSnap.data();
+    try {
+      const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
+      if (rawData && typeof rawData === 'string') {
+        const parsed = JSON.parse(rawData);
+        return { ...topLevelFields, ...parsed, firebaseId: docSnap.id };
+      }
+      return { id: docSnap.id, ...dto };
+    } catch (e) {
+      return { id: docSnap.id, ...dto };
+    }
+  });
+}
