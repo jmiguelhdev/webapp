@@ -273,8 +273,8 @@ export class ClientPresenter {
     this.render();
   }
 
-  async viewSaleDetail(saleId) {
-    this.ui.showLoading();
+  async viewSaleDetail(saleId, concept) {
+    document.body.style.cursor = 'wait';
     try {
       const sale = await this.clientRepository.getSaleById(saleId);
       if (!sale) {
@@ -287,11 +287,11 @@ export class ClientPresenter {
         productsMap[p.id] = p;
       });
 
-      this.ui.renderSaleDetailModal(sale, productsMap);
+      this.ui.renderSaleDetailModal(sale, productsMap, concept);
     } catch (e) {
-      this.ui.showError("Error al cargar detalle de venta: " + e.message);
+      alert("Error al cargar detalle de venta: " + e.message);
     } finally {
-      this.ui.hideLoading();
+      document.body.style.cursor = 'default';
     }
   }
 }

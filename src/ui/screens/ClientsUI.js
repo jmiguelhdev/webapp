@@ -135,24 +135,19 @@ export function renderClientAccounts(options) {
             
             // Detect if description corresponds to a sale from other apps
             const conceptText = t.description || '';
-            const isSale = conceptText.includes("Despacho Facturado") || conceptText.includes("Venta Mostrador");
+            const isRetail = conceptText.includes("Venta Mostrador");
+            const isWholesale = conceptText.includes("Despacho Facturado");
             let saleId = null;
-            if (isSale) {
-              if (conceptText.includes("RETAIL_")) {
-                const parts = conceptText.split("RETAIL_");
-                if (parts.length > 1) {
-                  saleId = "RETAIL_" + parts[1].trim();
-                }
-              } else if (conceptText.includes("SALE_")) {
-                const parts = conceptText.split("SALE_");
-                if (parts.length > 1) {
-                  saleId = "SALE_" + parts[1].trim();
-                }
+            if (isRetail || isWholesale) {
+              const match = conceptText.match(/N°\s*([a-zA-Z0-9_-]+)/);
+              if (match && match[1]) {
+                const num = match[1].trim();
+                saleId = isRetail ? `RETAIL_${num}` : `SALE_${num}`;
               }
             }
 
             const conceptTextHtml = saleId 
-              ? `<a href="#" class="sale-detail-link" data-sale-id="${saleId}" style="color: var(--primary); text-decoration: underline; font-weight: 500; cursor: pointer;">${conceptText}</a>`
+              ? `<a href="#" class="sale-detail-link" data-sale-id="${saleId}" data-concept="${conceptText}" style="color: var(--primary); text-decoration: underline; font-weight: 500; cursor: pointer;">${conceptText}</a>`
               : `<div style="font-weight: 500;">${t.description || (isDebt ? 'Despacho' : 'Pago')}</div>`;
 
             return `
@@ -166,7 +161,7 @@ export function renderClientAccounts(options) {
                 <td style="padding: 1rem; color: #10b981; font-weight: 500;">${!isDebt ? '$' + t.amount.toLocaleString() : '-'}</td>
                 <td style="padding: 1rem;">
                   ${t.breakout ? `<button class="btn-outline view-detail-btn" data-id="${t.id}" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Ver Detalle</button>` : ''}
-                  ${saleId ? `<button class="btn-outline view-sale-detail-btn" data-sale-id="${saleId}" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Ver Detalle</button>` : ''}
+                  ${saleId ? `<button class="btn-outline view-sale-detail-btn" data-sale-id="${saleId}" data-concept="${conceptText}" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Ver Detalle</button>` : ''}
                 </td>
               </tr>
             `;
@@ -205,7 +200,7 @@ export function renderClientAccounts(options) {
       elem.onclick = (e) => {
         e.preventDefault();
         if (options.onViewSaleDetail) {
-          options.onViewSaleDetail(elem.dataset.saleId);
+          options.onViewSaleDetail(elem.dataset.saleId, elem.dataset.concept);
         }
       };
     });
@@ -740,7 +735,7 @@ function showClientModal(client, onSave, type = 'CLIENT') {
  * @param {Object} sale - The sale document fetched from Firestore.
  * @param {Object} productsMap - Dictionary of products index by id.
  */
-export function renderSaleDetailModal(sale, productsMap) {
+export function renderSaleDetailModal(sale, productsMap, concept) {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
   const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 550px; width: 100%; padding: 2rem; border-radius: 16px;' });
   
@@ -759,6 +754,14 @@ export function renderSaleDetailModal(sale, productsMap) {
   const saleTime = new Date(sale.date || sale.updatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   const customerName = sale.consumerName || "Consumidor Final";
   
+  let branchName = null;
+  if (concept) {
+    const match = concept.match(/\[Carnicer[ií]a:\s*([^\]]+)\]/i);
+    if (match && match[1]) {
+      branchName = match[1].trim();
+    }
+  }
+
   const infoSection = el('div', { style: 'margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem;' });
   infoSection.innerHTML = `
     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
@@ -769,6 +772,12 @@ export function renderSaleDetailModal(sale, productsMap) {
       <span style="color: var(--text-muted);">Fecha:</span>
       <span style="font-weight: 500;">${saleDate} ${saleTime}</span>
     </div>
+    ${branchName ? `
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+      <span style="color: var(--text-muted);">Origen / Sucursal:</span>
+      <span style="font-weight: 600; color: #818cf8;">${branchName.toUpperCase()}</span>
+    </div>
+    ` : ''}
     <div style="display: flex; justify-content: space-between;">
       <span style="color: var(--text-muted);">Cliente:</span>
       <span style="font-weight: 600; text-align: right;">${customerName}</span>
@@ -856,7 +865,7 @@ export function renderSaleDetailModal(sale, productsMap) {
   overlay.onclick = (e) => { if (e.target === overlay) close(); };
   
   footer.querySelector('.print-btn').onclick = () => {
-    printSaleTicket(sale, productsMap);
+    printSaleTicket(sale, productsMap, branchName);
   };
 }
 
@@ -865,8 +874,9 @@ export function renderSaleDetailModal(sale, productsMap) {
  *
  * @param {Object} sale - The sale document.
  * @param {Object} productsMap - Dictionary of products index by id.
+ * @param {string|null} branchName - Name of the butchery/branch if parsed.
  */
-function printSaleTicket(sale, productsMap) {
+function printSaleTicket(sale, productsMap, branchName) {
   const printWindow = window.open('', '_blank', 'width=400,height=700');
   
   const isRetail = sale.id.startsWith("RETAIL_");
@@ -989,6 +999,12 @@ function printSaleTicket(sale, productsMap) {
           <span>Fecha:</span>
           <span>${saleDate} ${saleTime}</span>
         </div>
+        ${branchName ? `
+        <div class="info-row">
+          <span>Origen / Sucursal:</span>
+          <strong>${branchName.toUpperCase()}</strong>
+        </div>
+        ` : ''}
         <div class="info-row">
           <span>Cliente:</span>
           <strong>${customerName.toUpperCase()}</strong>
