@@ -10,7 +10,7 @@ export class KmpSidebar extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
-    this.role = 'VISOR';
+    this._userRole = 'VISOR';
     this.activeView = 'dashboard';
   }
 
@@ -20,7 +20,7 @@ export class KmpSidebar extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (name === 'role') {
-      this.role = newValue || 'VISOR';
+      this._userRole = newValue || 'VISOR';
     } else if (name === 'active') {
       this.activeView = newValue || 'dashboard';
     }
@@ -125,7 +125,7 @@ export class KmpSidebar extends HTMLElement {
   }
 
   render() {
-    const currentRole = this.role;
+    const currentRole = this._userRole;
     const active = this.activeView;
 
     const groups = [
@@ -213,6 +213,9 @@ export class KmpSidebar extends HTMLElement {
             bubbles: true,
             composed: true
           }));
+          
+          // Close sidebar drawer automatically on responsive screens/mobile viewport sizes
+          document.body.classList.remove('sidebar-open');
         }
       });
     });

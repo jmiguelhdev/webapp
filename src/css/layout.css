@@ -97,7 +97,7 @@ body.authenticated .sidebar { display: block; }
     grid-template-areas: "header" "main";
   }
   
-  .menu-toggle { display: block; }
+  body.authenticated .menu-toggle { display: block; }
   
   .sidebar {
     position: fixed;
@@ -106,7 +106,11 @@ body.authenticated .sidebar { display: block; }
     bottom: 0;
     width: 240px;
     transform: translateX(-100%);
-    display: block; /* Always block, controlled by transform */
+    display: none; /* Hide by default on mobile if unauthenticated */
+  }
+  
+  body.authenticated .sidebar {
+    display: block; /* Show on mobile if authenticated */
   }
   
   body.sidebar-open .sidebar {
