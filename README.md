@@ -1,4 +1,4 @@
-# web app piola - Sistema de Gestión Integral
+# web app piola jmhsg- Sistema de Gestión Integral
 
 Bienvenido a **web app piola**, una plataforma de alta gama diseñada para la administración total de operaciones ganaderas, financieras y logísticas. Este ecosistema digital centraliza desde la compra de hacienda y su procesamiento en faena hasta la gestión de carteras de cheques y contabilidad de cajas.
 
