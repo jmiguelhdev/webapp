@@ -75,4 +75,14 @@ export class FirebaseTravelRepository {
   subscribeTravels(uid, callback, onError) {
     return api.subscribeToTravels(db, uid, callback, onError);
   }
+
+  async saveRawMaterialBatch(batch) {
+    await api.saveRawMaterialBatch(db, batch);
+  }
+
+  async executeUnifiedDispatch(uid, dispatchData) {
+    await api.executeUnifiedDispatch(db, uid, dispatchData);
+  }
 }
+
+

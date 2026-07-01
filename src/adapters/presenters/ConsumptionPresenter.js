@@ -251,15 +251,42 @@ export class ConsumptionPresenter {
 
     this.ui.showLoading();
     try {
-      const clientId = await this.clientRepository.saveClient({ name: dest });
+      // 1. Fetch all dependencies in parallel to avoid multiple round-trips
+      const [allClients, priceLists, rawProducts, providers] = await Promise.all([
+        this.clientRepository.getClients(),
+        this.clientRepository.getPriceLists(),
+        this.clientRepository.getRawMaterialProducts(),
+        this.clientRepository.getProviders()
+      ]);
 
+      // 2. Save / Match Client
+      const matchedClient = allClients.find(c => c.name.toLowerCase() === dest.toLowerCase());
+      let clientId = matchedClient ? matchedClient.id : `CUST_${Date.now()}`;
+      const isNewClient = !matchedClient;
+      let shouldLinkClient = false;
+
+      let priceListId = matchedClient ? matchedClient.priceListId : null;
+      // Auto-match price list by name/id if not linked to the client yet
+      if (!priceListId) {
+        const matchedPriceList = priceLists.find(pl => 
+          pl.id.toLowerCase() === dest.toLowerCase() || 
+          pl.name.toLowerCase() === dest.toLowerCase()
+        );
+        if (matchedPriceList) {
+          priceListId = matchedPriceList.id;
+          shouldLinkClient = true;
+          console.log(`Matched destination "${dest}" with price list "${matchedPriceList.name}" (ID: ${priceListId}).`);
+        }
+      }
+
+      // 3. Prepare Transactions and Raw Materials
       const breakout = selectedItems.map(item => {
         const cat = item.standardizedCategory || 'OTRO';
         const price = byCategory[cat].price;
         return { id: item.id, garron: item.garron, weight: item.kg, price, total: (item.kg || 0) * price };
       });
 
-      const transaction = {
+      const customerTransaction = {
         clientId,
         type: 'DEBT',
         amount: totalDebt,
@@ -267,10 +294,117 @@ export class ConsumptionPresenter {
         breakout,
         date: Date.now()
       };
-      await this.clientRepository.addTransaction(transaction);
 
-      const idsArray = Array.from(this.state.selectedIds);
-      await this.travelRepository.dispatchFaenas(uid, idsArray, dest);
+      let providerToUpdate = { id: Date.now() + Math.floor(Math.random() * 1000), balance: totalDebt }; // fallback
+      let isNewProvider = true;
+      let providerTransaction = null;
+      const rawMaterialBatches = [];
+
+      if (priceListId) {
+        // 3.1 Resolve Provider "frigorifico pampa" scoped to this priceListId
+        const matchedProvider = providers.find(p => 
+          p.name.toLowerCase() === "frigorifico pampa" && p.priceListId === priceListId
+        );
+
+        let providerId;
+        if (matchedProvider) {
+          providerId = Number(matchedProvider.id);
+          const currentBalance = parseFloat(matchedProvider.balance) || 0.0;
+          const newBalance = currentBalance + totalDebt;
+          providerToUpdate = {
+            ...matchedProvider,
+            balance: newBalance
+          };
+          isNewProvider = false;
+        } else {
+          providerId = Date.now() + Math.floor(Math.random() * 1000);
+          providerToUpdate = {
+            id: providerId,
+            name: "frigorifico pampa",
+            cuit: "30-71549281-8",
+            contact: "",
+            address: "",
+            balance: totalDebt,
+            priceListId: priceListId
+          };
+          isNewProvider = true;
+        }
+
+        // 3.2 Prepare provider transaction
+        providerTransaction = {
+          clientId: String(providerId), // provider ID (no starting with CUST_)
+          type: 'DEBT',
+          amount: totalDebt,
+          description: `Compra por despacho de ${selectedItems.length} reses (${totalKg.toFixed(1)} kg) de Frigorífico Pampa`,
+          date: Date.now(),
+          priceListId: priceListId, // filtered for this carnicería
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+
+        // 3.3 Prepare RawMaterialBatch for each carcass item
+        for (const item of selectedItems) {
+          const cat = item.standardizedCategory || 'OTRO';
+          const price = byCategory[cat].price;
+
+          // Resolve Raw Material Product
+          let rawMaterialProductId = 1781795650161; // Fallback: Media Res Vacuna
+          const itemCat = (item.standardizedCategory || item.category || "").toLowerCase();
+          
+          if (itemCat) {
+            let match = rawProducts.find(p => p.name.toLowerCase().includes(itemCat));
+            if (match) {
+              rawMaterialProductId = Number(match.id);
+            } else if (itemCat.includes("novillo") || itemCat.includes("novillito")) {
+              match = rawProducts.find(p => p.name.toLowerCase().includes("novillo"));
+              if (match) rawMaterialProductId = Number(match.id);
+            } else if (itemCat.includes("vaquillona") || itemCat.includes("vaq")) {
+              match = rawProducts.find(p => p.name.toLowerCase().includes("vaquillona") || p.name.toLowerCase().includes("vaq"));
+              if (match) rawMaterialProductId = Number(match.id);
+            } else if (itemCat.includes("ternera") || itemCat.includes("ternero") || itemCat.includes("ter")) {
+              match = rawProducts.find(p => p.name.toLowerCase().includes("ternera") || p.name.toLowerCase().includes("ternero"));
+              if (match) rawMaterialProductId = Number(match.id);
+            } else if (itemCat.includes("vaca")) {
+              match = rawProducts.find(p => p.name.toLowerCase().includes("vaca") || p.name.toLowerCase().includes("vacuna"));
+              if (match) rawMaterialProductId = Number(match.id);
+            } else {
+              match = rawProducts.find(p => p.name.toLowerCase().includes("vacuna") || p.name.toLowerCase() === "res");
+              if (match) rawMaterialProductId = Number(match.id);
+            }
+          }
+
+          const batchId = Date.now() + Math.floor(Math.random() * 1000);
+          rawMaterialBatches.push({
+            id: batchId,
+            rawMaterialProductId,
+            providerId,
+            tropaNumber: `${item.tropa} / Garrón ${item.garron}`, // independent items
+            initialWeight: item.kg,
+            currentWeight: item.kg,
+            costPerKg: price, // price of the dispatch
+            date: Date.now(),
+            priceListId: priceListId,
+            isReportUploaded: false
+          });
+        }
+      }
+
+      // 4. Commit all writes (creation/linking of client, provider update, transactions, raw material batches, carcass status updates)
+      // in a SINGLE atomic round-trip transaction.
+      const carcassIds = Array.from(this.state.selectedIds);
+      await this.travelRepository.executeUnifiedDispatch(uid, {
+        clientId,
+        destName: dest,
+        priceListId,
+        isNewClient,
+        shouldLinkClient,
+        providerToUpdate,
+        isNewProvider,
+        customerTransaction,
+        providerTransaction,
+        rawMaterialBatches,
+        carcassIds
+      });
 
       this.state.selectedIds.clear();
       this.state.destinationInput = '';

@@ -72,4 +72,22 @@ export class ClientRepository {
   async getProducts() {
     return api.fetchProducts(db);
   }
+
+  async getRawMaterialProducts() {
+    return api.fetchRawMaterialProducts(db);
+  }
+
+  async getProviders() {
+    return api.fetchProviders(db);
+  }
+
+  async saveProviderDirectly(providerData) {
+    return api.saveProviderDirectly(db, providerData);
+  }
+
+  async getPriceLists() {
+    return api.fetchPriceLists(db);
+  }
 }
+
+

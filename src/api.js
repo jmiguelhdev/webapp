@@ -739,3 +739,130 @@ export async function fetchProducts(db) {
     }
   });
 }
+
+/** Fetch raw material products from master_data */
+export async function fetchRawMaterialProducts(db) {
+  const collRef = collection(db, 'master_data');
+  const q = query(collRef, where('type', '==', 'RAW_MATERIAL_PRODUCT'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(docSnap => {
+    const dto = docSnap.data();
+    try {
+      const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
+      if (rawData && typeof rawData === 'string') {
+        const parsed = JSON.parse(rawData);
+        return { ...topLevelFields, ...parsed, firebaseId: docSnap.id };
+      }
+      return { id: docSnap.id, ...dto };
+    } catch (e) {
+      return { id: docSnap.id, ...dto };
+    }
+  });
+}
+
+/** Fetch all providers from proveedores collection */
+export async function fetchProviders(db) {
+  const collRef = collection(db, 'proveedores');
+  const snapshot = await getDocs(collRef);
+  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+/** Save/Create a provider directly in proveedores collection */
+export async function saveProviderDirectly(db, providerRecord) {
+  const docRef = doc(db, 'proveedores', String(providerRecord.id));
+  await setDoc(docRef, { ...providerRecord, updatedAt: Date.now() });
+}
+
+/** Save a raw material batch to frigorifico_entries collection */
+export async function saveRawMaterialBatch(db, batch) {
+  const docRef = doc(db, 'frigorifico_entries', `RAW_${batch.id}`);
+  await setDoc(docRef, { ...batch, updatedAt: Date.now() });
+}
+
+/** Fetch all price lists from price_lists collection */
+export async function fetchPriceLists(db) {
+  const collRef = collection(db, 'price_lists');
+  const snapshot = await getDocs(collRef);
+  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+/** Execute a unified dispatch committing all changes atomically in a single write batch */
+export async function executeUnifiedDispatch(db, uid, {
+  clientId,
+  destName,
+  priceListId,
+  isNewClient,
+  shouldLinkClient,
+  providerToUpdate,
+  isNewProvider,
+  customerTransaction,
+  providerTransaction,
+  rawMaterialBatches,
+  carcassIds
+}) {
+  const batch = writeBatch(db);
+
+  // 1. Create or link client
+  if (isNewClient) {
+    const clientRef = doc(db, 'clientes', clientId);
+    batch.set(clientRef, {
+      name: destName,
+      priceListId: priceListId || null,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+  } else if (shouldLinkClient && priceListId) {
+    const clientRef = doc(db, 'clientes', clientId);
+    batch.update(clientRef, { priceListId, updatedAt: Date.now() });
+  }
+
+  // 2. Save/Update provider
+  const providerRef = doc(db, 'proveedores', String(providerToUpdate.id));
+  if (isNewProvider) {
+    batch.set(providerRef, {
+      ...providerToUpdate,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+  } else {
+    batch.update(providerRef, {
+      balance: providerToUpdate.balance,
+      updatedAt: Date.now()
+    });
+  }
+
+  // 3. Add customer transaction
+  const custTxRef = doc(collection(db, 'transactions'));
+  batch.set(custTxRef, { ...customerTransaction, createdAt: Date.now() });
+
+  // 4. Add provider transaction
+  if (providerTransaction) {
+    const provTxRef = doc(collection(db, 'transactions'));
+    batch.set(provTxRef, { ...providerTransaction, createdAt: Date.now() });
+  }
+
+  // 5. Save all raw material batches
+  if (rawMaterialBatches && rawMaterialBatches.length > 0) {
+    rawMaterialBatches.forEach(rmb => {
+      const rmbRef = doc(db, 'frigorifico_entries', `RAW_${rmb.id}`);
+      batch.set(rmbRef, { ...rmb, updatedAt: Date.now() });
+    });
+  }
+
+  // 6. Update carcass statuses to DISPATCHED
+  const updateData = {
+    status: 'DISPATCHED',
+    destination: destName,
+    dispatchDate: Date.now(),
+    deleteAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+  };
+  carcassIds.forEach(id => {
+    const carcassRef = doc(db, 'faenas_detalle', id);
+    batch.update(carcassRef, updateData);
+  });
+
+  await batch.commit();
+}
+
+
+
