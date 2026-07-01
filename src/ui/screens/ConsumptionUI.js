@@ -191,6 +191,69 @@ function openScannerModal(stockItems, onFound) {
 }
 
 /**
+ * Abre un modal para editar la categoría de un garrón y solicitar un comentario obligatorio.
+ */
+function openEditCategoryModal(item, onSave) {
+  const overlay = el('div', { 
+    classes: ['modal-overlay'], 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
+  });
+  const modal = el('div', { 
+    classes: ['glass-card'], 
+    style: 'background: var(--bg-dark); max-width: 450px; width: 100%; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 16px;' 
+  });
+
+  const currentCategory = item.standardizedCategory || item.category || 'OTRO';
+  const categories = ['NOVILLO', 'VACA', 'VAQUILLONA', 'TORO', 'OTRO'];
+
+  modal.innerHTML = `
+    <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary);">Editar Categoría - Garrón #${item.garron}</h3>
+    <div style="margin-bottom: 1.25rem;">
+      <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Categoría Actual</label>
+      <div style="font-weight: 600; font-size: 1.1rem; color: var(--text-main);">${currentCategory}</div>
+    </div>
+    <div style="margin-bottom: 1.25rem;">
+      <label for="new-cat-select" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Nueva Categoría</label>
+      <select id="new-cat-select" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text-main); font-size: 1rem; font-weight: 500;">
+        ${categories.map(cat => `<option value="${cat}" ${cat === currentCategory ? 'selected' : ''}>${cat}</option>`).join('')}
+      </select>
+    </div>
+    <div style="margin-bottom: 1.5rem;">
+      <label for="cat-comment-input" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Comentario / Motivo del Cambio</label>
+      <textarea id="cat-comment-input" placeholder="Ej. Se corrigió porque figuraba Novillo en lugar de Vaquillona..." style="width: 100%; height: 100px; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text-main); font-size: 0.95rem; resize: none; box-sizing: border-box;"></textarea>
+    </div>
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+      <button id="cat-cancel-btn" class="btn btn-secondary" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Cancelar</button>
+      <button id="cat-save-btn" class="btn btn-primary" style="padding: 0.6rem 1.2rem; border-radius: 8px; background: var(--primary); color: var(--on-primary); border: none; cursor: pointer; font-weight: 600;">Guardar</button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const select = modal.querySelector('#new-cat-select');
+  const commentInput = modal.querySelector('#cat-comment-input');
+  const cancelBtn = modal.querySelector('#cat-cancel-btn');
+  const saveBtn = modal.querySelector('#cat-save-btn');
+
+  cancelBtn.onclick = () => {
+    document.body.removeChild(overlay);
+  };
+
+  saveBtn.onclick = () => {
+    const newCategory = select.value;
+    const comment = commentInput.value.trim();
+    if (!comment) {
+      alert("Por favor, ingrese un comentario o motivo para registrar el cambio.");
+      return;
+    }
+    onSave(newCategory, comment);
+    document.body.removeChild(overlay);
+  };
+}
+
+/**
+
  * Renderiza la pantalla principal del panel de control de faena, stock e inventario.
  * 
  * Gestiona dinámicamente cuatro pestañas primarias (STOCK, DRAFTS, HISTORY, ACHURAS) y
@@ -245,7 +308,8 @@ export function renderFaenaConsumption(container, options) {
     onStockSearch,
     onCategoryChange,
     onTropaChange,
-    onCategoryPriceInput = () => {}
+    onCategoryPriceInput = () => {},
+    onEditCategory = () => {}
   } = options;
 
   const activeId = document.activeElement ? document.activeElement.id : null;
@@ -390,16 +454,63 @@ export function renderFaenaConsumption(container, options) {
   allTropaBtn.onclick = () => onTropaChange('ALL');
   tropaChipsWrap.appendChild(allTropaBtn);
 
-  allTropas.forEach(tropa => {
-    const isFinished = finishedTropas.includes(tropa);
+  const finishedList = allTropas.filter(t => finishedTropas.includes(t));
+  const activeList = allTropas.filter(t => !finishedTropas.includes(t));
+
+  activeList.forEach(tropa => {
     const isActive = state.tropaFilter === tropa;
     const chip = el('button', { 
-      text: `Tr. ${tropa}${isFinished ? ' ✓' : ''}`,
-      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : isFinished ? '#10b981' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : isFinished ? 'rgba(16,185,129,0.1)' : 'transparent'}; color: ${isActive ? 'var(--on-primary)' : isFinished ? '#10b981' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s; font-weight: ${isFinished ? '600' : '400'};`
+      text: `Tr. ${tropa}`,
+      style: `padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.78rem; border: 1px solid ${isActive ? 'var(--primary)' : 'var(--border)'}; background: ${isActive ? 'var(--primary)' : 'transparent'}; color: ${isActive ? 'var(--on-primary)' : 'var(--text-main)'}; cursor: pointer; transition: all 0.15s;`
     });
-    chip.onclick = () => onTropaChange(tropa);
+    chip.onclick = () => {
+      onTabSwitch('STOCK');
+      onTropaChange(tropa);
+    };
     tropaChipsWrap.appendChild(chip);
   });
+
+  if (finishedList.length > 0) {
+    const select = document.createElement('select');
+    const isSelectedTropaFinished = finishedList.includes(state.tropaFilter);
+    
+    select.style.padding = '0.3rem 0.85rem';
+    select.style.borderRadius = '20px';
+    select.style.fontSize = '0.78rem';
+    select.style.cursor = 'pointer';
+    select.style.transition = 'all 0.15s';
+    
+    if (isSelectedTropaFinished) {
+      select.style.border = '1px solid var(--primary)';
+      select.style.background = 'var(--primary)';
+      select.style.color = 'var(--on-primary)';
+      select.style.fontWeight = '600';
+    } else {
+      select.style.border = '1px solid #10b981';
+      select.style.background = 'rgba(16,185,129,0.1)';
+      select.style.color = '#10b981';
+      select.style.fontWeight = '400';
+    }
+    
+    select.innerHTML = `
+      <option value="" style="background: var(--bg-dark); color: var(--text-main); font-weight: normal;">
+        ${isSelectedTropaFinished ? `Tr. ${state.tropaFilter} ✓` : '✓ Finalizadas...'}
+      </option>
+      ${finishedList.map(t => `
+        <option value="${t}" ${state.tropaFilter === t ? 'selected' : ''} style="background: var(--bg-dark); color: #10b981; font-weight: 600;">
+          Tr. ${t} ✓
+        </option>
+      `).join('')}
+    `;
+    
+    select.onchange = (e) => {
+      if (e.target.value) {
+        onTabSwitch('HISTORY');
+        onTropaChange(e.target.value);
+      }
+    };
+    tropaChipsWrap.appendChild(select);
+  }
 
   tropaFilterRow.appendChild(tropaChipsWrap);
   toolbarContainer.appendChild(tropaFilterRow);
@@ -668,20 +779,48 @@ export function renderFaenaConsumption(container, options) {
         const isUnassigned = !item.camaraId;
         const camaraDisplay = isUnassigned ? '<span style="color: var(--danger); font-weight: 600;">⚠️ Sin Asignar</span>' : `<span style="color: var(--primary);">${item.camaraId}</span>`;
 
+        const catValue = item.standardizedCategory || item.category;
+        const latestComment = item.comments && item.comments.length > 0 ? item.comments[item.comments.length - 1].comment : '';
+        const commentsTooltip = item.comments && item.comments.length > 0
+          ? item.comments.map(c => `[${new Date(c.date).toLocaleDateString()}]: ${c.comment}`).join('\n')
+          : '';
+
         tr.innerHTML = `
           <td style="padding: 1rem;"><input type="checkbox" ${isSel ? 'checked' : ''} style="transform: scale(1.2); cursor: pointer; pointer-events: none;"></td>
           <td style="padding: 1rem; font-weight: 500;">#${item.garron}</td>
           <td style="padding: 1rem;">Mitad ${item.half || '1'}</td>
-          <td style="padding: 1rem;">${item.standardizedCategory || item.category}</td>
+          <td style="padding: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
+              <span style="font-weight: 500;">${catValue}</span>
+              <button class="edit-cat-btn" style="background: transparent; border: none; cursor: pointer; padding: 2px; display: inline-flex; align-items: center; opacity: 0.6; transition: opacity 0.2s; font-size: 0.9rem;" title="Editar Categoría">
+                ✏️
+              </button>
+            </div>
+            ${latestComment ? `
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-style: italic; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help;" title="${commentsTooltip}">
+                💬 ${latestComment}
+              </div>
+            ` : ''}
+          </td>
           <td style="padding: 1rem; font-weight: bold; color: #10b981;">${item.kg.toFixed(1)} kg</td>
           <td style="padding: 1rem; font-weight: 500;">${camaraDisplay}</td>
           <td style="padding: 1rem; font-size: 0.85rem; color: var(--text-muted);">${item.pdfDate} (Tr. ${item.tropa})</td>
         `;
         
+        const editBtn = tr.querySelector('.edit-cat-btn');
+        if (editBtn) {
+          editBtn.onclick = (e) => {
+            e.stopPropagation();
+            openEditCategoryModal(item, (newCategory, comment) => {
+              onEditCategory(item.id, newCategory, comment);
+            });
+          };
+        }
+
         tr.onclick = (e) => {
-          if (e.target.tagName !== 'INPUT') {
+          if (e.target.tagName !== 'INPUT' && !e.target.closest('.edit-cat-btn')) {
             onToggleSelection(item.id);
-          } else {
+          } else if (e.target.tagName === 'INPUT') {
             e.preventDefault();
             onToggleSelection(item.id);
           }
@@ -887,16 +1026,30 @@ export function renderFaenaConsumption(container, options) {
       </thead>
       <tbody>
         ${historyItems.length === 0 ? `<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No se encontraron salidas.</td></tr>` : 
-          historyItems.map(h => `
-            <tr style="border-bottom: 1px solid var(--border);">
-              <td style="padding: 1rem;">${h.dispatchDate ? new Date(h.dispatchDate).toLocaleDateString() : 'N/A'}</td>
-              <td style="padding: 1rem; font-weight: 500; color: #ef4444;">${h.destination || 'Sin Destino'}</td>
-              <td style="padding: 1rem;">#${h.garron}</td>
-              <td style="padding: 1rem;">Mitad ${h.half || '1'}</td>
-              <td style="padding: 1rem;">${h.standardizedCategory || h.category}</td>
-              <td style="padding: 1rem;">${h.kg ? h.kg.toFixed(1) : 0} kg</td>
-            </tr>
-          `).join('')
+          historyItems.map(h => {
+            const catValue = h.standardizedCategory || h.category;
+            const latestComment = h.comments && h.comments.length > 0 ? h.comments[h.comments.length - 1].comment : '';
+            const commentsTooltip = h.comments && h.comments.length > 0
+              ? h.comments.map(c => `[${new Date(c.date).toLocaleDateString()}]: ${c.comment}`).join('\n')
+              : '';
+            return `
+              <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 1rem;">${h.dispatchDate ? new Date(h.dispatchDate).toLocaleDateString() : 'N/A'}</td>
+                <td style="padding: 1rem; font-weight: 500; color: #ef4444;">${h.destination || 'Sin Destino'}</td>
+                <td style="padding: 1rem;">#${h.garron}</td>
+                <td style="padding: 1rem;">Mitad ${h.half || '1'}</td>
+                <td style="padding: 1rem;">
+                  <span style="font-weight: 500;">${catValue}</span>
+                  ${latestComment ? `
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-style: italic; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help;" title="${commentsTooltip}">
+                      💬 ${latestComment}
+                    </div>
+                  ` : ''}
+                </td>
+                <td style="padding: 1rem;">${h.kg ? h.kg.toFixed(1) : 0} kg</td>
+              </tr>
+            `;
+          }).join('')
         }
       </tbody>
     `;

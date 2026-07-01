@@ -83,6 +83,11 @@ export class FirebaseTravelRepository {
   async executeUnifiedDispatch(uid, dispatchData) {
     await api.executeUnifiedDispatch(db, uid, dispatchData);
   }
+
+  async updateFaenaCategory(id, category, comments) {
+    await api.updateFaenaCategory(db, id, category, comments);
+  }
 }
+
 
 

@@ -864,5 +864,17 @@ export async function executeUnifiedDispatch(db, uid, {
   await batch.commit();
 }
 
+/** Update category and history comments of a specific carcass item */
+export async function updateFaenaCategory(db, id, category, comments) {
+  const docRef = doc(db, 'faenas_detalle', id);
+  await updateDoc(docRef, {
+    category,
+    standardizedCategory: category,
+    comments,
+    updatedAt: Date.now()
+  });
+}
+
+
 
 

@@ -494,6 +494,31 @@ export class ConsumptionPresenter {
     }
   }
 
+  async editCarcassCategory(id, newCategory, comment) {
+    this.ui.showLoading();
+    try {
+      const item = this.allFaenas.find(f => f.id === id);
+      if (!item) throw new Error("No se encontró el garrón seleccionado.");
+
+      const oldCategory = item.standardizedCategory || item.category || 'OTRO';
+      const commentObj = {
+        date: Date.now(),
+        oldCategory,
+        newCategory,
+        comment
+      };
+      
+      const updatedComments = [...(item.comments || []), commentObj];
+
+      await this.travelRepository.updateFaenaCategory(id, newCategory, updatedComments);
+      await this.loadFaenas(this.currentUid);
+    } catch (e) {
+      console.error(e);
+      alert(`Error al editar la categoría: ${e.message}`);
+      this.ui.hideLoading();
+    }
+  }
+
   setHistoryFilter(key, value) {
     if (key === 'search') {
       this.state.historyFilters[key] = value.toLowerCase();
@@ -620,7 +645,8 @@ export class ConsumptionPresenter {
       onCamaraChange: this.setCamaraFilter.bind(this),
       onMoveToCamara: (camaraId) => this.moveSelectedToCamara(this.currentUid, camaraId),
       onConfirmDraft: (groupItems, dest, prices) => this.confirmDraftGroup(groupItems, dest, prices),
-      onRevertDraft: (id) => this.revertDraft(this.currentUid, id)
+      onRevertDraft: (id) => this.revertDraft(this.currentUid, id),
+      onEditCategory: (id, newCategory, comment) => this.editCarcassCategory(id, newCategory, comment)
     };
 
     this.ui.renderFaenaConsumption(options);
