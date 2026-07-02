@@ -20,6 +20,8 @@ import { EstablishmentRepository } from './adapters/repositories/EstablishmentRe
 import { EstablishmentPresenter } from './adapters/presenters/EstablishmentPresenter.js';
 import { OperatorRepository } from './adapters/repositories/OperatorRepository.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
+import { SyncService } from './services/SyncService.js';
+
 
 // Render Git commit version badge in header dynamically
 try {
@@ -193,12 +195,25 @@ onAuthStateChanged(auth, async (user) => {
     const startView = 'dashboard';
     navigateTo(startView);
     
-    // Auto-load main data
+    // Auto-load main data and start delta auto sync
     travelPresenter.loadTravels(SHARED_DATA_SOURCE_UID);
+    SyncService.startAutoSync(SHARED_DATA_SOURCE_UID);
   } else {
     currentUser = null;
     document.body.classList.remove('authenticated');
     showLogin();
+  }
+});
+
+// Refresh UI when background sync completes
+window.addEventListener('app:sync-completed', () => {
+  const activeView = kmpSidebar ? kmpSidebar.getAttribute('active') : 'dashboard';
+  if (activeView === 'consumption') {
+    console.log("[SyncEvent] Auto-refreshing Consumption UI...");
+    consumptionPresenter.loadFaenas(SHARED_DATA_SOURCE_UID);
+  } else if (activeView === 'dashboard') {
+    console.log("[SyncEvent] Auto-refreshing Dashboard UI...");
+    travelPresenter.showDashboard();
   }
 });
 

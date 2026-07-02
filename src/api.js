@@ -1,5 +1,50 @@
 // webApp/src/api.js
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion, writeBatch, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { localDb } from './db/localDb.js';
+
+// ==========================================
+// PHASE 1 IN-MEMORY CACHES FOR READ OPTIMIZATION
+// ==========================================
+let activeFaenasCache = null;
+let activeFaenasListenerUnsubscribe = null;
+let activeFaenasPromise = null;
+
+let clientsCache = null;
+let categoryPricesCache = null;
+let camarasCache = null;
+
+// Cache for recent dispatched faenas (valid for 2 minutes to reduce clicks overhead)
+let recentDispatchedCache = null;
+let recentDispatchedCacheTime = 0;
+const RECENT_DISPATCHED_CACHE_DURATION = 2 * 60 * 1000; 
+
+/** Initialize active faenas listener globally (AVAILABLE and DRAFT) */
+export function initActiveFaenasListener(db, uid) {
+  if (activeFaenasListenerUnsubscribe) return;
+  if (!uid) return;
+
+  const collRef = collection(db, 'faenas_detalle');
+  const q = query(collRef, where("status", "in", ["AVAILABLE", "DRAFT"]));
+
+  console.log("[Firebase Sync] Initializing global listener for AVAILABLE and DRAFT faenas...");
+  activeFaenasPromise = new Promise((resolve, reject) => {
+    let resolved = false;
+    activeFaenasListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+      activeFaenasCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log(`[Firebase Sync] Active faenas updated in cache. Count: ${activeFaenasCache.length}`);
+      if (!resolved) {
+        resolved = true;
+        resolve(activeFaenasCache);
+      }
+    }, (error) => {
+      console.error("[Firebase Sync] Error in active faenas onSnapshot:", error);
+      if (!resolved) {
+        resolved = true;
+        reject(error);
+      }
+    });
+  });
+}
 
 /** Helper to fetch and parse a root collection */
 async function fetchAndParseRootCollection(db, uid, collName) {
@@ -31,7 +76,7 @@ async function fetchAndParseRootCollection(db, uid, collName) {
 }
 
 export async function fetchTravels(db, uid) {
-  return fetchAndParseRootCollection(db, uid, 'travels');
+  return localDb.travels.toArray();
 }
 
 export async function fetchBuys(db, uid) {
@@ -92,6 +137,13 @@ export async function updateTravel(db, uid, travelId, travelObject) {
     updatedAt: Date.now()
   };
   await updateDoc(docRef, dataToSave);
+  
+  // Write-Through Cache to Dexie
+  await localDb.travels.put({
+    ...travelObject,
+    id: String(travelId),
+    updatedAt: dataToSave.updatedAt
+  });
 }
 
 export async function saveTravel(db, uid, travelObject) {
@@ -102,12 +154,21 @@ export async function saveTravel(db, uid, travelObject) {
     updatedAt: Date.now()
   };
   await setDoc(docRef, dataToSave);
+  
+  // Write-Through Cache to Dexie
+  await localDb.travels.put({
+    ...travelObject,
+    updatedAt: dataToSave.updatedAt
+  });
 }
 
 export async function deleteTravel(db, uid, travelId) {
   if (!uid) throw new Error("UID is required to delete data");
   const docRef = doc(db, 'travels', String(travelId));
   await deleteDoc(docRef);
+  
+  // Write-Through Cache to Dexie
+  await localDb.travels.delete(String(travelId));
 }
 
 
@@ -119,16 +180,34 @@ export async function saveFaenaDetalle(db, uid, faenaRecords) {
   const collRef = collection(db, 'faenas_detalle');
   const batch = writeBatch(db);
   
+  const now = Date.now();
+  const recordsToPut = [];
+
   faenaRecords.forEach(record => {
     const newDocRef = doc(collRef);
-    batch.set(newDocRef, {
+    const docId = newDocRef.id;
+    const recordData = {
       ...record,
+      id: docId,
       ownerUid: uid,
-      createdAt: Date.now()
-    });
+      createdAt: now,
+      updatedAt: now
+    };
+    batch.set(newDocRef, recordData);
+    recordsToPut.push(recordData);
   });
   
   await batch.commit();
+
+  // Write-Through Cache to Dexie
+  if (recordsToPut.length > 0) {
+    await localDb.faenas_detalle.bulkPut(recordsToPut.map(r => ({
+      ...r,
+      barcode: r.barcode || null
+    })));
+  }
+
+  invalidateRecentDispatchedCache();
 }
 
 /**
@@ -151,12 +230,20 @@ export async function checkIfTropaExists(db, uid, tropa) {
 }
 
 /**
- * Fetch all faena details for a specific user to build the Stock and History views.
+ * Invalidate recent dispatched cache when changes occur.
+ */
+export function invalidateRecentDispatchedCache() {
+  recentDispatchedCache = null;
+  recentDispatchedCacheTime = 0;
+}
+
+/**
+ * Fetch active and recent (last 30 days) faena details.
+ * AVAILABLE and DRAFT are fetched from memory cache (listener).
+ * DISPATCHED are fetched from Firestore filtered by date (last 30 days) and cached for 2 minutes.
  */
 export async function fetchFaenaDetalle(db, uid) {
-  const collRef = collection(db, 'faenas_detalle');
-  const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return localDb.faenas_detalle.toArray();
 }
 
 /**
@@ -166,12 +253,31 @@ export async function updateFaenasStatus(db, uid, recordIds, updateData) {
   if (!uid || !recordIds || recordIds.length === 0) return;
   const batch = writeBatch(db);
   
+  const now = Date.now();
+  const fullUpdateData = {
+    ...updateData,
+    updatedAt: now
+  };
+  
   recordIds.forEach(id => {
     const docRef = doc(db, 'faenas_detalle', id);
-    batch.update(docRef, updateData);
+    batch.update(docRef, fullUpdateData);
   });
   
   await batch.commit();
+
+  // Write-Through Cache to Dexie
+  for (const id of recordIds) {
+    const existing = await localDb.faenas_detalle.get(id);
+    if (existing) {
+      await localDb.faenas_detalle.put({
+        ...existing,
+        ...fullUpdateData
+      });
+    }
+  }
+
+  invalidateRecentDispatchedCache();
 }
 
 /**
@@ -210,11 +316,29 @@ export async function moveFaenasToCamara(db, uid, recordsInfo, camaraId) {
     const movement = { from: info.fromCamaraId || null, to: camaraId, date: now };
     batch.update(docRef, {
       camaraId: camaraId,
-      movements: arrayUnion(movement)
+      movements: arrayUnion(movement),
+      updatedAt: now
     });
   });
   
   await batch.commit();
+
+  // Write-Through Cache to Dexie
+  for (const info of recordsInfo) {
+    const existing = await localDb.faenas_detalle.get(info.id);
+    if (existing) {
+      const movement = { from: info.fromCamaraId || null, to: camaraId, date: now };
+      const movements = existing.movements ? [...existing.movements, movement] : [movement];
+      await localDb.faenas_detalle.put({
+        ...existing,
+        camaraId,
+        movements,
+        updatedAt: now
+      });
+    }
+  }
+
+  invalidateRecentDispatchedCache();
 }
 
 /**
@@ -275,30 +399,42 @@ export async function consumeAchuras(db, uid, quantityToConsume) {
  * CLIENTS API
  */
 export async function fetchClients(db) {
-  const collRef = collection(db, 'clientes');
-  const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  if (clientsCache) return clientsCache;
+  const localClients = await localDb.clientes.toArray();
+  clientsCache = localClients;
+  return clientsCache;
 }
 
 export async function saveClient(db, clientRecord) {
   const collRef = collection(db, 'clientes');
   let clientRef;
+  const now = Date.now();
   
+  let savedRecord;
   if (clientRecord.id) {
     clientRef = doc(db, 'clientes', clientRecord.id);
-    await updateDoc(clientRef, { ...clientRecord, updatedAt: Date.now() });
+    savedRecord = { ...clientRecord, updatedAt: now };
+    await updateDoc(clientRef, savedRecord);
   } else {
     // Check if client with same name already exists to avoid duplicates
     const q = query(collRef, where("name", "==", clientRecord.name), limit(1));
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
-      clientRef = doc(db, 'clientes', snapshot.docs[0].id);
-      await updateDoc(clientRef, { ...clientRecord, updatedAt: Date.now() });
+      const existingId = snapshot.docs[0].id;
+      clientRef = doc(db, 'clientes', existingId);
+      savedRecord = { ...clientRecord, id: existingId, updatedAt: now };
+      await updateDoc(clientRef, savedRecord);
     } else {
-      const addedDoc = await addDoc(collRef, { ...clientRecord, createdAt: Date.now() });
+      const addedDoc = await addDoc(collRef, { ...clientRecord, createdAt: now, updatedAt: now });
       clientRef = addedDoc;
+      savedRecord = { ...clientRecord, id: addedDoc.id, createdAt: now, updatedAt: now };
     }
   }
+
+  // Write-Through Cache to Dexie
+  await localDb.clientes.put(savedRecord);
+
+  clientsCache = null; // Clear cache on change
   return clientRef.id;
 }
 
@@ -306,12 +442,14 @@ export async function saveClient(db, clientRecord) {
  * CONFIG API (Prices by Category)
  */
 export async function fetchCategoryPrices(db) {
+  if (categoryPricesCache) return categoryPricesCache;
   const docRef = doc(db, 'config', 'prices');
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
     const data = docSnap.data();
     // Return the nested prices object if it exists, otherwise the whole object for backward compatibility
-    return data.prices || data || {};
+    categoryPricesCache = data.prices || data || {};
+    return categoryPricesCache;
   }
   return {};
 }
@@ -319,15 +457,18 @@ export async function fetchCategoryPrices(db) {
 export async function saveCategoryPrices(db, pricesRecord) {
   const docRef = doc(db, 'config', 'prices');
   await setDoc(docRef, { prices: pricesRecord, updatedAt: Date.now() });
+  categoryPricesCache = null; // Clear cache on change
 }
 
 /**
  * CONFIG API (Camaras de Frio)
  */
 export async function fetchCamaras(db) {
+  if (camarasCache) return camarasCache;
   const docRef = doc(db, 'config', 'camaras');
   const docSnap = await getDoc(docRef);
-  return docSnap.exists() && docSnap.data().list ? docSnap.data().list : [];
+  camarasCache = docSnap.exists() && docSnap.data().list ? docSnap.data().list : [];
+  return camarasCache;
 }
 
 export async function saveCamaras(db, camarasList) {
@@ -335,6 +476,7 @@ export async function saveCamaras(db, camarasList) {
   const docRef = doc(db, 'config', 'camaras');
   await setDoc(docRef, { list: camarasList, updatedAt: Date.now() });
   console.log("api.saveCamaras successfully completed");
+  camarasCache = null; // Clear cache on change
 }
 
 /**
@@ -850,11 +992,13 @@ export async function executeUnifiedDispatch(db, uid, {
   }
 
   // 6. Update carcass statuses to DISPATCHED
+  const now = Date.now();
   const updateData = {
     status: 'DISPATCHED',
     destination: destName,
-    dispatchDate: Date.now(),
-    deleteAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+    dispatchDate: now,
+    updatedAt: now,
+    deleteAt: new Date(now + 90 * 24 * 60 * 60 * 1000)
   };
   carcassIds.forEach(id => {
     const carcassRef = doc(db, 'faenas_detalle', id);
@@ -862,17 +1006,64 @@ export async function executeUnifiedDispatch(db, uid, {
   });
 
   await batch.commit();
+
+  // Write-Through Cache to Dexie for Clientes
+  if (isNewClient) {
+    await localDb.clientes.put({
+      id: clientId,
+      name: destName,
+      priceListId: priceListId || null,
+      createdAt: now,
+      updatedAt: now
+    });
+  } else if (shouldLinkClient && priceListId) {
+    const existing = await localDb.clientes.get(clientId);
+    if (existing) {
+      await localDb.clientes.put({
+        ...existing,
+        priceListId,
+        updatedAt: now
+      });
+    }
+  }
+
+  // Write-Through Cache to Dexie for Carcasses
+  for (const id of carcassIds) {
+    const existing = await localDb.faenas_detalle.get(id);
+    if (existing) {
+      await localDb.faenas_detalle.put({
+        ...existing,
+        ...updateData
+      });
+    }
+  }
+
+  invalidateRecentDispatchedCache();
+  clientsCache = null; // Invalidate clients cache since we may have added a new client
 }
 
 /** Update category and history comments of a specific carcass item */
 export async function updateFaenaCategory(db, id, category, comments) {
   const docRef = doc(db, 'faenas_detalle', id);
-  await updateDoc(docRef, {
+  const now = Date.now();
+  const updateData = {
     category,
     standardizedCategory: category,
     comments,
-    updatedAt: Date.now()
-  });
+    updatedAt: now
+  };
+  await updateDoc(docRef, updateData);
+
+  // Write-Through Cache to Dexie
+  const existing = await localDb.faenas_detalle.get(id);
+  if (existing) {
+    await localDb.faenas_detalle.put({
+      ...existing,
+      ...updateData
+    });
+  }
+
+  invalidateRecentDispatchedCache();
 }
 
 

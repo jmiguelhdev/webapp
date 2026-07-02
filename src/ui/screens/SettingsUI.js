@@ -1,5 +1,7 @@
 import { el } from '../../utils/dom.js';
 import { SettingsService } from '../../services/SettingsService.js';
+import { SyncService } from '../../services/SyncService.js';
+
 
 /**
  * @file SettingsUI.js
@@ -568,6 +570,95 @@ export function renderSettings(container, options) {
     SettingsService.saveSettings(defaults);
     showMsg('¡Restaurado a los valores originales!');
   };
+
+  // Section: Registro de Sincronización (Dexie.js Logs)
+  const sectionTitleSync = el('h3', { 
+    classes: ['settings-section-title'], 
+    text: '🔄 Historial de Sincronización Local',
+    style: 'margin: 2.5rem 0 1rem 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); font-weight: 700;'
+  });
+  wrapper.appendChild(sectionTitleSync);
+
+  const syncCard = el('div', {
+    classes: ['glass-card'],
+    style: 'padding: 1.5rem; border-radius: 16px; margin-bottom: 2.5rem; display: flex; flex-direction: column; gap: 1rem;'
+  });
+  
+  syncCard.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+      <span style="font-weight: 600; color: var(--text-main);">Estado de Base de Datos y Logs</span>
+      <div style="display: flex; gap: 0.5rem;">
+        <button id="force-sync-btn" class="btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; margin: 0; background: var(--primary);">Sincronizar Ahora</button>
+        <button id="clear-logs-btn" class="btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; border-color: var(--border);">Limpiar Logs</button>
+      </div>
+    </div>
+    <div id="sync-logs-list" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; font-family: monospace; font-size: 0.8rem; padding-right: 0.5rem;">
+      <div style="color: var(--text-muted); text-align: center; padding: 1rem;">Cargando registros...</div>
+    </div>
+  `;
+  wrapper.appendChild(syncCard);
+
+  const loadSyncLogs = async () => {
+    const logsList = syncCard.querySelector('#sync-logs-list');
+    if (!logsList) return;
+    
+    try {
+      const logs = await SyncService.getSyncLogs();
+      if (logs.length === 0) {
+        logsList.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 1rem;">No hay registros de sincronización aún.</div>`;
+        return;
+      }
+      
+      logsList.innerHTML = logs.map(log => {
+        const dateStr = new Date(log.timestamp).toLocaleTimeString() + ' ' + new Date(log.timestamp).toLocaleDateString();
+        const color = log.status === 'SUCCESS' ? 'var(--success)' : 'var(--danger)';
+        const statusBadge = `<span style="color: ${color}; font-weight: 700; border: 1px solid ${color}; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.7rem; margin-right: 0.5rem;">${log.status}</span>`;
+        return `
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); padding: 0.75rem; border-radius: 8px; line-height: 1.4;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+              <span>${statusBadge} <strong>${log.recordsSynced}</strong></span>
+              <span style="color: var(--text-muted); font-size: 0.75rem;">${dateStr} (${log.duration}ms)</span>
+            </div>
+            <div style="color: var(--text-muted); font-size: 0.75rem;">${log.details}</div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      console.error(e);
+      logsList.innerHTML = `<div style="color: var(--danger); text-align: center; padding: 1rem;">Error al cargar logs: ${e.message}</div>`;
+    }
+  };
+
+  syncCard.querySelector('#force-sync-btn').onclick = async () => {
+    const btn = syncCard.querySelector('#force-sync-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sincronizando...';
+    await SyncService.syncAll(window.SHARED_DATA_SOURCE_UID || 'SHARED');
+    await loadSyncLogs();
+    btn.disabled = false;
+    btn.textContent = 'Sincronizar Ahora';
+  };
+
+  syncCard.querySelector('#clear-logs-btn').onclick = async () => {
+    if (confirm('¿Seguro que deseas vaciar el historial de sincronización local?')) {
+      await SyncService.clearSyncLogs();
+      await loadSyncLogs();
+    }
+  };
+
+  const syncLogsListener = () => {
+    loadSyncLogs();
+  };
+
+  if (window.activeSyncLogsListener) {
+    window.removeEventListener('app:sync-completed', window.activeSyncLogsListener);
+    window.removeEventListener('app:sync-failed', window.activeSyncLogsListener);
+  }
+  window.activeSyncLogsListener = syncLogsListener;
+  window.addEventListener('app:sync-completed', syncLogsListener);
+  window.addEventListener('app:sync-failed', syncLogsListener);
+
+  loadSyncLogs();
 
   // Append the constructed settings wrapper to the view container
   container.appendChild(wrapper);
