@@ -253,6 +253,203 @@ function openEditCategoryModal(item, onSave) {
 }
 
 /**
+ * Muestra un modal con la línea de tiempo del historial de movimientos del garrón.
+ */
+function showMovementsHistoryModal(item) {
+  const overlay = el('div', { 
+    classes: ['modal-overlay'], 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
+  });
+  const modal = el('div', { 
+    classes: ['glass-card'], 
+    style: 'background: var(--bg-dark); max-width: 550px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);' 
+  });
+
+  const events = [];
+
+  // 1. Ingreso a Frigorífico
+  const entryDate = item.createdAt ? new Date(item.createdAt) : null;
+  events.push({
+    title: '🟢 Ingreso a Frigorífico',
+    desc: `Tropa: ${item.tropa} | Garrón: #${item.garron} | Categoría: ${item.standardizedCategory || item.category} | Peso: ${item.kg.toFixed(1)} kg`,
+    date: entryDate ? entryDate.getTime() : (item.pdfDate ? new Date(item.pdfDate + 'T12:00:00').getTime() : 0),
+    dateStr: item.pdfDate || (entryDate ? entryDate.toLocaleDateString() : 'N/A')
+  });
+
+  // 2. Movimientos de Cámara y Destino
+  (item.movements || []).forEach(m => {
+    if (m.type === 'DESTINATION') {
+      events.push({
+        title: '🔄 Reasignación de Destino',
+        desc: `Destino cambiado de <strong>"${m.from}"</strong> a <strong>"${m.to}"</strong><br>Precio: $${m.price}/kg | Total: $${(item.kg * m.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
+    } else if (m.type === 'DISPATCH') {
+      events.push({
+        title: '🚚 Salida / Despacho',
+        desc: `Despachado a <strong>"${m.to}"</strong><br>Precio: $${m.price}/kg | Total: $${(item.kg * m.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
+    } else {
+      events.push({
+        title: '❄️ Movimiento de Cámara',
+        desc: `Trasladado de <strong>"${m.from || 'Sin Asignar'}"</strong> a <strong>"${m.to}"</strong>`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
+    }
+  });
+
+  // Retrocompatibilidad
+  const hasDispatchEvent = (item.movements || []).some(m => m.type === 'DISPATCH' || m.type === 'DESTINATION');
+  if (item.status === 'DISPATCHED' && !hasDispatchEvent) {
+    events.push({
+      title: '🚚 Salida / Despacho (Original)',
+      desc: `Despachado a <strong>"${item.destination || 'Sin Destino'}"</strong>`,
+      date: item.dispatchDate || Date.now(),
+      dateStr: item.dispatchDate ? new Date(item.dispatchDate).toLocaleString() : 'N/A'
+    });
+  }
+
+  events.sort((a, b) => a.date - b.date);
+
+  const categoryDisplay = item.standardizedCategory || item.category || 'OTRO';
+  modal.innerHTML = `
+    <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+      🕒 Historial de Movimientos - Garrón #${item.garron} <span style="font-size: 0.9rem; padding: 0.2rem 0.6rem; border-radius: 12px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; margin-left: 0.5rem;">${categoryDisplay}</span>
+    </h3>
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.25rem; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+      <div><strong>Tropa:</strong> ${item.tropa}</div>
+      <div><strong>Kilos:</strong> ${item.kg.toFixed(1)} kg</div>
+      <div><strong>Estado:</strong> <span style="text-transform: capitalize; color: ${item.status === 'AVAILABLE' ? '#10b981' : '#ef4444'}; font-weight: bold;">${item.status === 'AVAILABLE' ? 'En Stock' : 'Despachado'}</span></div>
+    </div>
+    <div style="flex: 1; overflow-y: auto; padding-right: 0.5rem; margin-bottom: 1.5rem;">
+      <div class="timeline-container" style="position: relative; padding-left: 24px; border-left: 2px solid var(--border); margin-left: 8px;">
+        ${events.map((e, index) => `
+          <div class="timeline-item" style="position: relative; margin-bottom: 1.5rem;">
+            <div style="position: absolute; left: -31px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: ${index === events.length - 1 ? 'var(--primary)' : 'var(--border)'}; border: 3px solid var(--bg-dark);"></div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.25rem;">${e.dateStr}</div>
+            <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.25rem;">${e.title}</div>
+            <div style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.4;">${e.desc}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div style="display: flex; justify-content: flex-end;">
+      <button id="hist-close-btn" class="btn btn-secondary" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; font-weight: 600;">Cerrar</button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  modal.querySelector('#hist-close-btn').onclick = () => {
+    document.body.removeChild(overlay);
+  };
+}
+
+/**
+ * Abre un modal para cambiar el destino de una res despachada.
+ */
+function openChangeDestinationModal(item, clientsList, onConfirm) {
+  const overlay = el('div', { 
+    classes: ['modal-overlay'], 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
+  });
+  const modal = el('div', { 
+    classes: ['glass-card'], 
+    style: 'background: var(--bg-dark); max-width: 450px; width: 100%; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 16px;' 
+  });
+
+  const oldDestination = item.destination || 'Sin Destino';
+  
+  let oldPrice = 0;
+  if (item.movements && item.movements.length > 0) {
+    const lastMov = item.movements.filter(m => m.type === 'DISPATCH' || m.type === 'DESTINATION').pop();
+    if (lastMov && lastMov.price) oldPrice = lastMov.price;
+  }
+
+  modal.innerHTML = `
+    <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary);">✏️ Reasignar Destino - Garrón #${item.garron}</h3>
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.5;">
+      <div><strong>Tropa:</strong> ${item.tropa} | <strong>Peso:</strong> ${item.kg.toFixed(1)} kg</div>
+      <div><strong>Categoría:</strong> ${item.standardizedCategory || item.category}</div>
+      <div style="color: var(--danger); margin-top: 0.25rem;"><strong>Destino Actual:</strong> ${oldDestination} ${oldPrice > 0 ? `($${oldPrice}/kg)` : ''}</div>
+    </div>
+    <div style="margin-bottom: 1.25rem;">
+      <label for="new-dest-input" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Nuevo Destino / Cliente</label>
+      <input type="text" id="new-dest-input" class="form-input" list="modal-clients-list" style="width: 100%; box-sizing: border-box;" placeholder="Buscar o ingresar carnicería..." value="">
+      <datalist id="modal-clients-list">
+        ${(clientsList || []).map(c => `<option value="${c.name}">`).join('')}
+      </datalist>
+    </div>
+    <div style="margin-bottom: 1.5rem;">
+      <label for="new-price-input" style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Nuevo Precio por Kg ($/kg)</label>
+      <input type="number" id="new-price-input" class="form-input" style="width: 100%; box-sizing: border-box;" placeholder="Ingresar precio por kg..." value="${oldPrice > 0 ? oldPrice : ''}">
+    </div>
+    <div style="margin-bottom: 1.5rem; text-align: right; font-weight: bold; font-size: 1.05rem; display: none;" id="estimated-debt-wrap">
+      Deuda a transferir: <span style="color: #10b981;" id="estimated-debt-val">$0</span>
+    </div>
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+      <button id="dest-cancel-btn" class="btn btn-secondary" style="padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Cancelar</button>
+      <button id="dest-save-btn" class="btn btn-primary" style="padding: 0.6rem 1.2rem; border-radius: 8px; background: var(--primary); color: var(--on-primary); border: none; cursor: pointer; font-weight: 600;">Confirmar Cambio</button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const destInput = modal.querySelector('#new-dest-input');
+  const priceInput = modal.querySelector('#new-price-input');
+  const debtWrap = modal.querySelector('#estimated-debt-wrap');
+  const debtVal = modal.querySelector('#estimated-debt-val');
+  const cancelBtn = modal.querySelector('#dest-cancel-btn');
+  const saveBtn = modal.querySelector('#dest-save-btn');
+
+  const updateEstimatedDebt = () => {
+    const pr = parseFloat(priceInput.value);
+    if (!isNaN(pr) && pr > 0) {
+      debtVal.textContent = `$${(item.kg * pr).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+      debtWrap.style.display = 'block';
+    } else {
+      debtWrap.style.display = 'none';
+    }
+  };
+
+  priceInput.addEventListener('input', updateEstimatedDebt);
+  updateEstimatedDebt();
+
+  cancelBtn.onclick = () => {
+    document.body.removeChild(overlay);
+  };
+
+  saveBtn.onclick = () => {
+    const newDestination = destInput.value.trim();
+    const newPrice = parseFloat(priceInput.value);
+
+    if (!newDestination) {
+      alert("Por favor, ingrese un nuevo destino/cliente.");
+      return;
+    }
+    if (isNaN(newPrice) || newPrice <= 0) {
+      alert("Por favor, ingrese un precio por kg válido.");
+      return;
+    }
+    if (newDestination.toLowerCase() === oldDestination.toLowerCase()) {
+      alert("El nuevo destino es idéntico al actual.");
+      return;
+    }
+
+    if (confirm(`¿Confirmar reasignación de Garrón #${item.garron} a "${newDestination}"?\n\nLa transacción contable se transferirá automáticamente de "${oldDestination}" a "${newDestination}" por un monto de $${(item.kg * newPrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}.`)) {
+      document.body.removeChild(overlay);
+      onConfirm(item.id, newDestination, newPrice);
+    }
+  };
+}
+
+/**
 
  * Renderiza la pantalla principal del panel de control de faena, stock e inventario.
  * 
@@ -758,6 +955,7 @@ export function renderFaenaConsumption(container, options) {
           <th style="padding: 1rem;">Kilos</th>
           <th style="padding: 1rem;">Cámara</th>
           <th style="padding: 1rem;">Ingreso</th>
+          <th style="padding: 1rem; width: 60px; text-align: center;">Hist</th>
         </tr>
       </thead>
       <tbody id="stock-tbody"></tbody>
@@ -767,7 +965,7 @@ export function renderFaenaConsumption(container, options) {
 
     const tbody = table.querySelector('#stock-tbody');
     if (stockItems.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay stock disponible. Carga reportes de faena desde la pestaña Viajes.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-muted);">No hay stock disponible. Carga reportes de faena desde la pestaña Viajes.</td></tr>`;
     } else {
       stockItems.forEach(item => {
         const isSel = state.selectedIds.has(item.id);
@@ -805,6 +1003,9 @@ export function renderFaenaConsumption(container, options) {
           <td style="padding: 1rem; font-weight: bold; color: #10b981;">${item.kg.toFixed(1)} kg</td>
           <td style="padding: 1rem; font-weight: 500;">${camaraDisplay}</td>
           <td style="padding: 1rem; font-size: 0.85rem; color: var(--text-muted);">${item.pdfDate} (Tr. ${item.tropa})</td>
+          <td style="padding: 1rem; text-align: center;">
+            <button class="btn-stock-history" style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 2px;" title="Ver historial de movimientos">🕒</button>
+          </td>
         `;
         
         const editBtn = tr.querySelector('.edit-cat-btn');
@@ -817,8 +1018,16 @@ export function renderFaenaConsumption(container, options) {
           };
         }
 
+        const histBtn = tr.querySelector('.btn-stock-history');
+        if (histBtn) {
+          histBtn.onclick = (e) => {
+            e.stopPropagation();
+            showMovementsHistoryModal(item);
+          };
+        }
+
         tr.onclick = (e) => {
-          if (e.target.tagName !== 'INPUT' && !e.target.closest('.edit-cat-btn')) {
+          if (e.target.tagName !== 'INPUT' && !e.target.closest('.edit-cat-btn') && !e.target.closest('.btn-stock-history')) {
             onToggleSelection(item.id);
           } else if (e.target.tagName === 'INPUT') {
             e.preventDefault();
@@ -827,6 +1036,7 @@ export function renderFaenaConsumption(container, options) {
         };
         tbody.appendChild(tr);
       });
+
     }
 
     tableWrap.appendChild(table);
@@ -1022,10 +1232,11 @@ export function renderFaenaConsumption(container, options) {
           <th style="padding: 1rem;">Mitad (Mz)</th>
           <th style="padding: 1rem;">Categoría</th>
           <th style="padding: 1rem;">Kilos</th>
+          <th style="padding: 1rem; width: 100px; text-align: center;">Acciones</th>
         </tr>
       </thead>
       <tbody>
-        ${historyItems.length === 0 ? `<tr><td colspan="6" style="padding: 2rem; text-align: center; color: var(--text-muted);">No se encontraron salidas.</td></tr>` : 
+        ${historyItems.length === 0 ? `<tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">No se encontraron salidas.</td></tr>` : 
           historyItems.map(h => {
             const catValue = h.standardizedCategory || h.category;
             const latestComment = h.comments && h.comments.length > 0 ? h.comments[h.comments.length - 1].comment : '';
@@ -1047,6 +1258,14 @@ export function renderFaenaConsumption(container, options) {
                   ` : ''}
                 </td>
                 <td style="padding: 1rem;">${h.kg ? h.kg.toFixed(1) : 0} kg</td>
+                <td style="padding: 1rem; text-align: center;">
+                  <div style="display: flex; gap: 0.5rem; justify-content: center; align-items: center;">
+                    <button class="btn-history-timeline" data-id="${h.id}" title="Ver Historial de Movimientos" 
+                      style="background: transparent; border: none; font-size: 1.1rem; cursor: pointer; padding: 2px;">🕒</button>
+                    <button class="btn-edit-destination" data-id="${h.id}" title="Reasignar Destino" 
+                      style="background: transparent; border: none; font-size: 1.1rem; cursor: pointer; padding: 2px;">✏️</button>
+                  </div>
+                </td>
               </tr>
             `;
           }).join('')
@@ -1056,6 +1275,24 @@ export function renderFaenaConsumption(container, options) {
     tableWrap.appendChild(table);
     
     table.querySelector('#sort-garron-hist').onclick = () => onToggleSort();
+
+    table.querySelectorAll('.btn-history-timeline').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const item = historyItems.find(x => x.id === id);
+        if (item) showMovementsHistoryModal(item);
+      };
+    });
+
+    table.querySelectorAll('.btn-edit-destination').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const item = historyItems.find(x => x.id === id);
+        if (item) openChangeDestinationModal(item, options.clients, options.onUpdateDestination);
+      };
+    });
 
     histCard.appendChild(tableWrap);
     wrapper.appendChild(histCard);

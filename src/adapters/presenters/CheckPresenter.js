@@ -36,10 +36,6 @@ export class CheckPresenter {
   }
 
   async loadData() {
-    if (this.checksUnsubscribe) {
-      this.checksUnsubscribe();
-      this.checksUnsubscribe = null;
-    }
     this.ui.showLoading();
     // Migrate old contacts cache key (if any) to the shared 'client_clients' key
     if (localStorage.getItem('checks_contacts')) {
@@ -73,19 +69,25 @@ export class CheckPresenter {
       });
       this.contacts = Array.from(unifiedContactsMap.values()).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
 
-      // Sintonizar la suscripción reactiva en tiempo real para cheques
-      this.checksUnsubscribe = this.checkRepository.subscribeChecks(
-        this.currentUserUid,
-        (checksList) => {
-          this.checks = checksList;
-          this.ui.hideLoading();
-          this.render();
-        },
-        (error) => {
-          console.error("Checks subscription error:", error);
-          this.ui.showError("Error de suscripción a cheques: " + error.message);
-        }
-      );
+      // Reutilizar listener activo si ya existe — evita re-descargar todos los cheques en cada navegación
+      if (!this.checksUnsubscribe) {
+        this.checksUnsubscribe = this.checkRepository.subscribeChecks(
+          this.currentUserUid,
+          (checksList) => {
+            this.checks = checksList;
+            this.ui.hideLoading();
+            this.render();
+          },
+          (error) => {
+            console.error("Checks subscription error:", error);
+            this.ui.showError("Error de suscripción a cheques: " + error.message);
+          }
+        );
+      } else {
+        // Listener already active - just re-render with cached checks
+        this.ui.hideLoading();
+        this.render();
+      }
     } catch (e) {
       this.ui.showError("Error al cargar cheques: " + e.message);
       this.ui.hideLoading();

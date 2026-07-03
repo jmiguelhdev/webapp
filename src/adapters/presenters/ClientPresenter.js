@@ -31,6 +31,11 @@ export class ClientPresenter {
         const txs = allClientTxs.filter(t => t.clientId === client.id);
         const account = new ClientAccount(client, txs);
         client.balance = account.getBalance();
+        
+        // Evaluar bloqueo financiero
+        const blockStatus = account.getBlockingStatus();
+        client.isBlocked = blockStatus.isBlocked;
+        client.blockingReason = blockStatus.reason;
       }
       
       if (this.operatorRepository) {
@@ -41,6 +46,10 @@ export class ClientPresenter {
           const txs = allOpTxs.filter(t => t.operatorId === op.id);
           const account = new ClientAccount(op, txs);
           op.balance = account.getBalance();
+          
+          const blockStatus = account.getBlockingStatus();
+          op.isBlocked = blockStatus.isBlocked;
+          op.blockingReason = blockStatus.reason;
         }
       }
 

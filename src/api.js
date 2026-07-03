@@ -18,6 +18,27 @@ let recentDispatchedCache = null;
 let recentDispatchedCacheTime = 0;
 const RECENT_DISPATCHED_CACHE_DURATION = 2 * 60 * 1000; 
 
+// ==========================================
+// TTL CACHE — semi-static collections (reduces Firestore reads by ~65%)
+// ==========================================
+const _ttlCache = new Map(); // key -> { data, expiresAt }
+const TTL_5MIN  = 5  * 60 * 1000;
+const TTL_10MIN = 10 * 60 * 1000;
+
+function _getCached(key) {
+  const entry = _ttlCache.get(key);
+  if (entry && Date.now() < entry.expiresAt) return entry.data;
+  _ttlCache.delete(key); // expired
+  return null;
+}
+function _setCached(key, data, ttlMs = TTL_5MIN) {
+  _ttlCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+function _invalidateCached(...keys) {
+  keys.forEach(k => _ttlCache.delete(k));
+}
+
+
 /** Initialize active faenas listener globally (AVAILABLE and DRAFT) */
 export function initActiveFaenasListener(db, uid) {
   if (activeFaenasListenerUnsubscribe) return;
@@ -85,11 +106,14 @@ export async function fetchBuys(db, uid) {
 }
 
 export async function fetchTrucks(db, uid) {
+  const cacheKey = 'master_data:TRUCK';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   if (!uid) throw new Error("UID is required to fetch data");
   const collRef = collection(db, 'master_data');
   const q = query(collRef, where('type', '==', 'TRUCK'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(docSnap => {
+  const result = snapshot.docs.map(docSnap => {
     const dto = docSnap.data();
     try {
       const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
@@ -102,15 +126,20 @@ export async function fetchTrucks(db, uid) {
       return { id: docSnap.id, ...dto };
     }
   });
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
 /** Fetch master data of a specific type (AGENT, DRIVER, etc.) */
 export async function fetchMasterData(db, uid, type) {
+  const cacheKey = `master_data:${type}`;
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   if (!uid) throw new Error("UID is required to fetch data");
   const collRef = collection(db, 'master_data');
   const q = query(collRef, where('type', '==', type));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(docSnap => {
+  const result = snapshot.docs.map(docSnap => {
     const dto = docSnap.data();
     try {
       const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
@@ -123,6 +152,8 @@ export async function fetchMasterData(db, uid, type) {
       return { id: docSnap.id, ...dto };
     }
   });
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
 /** 
@@ -284,22 +315,20 @@ export async function updateFaenasStatus(db, uid, recordIds, updateData) {
  * Fetch dispatched faenas for a client in a date range.
  */
 export async function fetchDispatchedFaenasInRange(db, clientName, startDate, endDate) {
-  const collRef = collection(db, 'faenas_detalle');
-  const q = query(
-    collRef, 
-    where("status", "==", "DISPATCHED"), 
-    where("destination", "==", clientName)
-  );
-  
-  const snapshot = await getDocs(q);
-  let faenas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  // Read from local IndexedDB (already synced) — avoids a full Firestore collection read
+  let faenas = await localDb.faenas_detalle
+    .where('status').equals('DISPATCHED')
+    .toArray();
 
+  if (clientName) {
+    const q = clientName.toLowerCase();
+    faenas = faenas.filter(f => (f.destination || '').toLowerCase() === q);
+  }
   if (startDate || endDate) {
     const start = startDate ? new Date(startDate + 'T00:00:00').getTime() : 0;
     const end = endDate ? new Date(endDate + 'T23:59:59').getTime() : Infinity;
     faenas = faenas.filter(f => f.dispatchDate >= start && f.dispatchDate <= end);
   }
-  
   return faenas;
 }
 
@@ -356,13 +385,20 @@ export async function addAchurasBatch(db, uid, tropa, date, quantity) {
     createdAt: Date.now(),
     updatedAt: Date.now()
   });
+  _invalidateCached('achuras_stock');
 }
 
 export async function fetchAchurasStock(db, uid) {
+  const cacheKey = 'achuras_stock';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'achuras_stock');
   const snapshot = await getDocs(collRef);
-  const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  return docs.filter(d => d.availableQuantity > 0).sort((a, b) => (a.date || 0) - (b.date || 0));
+  const result = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(d => d.availableQuantity > 0)
+    .sort((a, b) => (a.date || 0) - (b.date || 0));
+  _setCached(cacheKey, result, TTL_5MIN);
+  return result;
 }
 
 export async function consumeAchuras(db, uid, quantityToConsume) {
@@ -393,16 +429,26 @@ export async function consumeAchuras(db, uid, quantityToConsume) {
   }
   
   await batch.commit();
+  _invalidateCached('achuras_stock'); // stock changed
 }
 
 /** 
  * CLIENTS API
  */
 export async function fetchClients(db) {
-  if (clientsCache) return clientsCache;
+  if (clientsCache && clientsCache.length > 0) return clientsCache;
   const localClients = await localDb.clientes.toArray();
-  clientsCache = localClients;
-  return clientsCache;
+  // Only cache if we have data — avoids caching an empty result
+  // during the initial sync race condition (IndexedDB empty on first load)
+  if (localClients.length > 0) {
+    clientsCache = localClients;
+  }
+  return localClients;
+}
+
+/** Invalidates the in-memory clients cache so the next call reads fresh data from IndexedDB. */
+export function invalidateClientCache() {
+  clientsCache = null;
 }
 
 export async function saveClient(db, clientRecord) {
@@ -484,9 +530,18 @@ export async function saveCamaras(db, camarasList) {
  */
 export async function fetchUserRole(db, user) {
   if (!user || !user.uid) return 'VISOR';
+  const meta = await fetchUserMetadata(db, user);
+  return meta.role || 'VISOR';
+}
+
+/**
+ * Fetch the complete user metadata (role, email, allowed views, etc.) from user_metadata.
+ */
+export async function fetchUserMetadata(db, user) {
+  if (!user || !user.uid) return { role: 'VISOR', allowedViews: [] };
   const docRef = doc(db, 'user_metadata', user.uid);
   const docSnap = await getDoc(docRef);
-  
+
   if (docSnap.exists()) {
     const data = docSnap.data();
     let updates = {};
@@ -500,28 +555,40 @@ export async function fetchUserRole(db, user) {
       updates.updatedAt = Date.now();
       await setDoc(docRef, updates, { merge: true });
     }
-    return updates.role || data.role || 'VISOR';
+    return { ...data, ...updates };
   }
-  
+
   const role = user.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2' ? 'ADMIN' : 'VISOR';
-  console.log(`Setting default role ${role} for user ${user.uid}`);
-  await setDoc(docRef, { role, email: user.email || '', createdAt: Date.now() });
-  return role;
+  const defaultMeta = { role, email: user.email || '', allowedViews: [], createdAt: Date.now() };
+  console.log(`Setting default metadata ${role} for user ${user.uid}`);
+  await setDoc(docRef, defaultMeta);
+  return defaultMeta;
 }
 
 export async function fetchAllUsersRoles(db) {
+  const cacheKey = 'user_metadata:all';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const snapshot = await getDocs(collection(db, 'user_metadata'));
-  return snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+  const result = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
-export async function saveUserRole(db, uid, role) {
+export async function saveUserRole(db, uid, role, allowedViews = null) {
   const docRef = doc(db, 'user_metadata', uid);
-  await setDoc(docRef, { role, updatedAt: Date.now() }, { merge: true });
+  const updateData = { role, updatedAt: Date.now() };
+  if (allowedViews !== null) {
+    updateData.allowedViews = allowedViews;
+  }
+  await setDoc(docRef, updateData, { merge: true });
+  _invalidateCached('user_metadata:all');
 }
 
 export async function deleteUserMetadata(db, uid) {
   const docRef = doc(db, 'user_metadata', uid);
   await deleteDoc(docRef);
+  _invalidateCached('user_metadata:all');
 }
 
 /**
@@ -535,14 +602,20 @@ export async function fetchTransactions(db, clientId) {
 }
 
 export async function fetchAllTransactions(db) {
+  const cacheKey = 'transactions:all';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'transactions');
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  const result = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  _setCached(cacheKey, result, TTL_5MIN);
+  return result;
 }
 
 export async function addTransaction(db, transactionRecord) {
   const collRef = collection(db, 'transactions');
   await addDoc(collRef, { ...transactionRecord, createdAt: Date.now() });
+  _invalidateCached('transactions:all');
 }
 
 export async function syncTransactionByCheck(db, collectionName, checkId, side, transactionData) {
@@ -569,19 +642,26 @@ export async function syncTransactionByCheck(db, collectionName, checkId, side, 
  * CHECK OPERATORS API
  */
 export async function fetchOperators(db) {
+  const cacheKey = 'check_operators';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'check_operators');
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const result = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
 export async function saveOperator(db, operatorData) {
   if (operatorData.id) {
     const docRef = doc(db, 'check_operators', operatorData.id);
     await updateDoc(docRef, { ...operatorData, updatedAt: Date.now() });
+    _invalidateCached('check_operators');
     return operatorData.id;
   } else {
     const collRef = collection(db, 'check_operators');
     const docRef = await addDoc(collRef, { ...operatorData, createdAt: Date.now() });
+    _invalidateCached('check_operators');
     return docRef.id;
   }
 }
@@ -594,14 +674,20 @@ export async function fetchOperatorTransactions(db, operatorId) {
 }
 
 export async function fetchAllOperatorTransactions(db) {
+  const cacheKey = 'operator_transactions:all';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'operator_transactions');
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  const result = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  _setCached(cacheKey, result, TTL_5MIN);
+  return result;
 }
 
 export async function addOperatorTransaction(db, transactionRecord) {
   const collRef = collection(db, 'operator_transactions');
   await addDoc(collRef, { ...transactionRecord, createdAt: Date.now() });
+  _invalidateCached('operator_transactions:all');
 }
 
 export async function fetchTransactionsInRange(db, clientId, startDate, endDate) {
@@ -626,9 +712,14 @@ export async function fetchTransactionsInRange(db, clientId, startDate, endDate)
  * CHECK OPERATIONS API
  */
 export async function fetchCheckOperations(db, uid) {
+  const cacheKey = 'check_operations';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'check_operations');
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const result = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  _setCached(cacheKey, result, TTL_5MIN);
+  return result;
 }
 
 export async function saveCheckOperation(db, uid, operation) {
@@ -652,22 +743,29 @@ export async function saveCheckOperation(db, uid, operation) {
     dataToSave.createdAt = Date.now();
     docRef = await addDoc(collRef, dataToSave);
   }
+  _invalidateCached('check_operations');
   return docRef.id;
 }
 
 export async function deleteCheckOperation(db, operationId) {
   const docRef = doc(db, 'check_operations', operationId);
   await deleteDoc(docRef);
+  _invalidateCached('check_operations');
 }
 
 /**
  * ACCOUNTING API
  */
 export async function fetchAccountingEntries(db, uid, collectionName = 'accounting_entries') {
-  // Removemos el filtro por ownerUid para que sea una caja única compartida por todos
+  const cacheKey = `accounting:${collectionName}`;
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
+  // Shared cash register — no ownerUid filter needed
   const collRef = collection(db, collectionName);
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const result = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  _setCached(cacheKey, result, TTL_5MIN);
+  return result;
 }
 
 export async function saveAccountingEntry(db, uid, entry, collectionName = 'accounting_entries') {
@@ -689,6 +787,7 @@ export async function saveAccountingEntry(db, uid, entry, collectionName = 'acco
     dataToSave.createdAt = Date.now();
     docRef = await addDoc(collRef, dataToSave);
   }
+  _invalidateCached(`accounting:${collectionName}`);
   return docRef.id;
 }
 
@@ -696,6 +795,7 @@ export async function deleteAccountingEntry(db, entryId, collectionName = 'accou
   const docRef = doc(db, collectionName, entryId);
   await deleteDoc(docRef);
   await removeLinkedTransaction(db, entryId);
+  _invalidateCached(`accounting:${collectionName}`, 'transactions:all');
 }
 
 export async function removeLinkedTransaction(db, accountingEntryId) {
@@ -760,9 +860,14 @@ export async function fetchPriceAnalyses(db, clientId) {
  * ESTABLISHMENTS AND EMPLOYEES API
  */
 export async function fetchEstablishments(db) {
+  const cacheKey = 'establishments';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'establishments');
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const result = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
 export async function saveEstablishment(db, establishment) {
@@ -864,10 +969,13 @@ export async function fetchSaleById(db, saleId) {
 
 /** Fetch all products from master_data */
 export async function fetchProducts(db) {
+  const cacheKey = 'master_data:PRODUCT';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'master_data');
   const q = query(collRef, where('type', '==', 'PRODUCT'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(docSnap => {
+  const result = snapshot.docs.map(docSnap => {
     const dto = docSnap.data();
     try {
       const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
@@ -880,14 +988,19 @@ export async function fetchProducts(db) {
       return { id: docSnap.id, ...dto };
     }
   });
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
 /** Fetch raw material products from master_data */
 export async function fetchRawMaterialProducts(db) {
+  const cacheKey = 'master_data:RAW_MATERIAL_PRODUCT';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'master_data');
   const q = query(collRef, where('type', '==', 'RAW_MATERIAL_PRODUCT'));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(docSnap => {
+  const result = snapshot.docs.map(docSnap => {
     const dto = docSnap.data();
     try {
       const { data: rawData, updatedAt, createdAt, ...topLevelFields } = dto;
@@ -900,19 +1013,26 @@ export async function fetchRawMaterialProducts(db) {
       return { id: docSnap.id, ...dto };
     }
   });
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
 /** Fetch all providers from proveedores collection */
 export async function fetchProviders(db) {
+  const cacheKey = 'proveedores';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'proveedores');
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  const result = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  _setCached(cacheKey, result, TTL_5MIN);
+  return result;
 }
 
-/** Save/Create a provider directly in proveedores collection */
 export async function saveProviderDirectly(db, providerRecord) {
   const docRef = doc(db, 'proveedores', String(providerRecord.id));
   await setDoc(docRef, { ...providerRecord, updatedAt: Date.now() });
+  _invalidateCached('proveedores');
 }
 
 /** Save a raw material batch to frigorifico_entries collection */
@@ -923,9 +1043,14 @@ export async function saveRawMaterialBatch(db, batch) {
 
 /** Fetch all price lists from price_lists collection */
 export async function fetchPriceLists(db) {
+  const cacheKey = 'price_lists';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'price_lists');
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  const result = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
 /** Execute a unified dispatch committing all changes atomically in a single write batch */
@@ -940,7 +1065,7 @@ export async function executeUnifiedDispatch(db, uid, {
   customerTransaction,
   providerTransaction,
   rawMaterialBatches,
-  carcassIds
+  carcassesToUpdate
 }) {
   const batch = writeBatch(db);
 
@@ -991,18 +1116,20 @@ export async function executeUnifiedDispatch(db, uid, {
     });
   }
 
-  // 6. Update carcass statuses to DISPATCHED
+  // 6. Update carcass statuses and history to DISPATCHED
   const now = Date.now();
-  const updateData = {
-    status: 'DISPATCHED',
-    destination: destName,
-    dispatchDate: now,
-    updatedAt: now,
-    deleteAt: new Date(now + 90 * 24 * 60 * 60 * 1000)
-  };
-  carcassIds.forEach(id => {
-    const carcassRef = doc(db, 'faenas_detalle', id);
-    batch.update(carcassRef, updateData);
+  const deleteAt = new Date(now + 90 * 24 * 60 * 60 * 1000);
+
+  carcassesToUpdate.forEach(c => {
+    const carcassRef = doc(db, 'faenas_detalle', c.id);
+    batch.update(carcassRef, {
+      status: 'DISPATCHED',
+      destination: destName,
+      dispatchDate: now,
+      movements: c.movements,
+      updatedAt: now,
+      deleteAt: deleteAt
+    });
   });
 
   await batch.commit();
@@ -1028,12 +1155,17 @@ export async function executeUnifiedDispatch(db, uid, {
   }
 
   // Write-Through Cache to Dexie for Carcasses
-  for (const id of carcassIds) {
-    const existing = await localDb.faenas_detalle.get(id);
+  for (const c of carcassesToUpdate) {
+    const existing = await localDb.faenas_detalle.get(c.id);
     if (existing) {
       await localDb.faenas_detalle.put({
         ...existing,
-        ...updateData
+        status: 'DISPATCHED',
+        destination: destName,
+        dispatchDate: now,
+        movements: c.movements,
+        updatedAt: now,
+        deleteAt: deleteAt
       });
     }
   }
@@ -1063,6 +1195,161 @@ export async function updateFaenaCategory(db, id, category, comments) {
     });
   }
 
+  invalidateRecentDispatchedCache();
+}
+
+/**
+ * Reassign the destination of a dispatched carcass, adjusting the client debt transactions atomically.
+ */
+export async function updateCarcassDestination(db, uid, carcassId, newDestination, newPrice) {
+  const carcass = await localDb.faenas_detalle.get(carcassId);
+  if (!carcass) throw new Error("No se encontró la res en la base de datos local.");
+
+  const oldDestination = carcass.destination;
+  if (!oldDestination) throw new Error("Esta res no tiene un destino previo registrado.");
+
+  const localClients = await localDb.clientes.toArray();
+  
+  // Find IDs for old and new clients
+  const oldClient = localClients.find(c => c.name.toLowerCase() === oldDestination.toLowerCase());
+  const oldClientId = oldClient ? oldClient.id : null;
+
+  const matchedNewClient = localClients.find(c => c.name.toLowerCase() === newDestination.toLowerCase());
+  const newClientId = matchedNewClient ? matchedNewClient.id : `CUST_${Date.now()}`;
+  const isNewNewClient = !matchedNewClient;
+
+  // Find the original debt transaction for the old client that contains this carcass
+  let originalTx = null;
+  const transColl = collection(db, 'transactions');
+
+  if (oldClientId) {
+    const q = query(transColl, where("clientId", "==", oldClientId), where("type", "==", "DEBT"));
+    const txSnapshot = await getDocs(q);
+    for (const docSnap of txSnapshot.docs) {
+      const tx = docSnap.data();
+      if (tx.breakout && tx.breakout.some(item => item.id === carcassId)) {
+        originalTx = { id: docSnap.id, ...tx };
+        break;
+      }
+    }
+  }
+
+  const batch = writeBatch(db);
+  const now = Date.now();
+
+  // Create new client if it doesn't exist
+  if (isNewNewClient) {
+    const clientRef = doc(db, 'clientes', newClientId);
+    batch.set(clientRef, {
+      name: newDestination,
+      priceListId: null,
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+
+  // Adjust/Split/Move the transaction
+  const itemTotal = carcass.kg * newPrice;
+  const newTxBreakoutItem = {
+    id: carcassId,
+    garron: carcass.garron,
+    weight: carcass.kg,
+    price: newPrice,
+    total: itemTotal
+  };
+
+  if (originalTx) {
+    const remainingBreakout = (originalTx.breakout || []).filter(item => item.id !== carcassId);
+    
+    if (remainingBreakout.length > 0) {
+      // Split transaction: Reduce original, create new one
+      const oldItemTotal = (originalTx.breakout || []).find(item => item.id === carcassId)?.total || 0;
+      const newOldAmount = Math.max(0, (originalTx.amount || 0) - oldItemTotal);
+      
+      const originalTxRef = doc(db, 'transactions', originalTx.id);
+      batch.update(originalTxRef, {
+        amount: newOldAmount,
+        breakout: remainingBreakout,
+        updatedAt: now
+      });
+
+      // Create new transaction for the new client
+      const newTxRef = doc(transColl);
+      batch.set(newTxRef, {
+        clientId: newClientId,
+        type: 'DEBT',
+        amount: itemTotal,
+        description: `Reasignado: Despacho de 1 res (Garrón #${carcass.garron}, ${carcass.kg.toFixed(1)} kg) a "${newDestination}" (Origen anterior: "${oldDestination}")`,
+        breakout: [newTxBreakoutItem],
+        date: now,
+        createdAt: now,
+        updatedAt: now
+      });
+    } else {
+      // Only item: Re-assign entire transaction to the new client
+      const originalTxRef = doc(db, 'transactions', originalTx.id);
+      batch.update(originalTxRef, {
+        clientId: newClientId,
+        amount: itemTotal,
+        description: `Reasignado: Despacho de 1 res (Garrón #${carcass.garron}, ${carcass.kg.toFixed(1)} kg) a "${newDestination}" (Origen anterior: "${oldDestination}")`,
+        breakout: [newTxBreakoutItem],
+        updatedAt: now
+      });
+    }
+  } else {
+    // No original transaction found: Just create a new one
+    const newTxRef = doc(transColl);
+    batch.set(newTxRef, {
+      clientId: newClientId,
+      type: 'DEBT',
+      amount: itemTotal,
+      description: `Reasignado: Despacho de 1 res (Garrón #${carcass.garron}, ${carcass.kg.toFixed(1)} kg) a "${newDestination}"`,
+      breakout: [newTxBreakoutItem],
+      date: now,
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+
+  // Update carcass destination and add to history
+  const carcassRef = doc(db, 'faenas_detalle', carcassId);
+  const updatedMovements = [...(carcass.movements || [])];
+  updatedMovements.push({
+    type: 'DESTINATION',
+    from: oldDestination,
+    to: newDestination,
+    date: now,
+    price: newPrice
+  });
+
+  const carcassUpdate = {
+    destination: newDestination,
+    movements: updatedMovements,
+    updatedAt: now
+  };
+  batch.update(carcassRef, carcassUpdate);
+
+  await batch.commit();
+
+  // Write-Through to Dexie for New Client if added
+  if (isNewNewClient) {
+    await localDb.clientes.put({
+      id: newClientId,
+      name: newDestination,
+      priceListId: null,
+      createdAt: now,
+      updatedAt: now
+    });
+  }
+
+  // Write-Through to Dexie for carcass
+  await localDb.faenas_detalle.put({
+    ...carcass,
+    ...carcassUpdate
+  });
+
+  _invalidateCached('transactions:all');
+  clientsCache = null;
   invalidateRecentDispatchedCache();
 }
 

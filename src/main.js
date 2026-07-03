@@ -56,9 +56,9 @@ const logisticsRepository = new LogisticsRepository();
 const establishmentRepository = new EstablishmentRepository();
 const operatorRepository = new OperatorRepository();
 
-// State
 let currentUser = null;
 let currentUserRole = null; // 'ADMIN', 'OPERARIO', or 'VISOR'
+let currentUserAllowedViews = null; // Custom permitted views array
 
 // Acceso compartido desde config.js
 
@@ -169,11 +169,14 @@ onAuthStateChanged(auth, async (user) => {
     document.body.classList.add('authenticated');
     
     try {
-      // Ensure we have the user role before proceeding
-      currentUserRole = await api.fetchUserRole(db, user);
+      // Ensure we have the user role and allowed views before proceeding
+      const userMetadata = await api.fetchUserMetadata(db, user);
+      currentUserRole = userMetadata.role || 'VISOR';
+      currentUserAllowedViews = userMetadata.allowedViews || null;
     } catch (e) {
-      console.error("Error fetching user role:", e);
+      console.error("Error fetching user role and metadata:", e);
       currentUserRole = 'VISOR'; // Fallback
+      currentUserAllowedViews = null;
     }
 
     // Pass role to presenters
@@ -205,15 +208,25 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Refresh UI when background sync completes
+// Refresh UI when background sync completes (silent mode: no loading spinner to avoid screen flicker)
 window.addEventListener('app:sync-completed', () => {
+  // Always invalidate clients in-memory cache so next read picks fresh IndexedDB data
+  api.invalidateClientCache();
+
   const activeView = kmpSidebar ? kmpSidebar.getAttribute('active') : 'dashboard';
   if (activeView === 'consumption') {
-    console.log("[SyncEvent] Auto-refreshing Consumption UI...");
-    consumptionPresenter.loadFaenas(SHARED_DATA_SOURCE_UID);
+    console.log("[SyncEvent] Auto-refreshing Consumption UI (silent)...");
+    consumptionPresenter.loadFaenas(SHARED_DATA_SOURCE_UID, true);
   } else if (activeView === 'dashboard') {
-    console.log("[SyncEvent] Auto-refreshing Dashboard UI...");
+    console.log("[SyncEvent] Auto-refreshing Dashboard UI (silent)...");
+    // Invalidate dashboard cache so fresh data is loaded from local DB
+    travelPresenter.stockItemsCache = null;
+    travelPresenter.clientsCache = null;
+    travelPresenter.categoryPricesCache = null;
     travelPresenter.showDashboard();
+  } else if (activeView === 'clients') {
+    console.log("[SyncEvent] Auto-refreshing Clients UI (silent)...");
+    clientPresenter.loadClients();
   }
 });
 
@@ -251,7 +264,14 @@ function showLogin() {
   });
 }
 
-function getAllowedViews(role) {
+function getAllowedViews(role, allowedViews = currentUserAllowedViews) {
+  if (allowedViews && Array.isArray(allowedViews) && allowedViews.length > 0) {
+    const list = [...allowedViews];
+    if (!list.includes('logout')) list.push('logout');
+    if (!list.includes('dashboard')) list.push('dashboard');
+    return list;
+  }
+
   if (role === 'ADMIN') {
     return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments'];
   } else if (role === 'OPERARIO') {
@@ -357,8 +377,13 @@ const navigateTo = (view, role = currentUserRole) => {
           onSavePrices: (newPrices) => clientRepository.saveCategoryPrices(newPrices),
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
-          onSaveUserRole: async (uid, role) => {
-            await api.saveUserRole(db, uid, role);
+          onSaveUserRole: async (uid, role, allowedViews) => {
+            await api.saveUserRole(db, uid, role, allowedViews);
+            if (currentUser && uid === currentUser.uid) {
+              currentUserRole = role;
+              currentUserAllowedViews = allowedViews;
+              enforcePermissions(currentUserRole);
+            }
             window.usersListCache = null; // Clear cache on update
           },
           onDeleteUser: async (uid) => {

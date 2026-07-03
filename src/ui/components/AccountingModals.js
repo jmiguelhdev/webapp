@@ -357,60 +357,220 @@ export function showBillCalculator(expectedAmount, onApply) {
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 600px; padding: 2rem;'
+    style: 'width: 100%; max-width: 600px; padding: 1.5rem 1.25rem; display: flex; flex-direction: column; max-height: 95vh; box-sizing: border-box;'
   });
 
   content.innerHTML = `
-    <h3 style="margin-top:0; margin-bottom: 1.5rem;">🔢 Recuento de Billetes</h3>
-    <div class="table-responsive">
-      <div id="calc-rows" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; min-width: 600px;">
-      <div style="display: grid; grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-        <div>Valor</div>
-        <div></div>
-        <div style="text-align: center;">Bloques <small>(1000u)</small></div>
-        <div></div>
-        <div style="text-align: center;">Fajos <small>(100u)</small></div>
-        <div></div>
-        <div style="text-align: center;">Sueltos <small>(1u)</small></div>
-        <div></div>
-        <div style="text-align: right;">Subtotal</div>
-      </div>
+    <style>
+      .calc-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+        overflow-y: auto;
+        padding-right: 0.25rem;
+        flex: 1;
+        min-height: 150px;
+      }
+      .denom-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--border);
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+      }
+      .denom-row:focus-within {
+        border-color: var(--primary);
+      }
+      .denom-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .denom-label {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--text-main);
+      }
+      .denom-total {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: #10b981;
+        font-family: monospace;
+      }
+      .denom-inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.5rem;
+      }
+      .input-col {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .input-col label {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-align: center;
+        font-weight: 600;
+      }
+      .input-col input {
+        padding: 0.4rem;
+        border-radius: 8px;
+        text-align: center;
+        background: rgba(0,0,0,0.2);
+        border: 1px solid var(--border);
+        color: var(--text-main);
+        font-size: 0.9rem;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .calc-header-desktop {
+        display: none;
+      }
+      .calc-sign {
+        display: none;
+      }
+      
+      @media (min-width: 576px) {
+        .calc-container {
+          max-height: 50vh;
+        }
+        .denom-row {
+          display: grid;
+          grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.4rem 0.5rem;
+          border-radius: 0;
+          background: transparent;
+          border: none;
+          border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .denom-row:focus-within {
+          border-color: transparent;
+        }
+        .denom-header {
+          display: contents;
+        }
+        .denom-label {
+          font-size: 0.95rem;
+        }
+        .denom-total {
+          grid-column: 9;
+          text-align: right;
+          font-size: 1rem;
+        }
+        .denom-inputs {
+          display: contents;
+        }
+        .input-col {
+          display: contents;
+        }
+        .input-col label {
+          display: none;
+        }
+        .input-col input {
+          text-align: right;
+          padding: 0.5rem;
+        }
+        .calc-sign {
+          display: block;
+          text-align: center;
+          font-size: 0.85rem;
+          color: var(--text-muted);
+        }
+        .calc-header-desktop {
+          display: grid;
+          grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          margin-bottom: 0.5rem;
+          padding: 0 0.5rem;
+          border-bottom: 1px solid var(--border);
+          padding-bottom: 0.5rem;
+        }
+      }
+    </style>
+    
+    <h3 style="margin-top:0; margin-bottom: 1rem; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
+      💵 Recuento de Billetes
+    </h3>
+    
+    <div class="calc-header-desktop">
+      <div>Valor</div>
+      <div></div>
+      <div style="text-align: center;">Bloques <small>(1000u)</small></div>
+      <div></div>
+      <div style="text-align: center;">Fajos <small>(100u)</small></div>
+      <div></div>
+      <div style="text-align: center;">Sueltos <small>(1u)</small></div>
+      <div></div>
+      <div style="text-align: right;">Subtotal</div>
+    </div>
+    
+    <div class="calc-container" id="calc-rows">
       ${DENOMINATIONS.map(d => `
-        <div class="denom-row" data-denom="${d}" style="display: grid; grid-template-columns: 80px 20px 80px 20px 80px 20px 80px 30px 1fr; align-items: center; gap: 0.5rem;">
-          <div style="font-weight: 700; color: var(--text-main);">$ ${d.toLocaleString()}</div>
-          <div style="text-align: center;">×</div>
-          <input type="number" class="bill-block" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
-          <div style="text-align: center;">+</div>
-          <input type="number" class="bill-batch" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
-          <div style="text-align: center;">+</div>
-          <input type="number" class="bill-qty" data-denom="${d}" placeholder="0" min="0" style="padding: 0.5rem; border-radius: 8px; text-align: right; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main);">
-          <div style="text-align: center;">=</div>
-          <div class="row-total" style="text-align: right; font-weight: 600; font-family: monospace; font-size: 1.1rem;">$ 0</div>
+        <div class="denom-row" data-denom="${d}">
+          <div class="denom-header">
+            <span class="denom-label">$ ${d.toLocaleString()}</span>
+            <span class="row-total denom-total">$ 0</span>
+          </div>
+          
+          <div class="denom-inputs">
+            <div class="calc-sign">×</div>
+            <div class="input-col">
+              <label>Bloques (1000u)</label>
+              <input type="number" class="bill-block" data-denom="${d}" placeholder="0" min="0">
+            </div>
+            
+            <div class="calc-sign">+</div>
+            <div class="input-col">
+              <label>Fajos (100u)</label>
+              <input type="number" class="bill-batch" data-denom="${d}" placeholder="0" min="0">
+            </div>
+            
+            <div class="calc-sign">+</div>
+            <div class="input-col">
+              <label>Sueltos (1u)</label>
+              <input type="number" class="bill-qty" data-denom="${d}" placeholder="0" min="0">
+            </div>
+            <div class="calc-sign">=</div>
+          </div>
         </div>
       `).join('')}
     </div>
-    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+    
+    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 12px; margin-bottom: 1.25rem;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
-        <span style="font-weight: 500; font-size: 0.9rem; color: var(--text-muted);">Monto Esperado:</span>
+        <span style="font-weight: 500; font-size: 0.85rem; color: var(--text-muted);">Monto Esperado:</span>
         <span style="font-weight: 600;">${expectedAmount > 0 ? formatCurrency(expectedAmount) : 'No especificado'}</span>
       </div>
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span style="font-weight: 500;">Total Contado:</span>
-        <span id="calc-grand-total" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">$ 0</span>
+        <span id="calc-grand-total" style="font-size: 1.4rem; font-weight: 800; color: var(--primary);">$ 0</span>
       </div>
       <div id="calc-diff-container" style="display: none; justify-content: space-between; align-items: center; padding-top: 0.75rem; margin-top: 0.75rem; border-top: 1px dashed rgba(255,255,255,0.1);">
-         <span style="font-weight: 500; font-size: 0.9rem;">Diferencia:</span>
-         <span id="calc-diff-val" style="font-weight: 700; font-size: 1.1rem;"></span>
+         <span style="font-weight: 500; font-size: 0.85rem;">Diferencia:</span>
+         <span id="calc-diff-val" style="font-weight: 700; font-size: 1.05rem;"></span>
       </div>
     </div>
+    
     <div style="display: flex; gap: 1rem;">
-      <button id="calc-cancel" class="btn-cancel" style="flex: 1; padding: 0.85rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cerrar</button>
-      <button id="calc-apply" style="flex: 2; padding: 0.85rem; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.4); letter-spacing: 0.03em;">Usar Total ✓</button>
+      <button id="calc-cancel" class="btn-cancel" style="flex: 1; padding: 0.75rem; border-radius: 12px; background: rgba(255,255,255,0.08); color: var(--text-main); font-size: 0.95rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer;">Cerrar</button>
+      <button id="calc-apply" style="flex: 2; padding: 0.75rem; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; font-size: 0.95rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.3); letter-spacing: 0.03em;">Usar Total ✓</button>
     </div>
   `;
 
   modal.appendChild(content);
   document.body.appendChild(modal);
+
 
   const rowElements = content.querySelectorAll('.denom-row');
   const grandTotalEl = content.querySelector('#calc-grand-total');

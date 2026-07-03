@@ -150,10 +150,10 @@ export const SyncService = {
     // Ejecutar primera sincronización inmediatamente
     this.syncAll(uid);
 
-    // Ejecutar cada 15 segundos
+    // Ejecutar cada 5 minutos (antes: 15s) — la caché TTL en api.js mantiene la UI reactiva
     syncTimeout = setInterval(() => {
       this.syncAll(uid);
-    }, 15000);
+    }, 5 * 60 * 1000);
 
     // Sincronizar al volver a enfocar la ventana
     const focusHandler = () => {

@@ -1,6 +1,7 @@
 // src/adapters/presenters/ConsumptionPresenter.js
 import { debounce } from '../../utils.js';
 import { GetStockSummary } from '../../domain/usecases/GetStockSummary.js';
+import { ClientAccount } from '../../domain/entities/ClientAccount.js';
 
 
 export class ConsumptionPresenter {
@@ -49,9 +50,9 @@ export class ConsumptionPresenter {
     this.userRole = role;
   }
 
-  async loadFaenas(uid) {
+  async loadFaenas(uid, silent = false) {
     this.currentUid = uid;
-    this.ui.showLoading();
+    if (!silent) this.ui.showLoading();
     try {
       this.allFaenas = await this.travelRepository.getFaenaStock(uid);
       this.clients = await this.clientRepository.getClients();
@@ -79,7 +80,7 @@ export class ConsumptionPresenter {
     } catch (e) {
       console.error("Error loading faena stock:", e);
     } finally {
-      this.ui.hideLoading();
+      if (!silent) this.ui.hideLoading();
     }
   }
 
@@ -261,6 +262,18 @@ export class ConsumptionPresenter {
 
       // 2. Save / Match Client
       const matchedClient = allClients.find(c => c.name.toLowerCase() === dest.toLowerCase());
+      
+      if (matchedClient) {
+        const txs = await this.clientRepository.getTransactions(matchedClient.id);
+        const account = new ClientAccount(matchedClient, txs);
+        const blockStatus = account.getBlockingStatus();
+        if (blockStatus.isBlocked) {
+          alert(`🚫 DESPACHO DENEGADO\n\nEl cliente "${matchedClient.name}" tiene su cuenta suspendida por superar los límites financieros establecidos.\n\nMotivo: ${blockStatus.reason}`);
+          this.ui.hideLoading();
+          return;
+        }
+      }
+
       let clientId = matchedClient ? matchedClient.id : `CUST_${Date.now()}`;
       const isNewClient = !matchedClient;
       let shouldLinkClient = false;
@@ -391,7 +404,22 @@ export class ConsumptionPresenter {
 
       // 4. Commit all writes (creation/linking of client, provider update, transactions, raw material batches, carcass status updates)
       // in a SINGLE atomic round-trip transaction.
-      const carcassIds = Array.from(this.state.selectedIds);
+      const carcassesToUpdate = selectedItems.map(item => {
+        const cat = item.standardizedCategory || 'OTRO';
+        const price = byCategory[cat].price;
+        const updatedMovements = [...(item.movements || [])];
+        updatedMovements.push({
+          type: 'DISPATCH',
+          to: dest,
+          date: Date.now(),
+          price: price
+        });
+        return {
+          id: item.id,
+          movements: updatedMovements
+        };
+      });
+
       await this.travelRepository.executeUnifiedDispatch(uid, {
         clientId,
         destName: dest,
@@ -403,7 +431,7 @@ export class ConsumptionPresenter {
         customerTransaction,
         providerTransaction,
         rawMaterialBatches,
-        carcassIds
+        carcassesToUpdate
       });
 
       this.state.selectedIds.clear();
@@ -552,6 +580,32 @@ export class ConsumptionPresenter {
     return result;
   }
 
+  async changeCarcassDestination(carcassId, newDestination, newPrice) {
+    this.ui.showLoading();
+    try {
+      const allClients = await this.clientRepository.getClients();
+      const matchedClient = allClients.find(c => c.name.toLowerCase() === newDestination.toLowerCase());
+      
+      if (matchedClient) {
+        const txs = await this.clientRepository.getTransactions(matchedClient.id);
+        const account = new ClientAccount(matchedClient, txs);
+        const blockStatus = account.getBlockingStatus();
+        if (blockStatus.isBlocked) {
+          alert(`🚫 REASIGNACIÓN DENEGADA\n\nEl cliente de destino "${matchedClient.name}" tiene su cuenta suspendida por superar los límites financieros establecidos.\n\nMotivo: ${blockStatus.reason}`);
+          this.ui.hideLoading();
+          return;
+        }
+      }
+
+      await this.travelRepository.updateCarcassDestination(this.currentUid, carcassId, newDestination, newPrice);
+      await this.loadFaenas(this.currentUid);
+    } catch (e) {
+      console.error(e);
+      alert(`Error al reasignar el destino: ${e.message}`);
+      this.ui.hideLoading();
+    }
+  }
+
   updateView() {
     let stock = this.stockCache || [];
     let drafts = this.draftCache || [];
@@ -646,7 +700,8 @@ export class ConsumptionPresenter {
       onMoveToCamara: (camaraId) => this.moveSelectedToCamara(this.currentUid, camaraId),
       onConfirmDraft: (groupItems, dest, prices) => this.confirmDraftGroup(groupItems, dest, prices),
       onRevertDraft: (id) => this.revertDraft(this.currentUid, id),
-      onEditCategory: (id, newCategory, comment) => this.editCarcassCategory(id, newCategory, comment)
+      onEditCategory: (id, newCategory, comment) => this.editCarcassCategory(id, newCategory, comment),
+      onUpdateDestination: (carcassId, newDestination, newPrice) => this.changeCarcassDestination(carcassId, newDestination, newPrice)
     };
 
     this.ui.renderFaenaConsumption(options);

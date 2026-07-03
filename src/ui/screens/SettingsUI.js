@@ -351,6 +351,31 @@ export function renderSettings(container, options) {
   if (options && options.userRole === 'ADMIN') {
     const rbacEl = wrapper.querySelector('#settings-rbac-section');
     if (rbacEl) {
+      const SYSTEM_SECTIONS = [
+        { id: 'travels', name: 'Viajes' },
+        { id: 'consumption', name: 'Despacho y Stock' },
+        { id: 'clients', name: 'Clientes y Cuentas' },
+        { id: 'checks', name: 'Gestión de Cheques' },
+        { id: 'accounting', name: 'Caja General' },
+        { id: 'frigorifico', name: 'Caja Frigorífico' },
+        { id: 'establishments', name: 'Establecimientos' },
+        { id: 'master-data', name: 'Logística' },
+        { id: 'logistics-liquidations', name: 'Liquidaciones Fletes' },
+        { id: 'logistics-fuel', name: 'Rendimiento Combustible' },
+        { id: 'simulator', name: 'Simulador' },
+        { id: 'settings', name: 'Configuración' }
+      ];
+
+      const defaultViewsForRole = (role) => {
+        if (role === 'ADMIN') {
+          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments'];
+        } else if (role === 'OPERARIO') {
+          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel'];
+        } else {
+          return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
+        }
+      };
+
       rbacEl.innerHTML = `
         <h3 class="settings-section-title" style="margin: 2rem 0 1rem 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); font-weight: 700;">🔐 Accesos & Gestión de Permisos</h3>
         <div class="glass-card settings-card" style="padding: 2rem; border-radius: 20px; margin-bottom: 2.5rem;">
@@ -378,7 +403,6 @@ export function renderSettings(container, options) {
             style: 'padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1.25rem; border-radius: 14px; border: 1px solid var(--border);' 
           });
 
-          // Generate name/email initials for user avatar badge
           const initials = String(u.email || u.uid || 'U').substring(0, 2).toUpperCase();
 
           card.innerHTML = `
@@ -396,6 +420,24 @@ export function renderSettings(container, options) {
                 🗑️
               </button>
             </div>
+            
+            <details style="border-top: 1px dashed var(--border); padding-top: 0.75rem;">
+              <summary style="font-size: 0.8rem; font-weight: 600; color: var(--primary); cursor: pointer; user-select: none;">
+                🔑 Configurar Secciones Permitidas
+              </summary>
+              <div class="sections-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; padding-top: 0.5rem; max-height: 150px; overflow-y: auto;">
+                ${SYSTEM_SECTIONS.map(s => {
+                  const hasView = (u.allowedViews && u.allowedViews.includes(s.id)) || (!u.allowedViews && defaultViewsForRole(u.role).includes(s.id));
+                  return `
+                    <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none;">
+                      <input type="checkbox" class="section-check" data-uid="${u.uid}" data-view="${s.id}" ${hasView ? 'checked' : ''} style="cursor: pointer;">
+                      ${s.name}
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </details>
+
             <div style="display: flex; gap: 0.5rem; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem; justify-content: space-between;">
               <select class="form-input rbac-select" data-uid="${u.uid}" style="padding: 0.45rem 1rem 0.45rem 0.5rem; font-size: 0.8rem; border-radius: 8px; flex: 1;">
                 <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>Administrador (Full)</option>
@@ -408,17 +450,36 @@ export function renderSettings(container, options) {
           rbacListEl.appendChild(card);
         });
 
+        // Evento para actualizar checkboxes por defecto al cambiar de rol
+        rbacListEl.querySelectorAll('.rbac-select').forEach(select => {
+          select.onchange = () => {
+            const uid = select.dataset.uid;
+            const role = select.value;
+            const checks = rbacListEl.querySelectorAll(`.section-check[data-uid="${uid}"]`);
+            const defaultViews = defaultViewsForRole(role);
+            checks.forEach(chk => {
+              const viewId = chk.dataset.view;
+              chk.checked = defaultViews.includes(viewId);
+            });
+          };
+        });
+
         rbacListEl.querySelectorAll('.btn-save-role').forEach(btn => {
           btn.onclick = async () => {
             const uid = btn.dataset.uid;
             const email = btn.dataset.email;
             const select = rbacListEl.querySelector(`.rbac-select[data-uid="${uid}"]`);
             const newRole = select.value;
+
+            // Recopilar vistas permitidas marcadas
+            const checkedBoxes = rbacListEl.querySelectorAll(`.section-check[data-uid="${uid}"]:checked`);
+            const allowedViews = Array.from(checkedBoxes).map(chk => chk.dataset.view);
+
             btn.textContent = '...';
             btn.disabled = true;
             if (options.onSaveUserRole) {
-              await options.onSaveUserRole(uid, newRole);
-              showMsg(`Rol de ${email || 'usuario'} actualizado a ${newRole}`);
+              await options.onSaveUserRole(uid, newRole, allowedViews);
+              showMsg(`Rol y secciones de ${email || 'usuario'} actualizados.`);
             }
             btn.textContent = 'Actualizar';
             btn.disabled = false;

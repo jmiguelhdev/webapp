@@ -87,6 +87,10 @@ export class FirebaseTravelRepository {
   async updateFaenaCategory(id, category, comments) {
     await api.updateFaenaCategory(db, id, category, comments);
   }
+
+  async updateCarcassDestination(uid, carcassId, newDestination, newPrice) {
+    await api.updateCarcassDestination(db, uid, carcassId, newDestination, newPrice);
+  }
 }
 
 

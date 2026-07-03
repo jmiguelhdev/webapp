@@ -76,6 +76,23 @@ export function renderClientAccounts(options) {
     header.querySelector('#analyze-price-btn').onclick = onAnalyzePrice;
     header.querySelector('#print-account-btn').onclick = () => showPrintOptionsModal(selectedClient, transactions, account);
 
+    // Verificar si la cuenta del cliente supera los límites
+    const blockStatus = account.getBlockingStatus();
+    if (blockStatus.isBlocked) {
+      const alertCard = el('div', { 
+        classes: ['glass-card'], 
+        style: 'background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-left: 4px solid #ef4444; padding: 1rem 1.5rem; margin-bottom: 2rem; border-radius: 12px; display: flex; align-items: center; gap: 1rem; color: #fca5a5;'
+      });
+      alertCard.innerHTML = `
+        <span style="font-size: 2rem;">⚠️</span>
+        <div style="flex: 1;">
+          <h4 style="margin: 0 0 0.25rem 0; color: #fca5a5; font-size: 1.05rem; font-weight: 700;">VENTAS Y DESPACHOS SUSPENDIDOS</h4>
+          <p style="margin: 0; font-size: 0.9rem; line-height: 1.4; color: var(--text-muted);">${blockStatus.reason}</p>
+        </div>
+      `;
+      wrapper.appendChild(alertCard);
+    }
+
     const statsGrid = el('div', { classes: ['stats-grid'], style: 'margin-bottom: 2rem;' });
     const addStat = (title, val, color) => {
       statsGrid.appendChild(el('div', { classes: ['stat-card', 'glass-card'], html: `<h3>${title}</h3><div class="stat-value" style="color: ${color};">${val}</div>` }));
@@ -250,12 +267,18 @@ export function renderClientAccounts(options) {
       listData.forEach(c => {
         const card = el('div', { classes: ['card', 'glass-card'], style: 'cursor: pointer; transition: transform 0.2s;' });
         const balanceColor = (c.balance || 0) > 0 ? '#ef4444' : '#10b981';
+        const isBlocked = c.isBlocked;
+
         card.innerHTML = `
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-              <h3 style="margin: 0 0 0.5rem 0;">${c.name}</h3>
+              <h3 style="margin: 0 0 0.5rem 0; display: flex; align-items: center; gap: 0.35rem;">
+                ${c.name}
+                ${isBlocked ? `<span style="font-size: 0.95rem; color: #ef4444; cursor: help;" title="Ventas Suspendidas: ${c.blockingReason || ''}">⚠️</span>` : ''}
+              </h3>
               <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">${c.address || 'Sin dirección'}</p>
               <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">CUIT: ${c.cuit || 'N/A'}</p>
+              ${isBlocked ? `<p style="color: #fca5a5; font-size: 0.78rem; margin: 0.25rem 0 0 0; font-weight: 600;">🚫 Cuenta Suspendida</p>` : ''}
             </div>
             <div style="text-align: right;">
               <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">Saldo</div>
@@ -672,7 +695,10 @@ function printAccountStatement(client, txs, saldoAnterior, options) {
  */
 function showClientModal(client, onSave, type = 'CLIENT') {
   const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
-  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 500px; width: 100%; padding: 2rem; border-radius: 16px;' });
+  const modal = el('div', { 
+    classes: ['modal', 'glass-card'], 
+    style: 'max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 2rem; border-radius: 16px; box-sizing: border-box;' 
+  });
   
   const isEdit = !!client;
   const typeLabel = type === 'OPERATOR' ? 'Operador' : 'Cliente';
@@ -688,6 +714,18 @@ function showClientModal(client, onSave, type = 'CLIENT') {
     <div class="form-group"><label>Teléfono</label><input type="text" id="m-client-phone" class="form-input" value="${client?.phone || ''}"></div>
     <div class="form-group"><label>CBU (Opcional)</label><input type="text" id="m-client-cbu" class="form-input" value="${client?.cbu || ''}"></div>
     <div class="form-group"><label>Cuenta Contable / Alias</label><input type="text" id="m-client-account" class="form-input" value="${client?.account || ''}"></div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; border-top: 1px dashed var(--border); padding-top: 1rem;">
+      <div class="form-group" style="margin: 0;">
+        <label>Límite de Crédito ($)</label>
+        <input type="number" id="m-client-credit-limit" class="form-input" placeholder="Ej: 500000" min="0" value="${client?.creditLimit !== undefined && client?.creditLimit !== null ? client.creditLimit : ''}">
+      </div>
+      <div class="form-group" style="margin: 0;">
+        <label>Plazo Límite Pago (Días)</label>
+        <input type="number" id="m-client-payment-term" class="form-input" placeholder="Ej: 15" min="0" value="${client?.paymentTermDays !== undefined && client?.paymentTermDays !== null ? client.paymentTermDays : ''}">
+      </div>
+    </div>
+
     <div style="display: flex; gap: 1rem; margin-top: 2rem;">
        <button class="btn-cancel btn-outline" style="flex: 1;">Cancelar</button>
        <button class="btn-save btn-primary" style="flex: 1; margin: 0; background: var(--primary);">Guardar</button>
@@ -707,6 +745,9 @@ function showClientModal(client, onSave, type = 'CLIENT') {
     const name = modal.querySelector('#m-client-name').value.trim();
     if (!name) return alert('El nombre o razón social es obligatorio');
     
+    const rawCredit = modal.querySelector('#m-client-credit-limit').value;
+    const rawTerm = modal.querySelector('#m-client-payment-term').value;
+
     const clientData = {
       id: client?.id || null,
       name,
@@ -715,6 +756,8 @@ function showClientModal(client, onSave, type = 'CLIENT') {
       phone: modal.querySelector('#m-client-phone').value,
       cbu: modal.querySelector('#m-client-cbu').value,
       account: modal.querySelector('#m-client-account').value,
+      creditLimit: rawCredit !== '' ? parseFloat(rawCredit) : null,
+      paymentTermDays: rawTerm !== '' ? parseInt(rawTerm) : null,
     };
     if (!clientData.id) delete clientData.id;
 

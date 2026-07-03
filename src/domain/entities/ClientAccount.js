@@ -125,4 +125,48 @@ export class ClientAccount {
     }
     return waText;
   }
+
+  /**
+   * Verifica si la cuenta corriente del cliente supera los límites financieros establecidos.
+   * 
+   * @returns {Object} Un objeto con el estado y motivo del bloqueo.
+   * @property {boolean} isBlocked - Indica si la cuenta está suspendida para nuevas ventas.
+   * @property {string} reason - Motivo descriptivo del bloqueo.
+   */
+  getBlockingStatus() {
+    const balance = this.getBalance();
+
+    // 1. Validar Límite de Crédito
+    const creditLimit = parseFloat(this.client.creditLimit) || 0;
+    if (creditLimit > 0 && balance > creditLimit) {
+      return {
+        isBlocked: true,
+        reason: `Límite de crédito excedido: El saldo pendiente de $${balance.toLocaleString('es-AR')} supera el límite máximo de $${creditLimit.toLocaleString('es-AR')}.`
+      };
+    }
+
+    // 2. Validar Plazo Límite de Pago a partir del último movimiento de tipo DEBT (deuda/compra)
+    const paymentTermDays = parseInt(this.client.paymentTermDays) || 0;
+    if (paymentTermDays > 0 && balance > 0) {
+      // Buscar movimientos de tipo deuda ordenados de forma descendente (más recientes primero)
+      const debts = this.transactions
+        .filter(t => t.type === 'DEBT')
+        .sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime());
+
+      if (debts.length > 0) {
+        const lastDebt = debts[0];
+        const lastDebtTime = new Date(lastDebt.date || lastDebt.createdAt).getTime();
+        const daysSinceLastDebt = (Date.now() - lastDebtTime) / (1000 * 60 * 60 * 24);
+
+        if (daysSinceLastDebt > paymentTermDays) {
+          return {
+            isBlocked: true,
+            reason: `Plazo de pago vencido: Han transcurrido ${Math.floor(daysSinceLastDebt)} días desde su última compra (Garrón #${lastDebt.breakout?.[0]?.garron || ''}), superando el límite de ${paymentTermDays} días con saldo pendiente.`
+          };
+        }
+      }
+    }
+
+    return { isBlocked: false, reason: '' };
+  }
 }
