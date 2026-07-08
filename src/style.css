@@ -1,5 +1,5 @@
 /* src/style.css */
-@import './css/variables.css';
-@import './css/layout.css';
-@import './css/components.css';
-@import './css/screens.css';
+@import './frameworks/css/variables.css';
+@import './frameworks/css/layout.css';
+@import './frameworks/css/components.css';
+@import './frameworks/css/screens.css';

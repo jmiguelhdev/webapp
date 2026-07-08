@@ -1,31 +1,31 @@
 // src/adapters/repositories/EstablishmentRepository.js
 import { db } from '../../firebase.js';
-import * as api from '../../api.js';
+import * as establishmentApi from '../../api/EstablishmentApi.js';
 
 export class EstablishmentRepository {
   constructor() {}
 
   async getEstablishments(forceRefresh = false) {
-    return api.fetchEstablishments(db);
+    return establishmentApi.fetchEstablishments(db);
   }
 
   async saveEstablishment(establishment) {
-    return api.saveEstablishment(db, establishment);
+    return establishmentApi.saveEstablishment(db, establishment);
   }
 
   async deleteEstablishment(id) {
-    return api.deleteEstablishment(db, id);
+    return establishmentApi.deleteEstablishment(db, id);
   }
 
   async getEmployees(establishmentId, forceRefresh = false) {
-    return api.fetchEmployees(db, establishmentId);
+    return establishmentApi.fetchEmployees(db, establishmentId);
   }
 
   async saveEmployee(establishmentId, employee) {
-    return api.saveEmployee(db, establishmentId, employee);
+    return establishmentApi.saveEmployee(db, establishmentId, employee);
   }
 
   async deleteEmployee(establishmentId, employeeId) {
-    return api.deleteEmployee(db, establishmentId, employeeId);
+    return establishmentApi.deleteEmployee(db, establishmentId, employeeId);
   }
 }

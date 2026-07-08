@@ -1,24 +1,28 @@
-import './ui/components/kmp-status-chip.js';
-import './ui/components/kmp-metric-card.js';
-import './ui/components/kmp-sidebar.js';
+import './frameworks/ui/components/kmp-status-chip.js';
+import './frameworks/ui/components/kmp-metric-card.js';
+import './frameworks/ui/components/kmp-sidebar.js';
 
-import { renderTravels, renderSettlementModal, showTravelModal } from './ui/screens/TravelsUI.js';
-import { renderSimulator } from './ui/screens/SimulatorUI.js';
-import { renderDashboard } from './ui/screens/DashboardUI.js';
-import { renderFaenaConsumption } from './ui/screens/ConsumptionUI.js';
-import { renderClientAccounts, renderSaleDetailModal } from './ui/screens/ClientsUI.js';
-import { renderSettings } from './ui/screens/SettingsUI.js';
-import { renderPriceShare } from './ui/screens/PriceShareUI.js';
-import { renderChecks } from './ui/screens/ChecksUI.js';
-import { renderAccounting } from './ui/screens/AccountingUI.js';
-import { renderPriceAnalysis } from './ui/screens/PriceAnalysisUI.js';
-import { renderSidebar } from './ui/components/Sidebar.js';
-import { renderExportModal, renderScanResultsModal, renderDateModal, showAuxiliaryCalculator } from './ui/components/Modals.js';
-import { generateTravelReport, generateExcelReport, generateAccountingExcel, generateChecksExcel, printChecksReport } from './ui/reports/ReportService.js';
-import { renderLogisticsMaster } from './ui/screens/LogisticsMastersUI.js';
-import { renderLiquidations } from './ui/screens/LiquidationsUI.js';
-import { renderFuelEfficiency } from './ui/screens/FuelEfficiencyUI.js';
-import { renderEstablishmentManager } from './ui/screens/EstablishmentUI.js';
+import { renderTravels } from './frameworks/ui/screens/TravelsUI.js';
+import { renderSettlementModal } from './frameworks/ui/components/SettlementModal.js';
+import { showTravelModal } from './frameworks/ui/components/TravelModal.js';
+import { renderSimulator } from './frameworks/ui/screens/SimulatorUI.js';
+import { renderDashboard } from './frameworks/ui/screens/DashboardUI.js';
+import { renderFaenaConsumption } from './frameworks/ui/screens/ConsumptionUI.js';
+import { renderClientAccounts } from './frameworks/ui/screens/ClientsUI.js';
+import { renderSaleDetailModal } from './frameworks/ui/components/ClientModals.js';
+import { renderSettings } from './frameworks/ui/screens/SettingsUI.js';
+import { renderPriceShare } from './frameworks/ui/screens/PriceShareUI.js';
+import { renderChecks } from './frameworks/ui/screens/ChecksUI.js';
+import { renderAccounting } from './frameworks/ui/screens/AccountingUI.js';
+import { renderPriceAnalysis } from './frameworks/ui/screens/PriceAnalysisUI.js';
+import { renderSidebar } from './frameworks/ui/components/Sidebar.js';
+import { renderExportModal, renderScanResultsModal, renderDateModal, showAuxiliaryCalculator } from './frameworks/ui/components/Modals.js';
+import { generateTravelReport, generateExcelReport, generateAccountingExcel, generateChecksExcel, printChecksReport } from './frameworks/ui/reports/ReportService.js';
+import { renderLogisticsMaster } from './frameworks/ui/screens/LogisticsMastersUI.js';
+import { renderLiquidations } from './frameworks/ui/screens/LiquidationsUI.js';
+import { renderFuelEfficiency } from './frameworks/ui/screens/FuelEfficiencyUI.js';
+import { renderEstablishmentManager } from './frameworks/ui/screens/EstablishmentUI.js';
+
 /**
  * Aggregator module for the UI layer.
  * Re-exports all rendering functions to maintain backward compatibility with main.js

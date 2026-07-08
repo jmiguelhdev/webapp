@@ -1,31 +1,32 @@
 // src/adapters/repositories/OperatorRepository.js
 import { db } from '../../firebase.js';
-import * as api from '../../api.js';
+import * as operatorApi from '../../api/OperatorApi.js';
+import * as clientApi from '../../api/ClientApi.js';
 
 export class OperatorRepository {
   constructor() {}
 
   async getOperators() {
-    return api.fetchOperators(db);
+    return operatorApi.fetchOperators(db);
   }
 
   async saveOperator(operatorData) {
-    return api.saveOperator(db, operatorData);
+    return operatorApi.saveOperator(db, operatorData);
   }
 
   async getTransactions(operatorId) {
-    return api.fetchOperatorTransactions(db, operatorId);
+    return operatorApi.fetchOperatorTransactions(db, operatorId);
   }
 
   async getAllTransactions() {
-    return api.fetchAllOperatorTransactions(db);
+    return operatorApi.fetchAllOperatorTransactions(db);
   }
 
   async addTransaction(transaction) {
-    return api.addOperatorTransaction(db, transaction);
+    return operatorApi.addOperatorTransaction(db, transaction);
   }
 
   async syncCheckTransaction(checkId, side, transactionData) {
-    return api.syncTransactionByCheck(db, 'operator_transactions', checkId, side, transactionData);
+    return clientApi.syncTransactionByCheck(db, 'operator_transactions', checkId, side, transactionData);
   }
 }

@@ -209,8 +209,8 @@ export class TravelPresenter {
       sidebar.setAttribute('active', 'travels');
     }
     
-    if (window.navigateTo) {
-      window.navigateTo('travels');
+    if (this.ui && typeof this.ui.navigateTo === 'function') {
+      this.ui.navigateTo('travels');
     } else {
       this.updateView();
     }
@@ -505,6 +505,7 @@ export class TravelPresenter {
 
       onCategoryToggle: (cat) => this.toggleCategory(cat),
       onCommissionToggle: (val) => this.toggleCommission(val),
+      onShowTravelDetail: (travelId) => this.showTravelDetail(travelId),
       timeFilterType: this.state.timeFilterType,
       timeFilterValue: this.state.timeFilterValue,
       onTimeFilter: (type, val) => this.setTimeFilter(type, val),

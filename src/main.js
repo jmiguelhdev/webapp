@@ -3,7 +3,8 @@ import './style.css';
 import { auth, db } from './firebase.js';
 import { CostSimulator } from './domain/entities/CostSimulator.js';
 import { onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import * as api from './api.js';
+import * as userApi from './api/UserApi.js';
+import * as clientApi from './api/ClientApi.js';
 import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
 import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
@@ -59,6 +60,7 @@ const operatorRepository = new OperatorRepository();
 let currentUser = null;
 let currentUserRole = null; // 'ADMIN', 'OPERARIO', or 'VISOR'
 let currentUserAllowedViews = null; // Custom permitted views array
+let usersListCache = null; // File-scoped cache for user list
 
 // Acceso compartido desde config.js
 
@@ -117,8 +119,14 @@ const uiInterface = {
   renderClientAccounts: (options) => uiLib.renderClientAccounts({ ...options, onBackToDashboard: () => navigateTo('dashboard') }),
   renderSaleDetailModal: (sale, productsMap, concept) => uiLib.renderSaleDetailModal(sale, productsMap, concept),
   renderSettlementModal: (travel, producer, options) => uiLib.renderSettlementModal(travel, producer, options),
-  renderChecks: (options) => uiLib.renderChecks(content, options),
-  renderAccounting: (options) => uiLib.renderAccounting(content, options),
+  renderChecks: (options) => {
+    uiInterface.hideLoading();
+    uiLib.renderChecks(content, { ...options, onBack: () => navigateTo('dashboard') });
+  },
+  renderAccounting: (options) => {
+    uiInterface.hideLoading();
+    uiLib.renderAccounting(content, { ...options, onBack: () => navigateTo('dashboard') });
+  },
   renderPriceAnalysis: (options) => uiLib.renderPriceAnalysis(content, options),
   generateAccountingExcel: (entries, title) => uiLib.generateAccountingExcel(entries, title),
   renderDateModal: (options) => uiLib.renderDateModal(options),
@@ -126,8 +134,7 @@ const uiInterface = {
   printChecksReport: (checks, contacts, options) => uiLib.printChecksReport(checks, contacts, options),
   renderLogisticsMaster: (presenter, type, data, deps) => {
     uiInterface.hideLoading();
-    window.currentPresenter = presenter; // Hack for HTML inline handlers in LogisticsMastersUI
-    uiLib.renderLogisticsMaster(content, type, data, deps);
+    uiLib.renderLogisticsMaster(content, type, data, deps, presenter);
   },
   showTravelModal: (travel, options) => {
     uiInterface.hideLoading();
@@ -144,7 +151,8 @@ const uiInterface = {
   renderEstablishmentManager: (presenter) => {
     uiInterface.hideLoading();
     uiLib.renderEstablishmentManager(content, presenter);
-  }
+  },
+  navigateTo: (view) => navigateTo(view)
 };
 
 const travelPresenter = new TravelPresenter(travelRepository, uiInterface, logisticsRepository, clientRepository);
@@ -170,7 +178,7 @@ onAuthStateChanged(auth, async (user) => {
     
     try {
       // Ensure we have the user role and allowed views before proceeding
-      const userMetadata = await api.fetchUserMetadata(db, user);
+      const userMetadata = await userApi.fetchUserMetadata(db, user);
       currentUserRole = userMetadata.role || 'VISOR';
       currentUserAllowedViews = userMetadata.allowedViews || null;
     } catch (e) {
@@ -211,7 +219,7 @@ onAuthStateChanged(auth, async (user) => {
 // Refresh UI when background sync completes (silent mode: no loading spinner to avoid screen flicker)
 window.addEventListener('app:sync-completed', () => {
   // Always invalidate clients in-memory cache so next read picks fresh IndexedDB data
-  api.invalidateClientCache();
+  clientApi.invalidateClientCache();
 
   const activeView = kmpSidebar ? kmpSidebar.getAttribute('active') : 'dashboard';
   if (activeView === 'consumption') {
@@ -360,10 +368,10 @@ const navigateTo = (view, role = currentUserRole) => {
         
         let usersList = [];
         if (currentUserRole === 'ADMIN') {
-          if (!window.usersListCache) {
-            window.usersListCache = await api.fetchAllUsersRoles(db);
+          if (!usersListCache) {
+            usersListCache = await userApi.fetchAllUsersRoles(db);
           }
-          usersList = window.usersListCache;
+          usersList = usersListCache;
         }
 
         uiInterface.hideLoading();
@@ -378,17 +386,17 @@ const navigateTo = (view, role = currentUserRole) => {
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
           onSaveUserRole: async (uid, role, allowedViews) => {
-            await api.saveUserRole(db, uid, role, allowedViews);
+            await userApi.saveUserRole(db, uid, role, allowedViews);
             if (currentUser && uid === currentUser.uid) {
               currentUserRole = role;
               currentUserAllowedViews = allowedViews;
               enforcePermissions(currentUserRole);
             }
-            window.usersListCache = null; // Clear cache on update
+            usersListCache = null; // Clear cache on update
           },
           onDeleteUser: async (uid) => {
-            await api.deleteUserMetadata(db, uid);
-            window.usersListCache = null; // Clear cache on delete
+            await userApi.deleteUserMetadata(db, uid);
+            usersListCache = null; // Clear cache on delete
             await loadSettingsData(); // Refresh the view
           },
           onReloadClients: loadSettingsData,
@@ -704,7 +712,3 @@ document.getElementById('export-pdf').addEventListener('click', () => {
 
 // Event listener for in-screen navigation (like back buttons)
 window.addEventListener('nav:dashboard', () => navigateTo('dashboard'));
-
-// Expose routing and presenter globally for dashboard metrics interactions
-window.travelPresenter = travelPresenter;
-window.navigateTo = navigateTo;

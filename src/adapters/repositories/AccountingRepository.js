@@ -1,6 +1,9 @@
 // src/adapters/repositories/AccountingRepository.js
 import { db } from '../../firebase.js';
-import * as api from '../../api.js';
+import * as accountingApi from '../../api/AccountingApi.js';
+import * as clientApi from '../../api/ClientApi.js';
+import * as travelApi from '../../api/TravelApi.js';
+import * as establishmentApi from '../../api/EstablishmentApi.js';
 
 export class AccountingRepository {
   constructor(collectionName = 'accounting_entries') {
@@ -8,34 +11,34 @@ export class AccountingRepository {
   }
 
   async fetchEntries(uid) {
-    return api.fetchAccountingEntries(db, uid, this.collectionName);
+    return accountingApi.fetchAccountingEntries(db, uid, this.collectionName);
   }
 
   async saveEntry(uid, entry) {
-    return api.saveAccountingEntry(db, uid, entry, this.collectionName);
+    return accountingApi.saveAccountingEntry(db, uid, entry, this.collectionName);
   }
 
   async deleteEntry(entryId) {
-    return api.deleteAccountingEntry(db, entryId, this.collectionName);
+    return accountingApi.deleteAccountingEntry(db, entryId, this.collectionName);
   }
 
   async getClients() {
-    return api.fetchClients(db);
+    return clientApi.fetchClients(db);
   }
 
   async getTravels(uid) {
-    return api.fetchTravels(db, uid);
+    return travelApi.fetchTravels(db, uid);
   }
 
   async getEstablishments() {
-    return api.fetchEstablishments(db);
+    return establishmentApi.fetchEstablishments(db);
   }
 
   async getEmployees(establishmentId) {
-    return api.fetchEmployees(db, establishmentId);
+    return establishmentApi.fetchEmployees(db, establishmentId);
   }
 
   async removeLinkedTransaction(entryId) {
-    return api.removeLinkedTransaction(db, entryId);
+    return accountingApi.removeLinkedTransaction(db, entryId);
   }
 }

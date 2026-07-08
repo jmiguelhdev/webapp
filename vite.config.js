@@ -27,15 +27,24 @@ export default defineConfig({
     }
   },
   build: {
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (id.includes('firebase/app') || id.includes('firebase/firestore') || id.includes('firebase/auth') || id.includes('firebase/analytics')) {
+          if (id.includes('node_modules')) {
+            if (id.includes('firebase')) {
+              return 'vendor-firebase';
+            }
+            if (id.includes('pdfjs-dist') || id.includes('jspdf') || id.includes('html2canvas')) {
+              return 'vendor-pdf';
+            }
+            if (id.includes('xlsx')) {
+              return 'vendor-xlsx';
+            }
+            if (id.includes('chart.js')) {
+              return 'vendor-chart';
+            }
             return 'vendor';
-          }
-          if (id.includes('pdfjs-dist') || id.includes('html2canvas')) {
-            return 'pdf';
           }
         }
       }

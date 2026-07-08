@@ -1,93 +1,94 @@
 // src/adapters/repositories/ClientRepository.js
 import { db } from '../../firebase.js';
-import * as api from '../../api.js';
+import * as clientApi from '../../api/ClientApi.js';
+import * as faenaApi from '../../api/FaenaApi.js';
+import * as travelApi from '../../api/TravelApi.js';
+import * as accountingApi from '../../api/AccountingApi.js';
 
 export class ClientRepository {
   constructor() {}
 
   async getClients() {
-    return api.fetchClients(db);
+    return clientApi.fetchClients(db);
   }
 
   async saveClient(clientData) {
-    return api.saveClient(db, clientData);
+    return clientApi.saveClient(db, clientData);
   }
 
   async getCategoryPrices() {
-    return api.fetchCategoryPrices(db);
+    return clientApi.fetchCategoryPrices(db);
   }
 
   async saveCategoryPrices(prices) {
-    return api.saveCategoryPrices(db, prices);
+    return clientApi.saveCategoryPrices(db, prices);
   }
 
   async getCamaras() {
-    return api.fetchCamaras(db);
+    return faenaApi.fetchCamaras(db);
   }
 
   async saveCamaras(camarasList) {
-    return api.saveCamaras(db, camarasList);
+    return faenaApi.saveCamaras(db, camarasList);
   }
 
   async getTransactions(clientId) {
-    return api.fetchTransactions(db, clientId);
+    return clientApi.fetchTransactions(db, clientId);
   }
 
   async getAllTransactions() {
-    return api.fetchAllTransactions(db);
+    return clientApi.fetchAllTransactions(db);
   }
 
   async addTransaction(transaction) {
-    return api.addTransaction(db, transaction);
+    return clientApi.addTransaction(db, transaction);
   }
 
   async syncAccountingToTransaction(accountingId, data) {
-    return api.syncAccountingToTransaction(db, accountingId, data);
+    return accountingApi.syncAccountingToTransaction(db, accountingId, data);
   }
 
   async syncCheckTransaction(checkId, side, transactionData) {
-    return api.syncTransactionByCheck(db, 'transactions', checkId, side, transactionData);
+    return clientApi.syncTransactionByCheck(db, 'transactions', checkId, side, transactionData);
   }
 
   async getDispatchedFaenas(clientName, startDate, endDate) {
-    return api.fetchDispatchedFaenasInRange(db, clientName, startDate, endDate);
+    return faenaApi.fetchDispatchedFaenasInRange(db, clientName, startDate, endDate);
   }
 
   async getTransactionsInRange(clientId, startDate, endDate) {
-    return api.fetchTransactionsInRange(db, clientId, startDate, endDate);
+    return clientApi.fetchTransactionsInRange(db, clientId, startDate, endDate);
   }
 
   async savePriceAnalysis(analysisData) {
-    return api.savePriceAnalysis(db, analysisData);
+    return clientApi.savePriceAnalysis(db, analysisData);
   }
 
   async getPriceAnalyses(clientId) {
-    return api.fetchPriceAnalyses(db, clientId);
+    return clientApi.fetchPriceAnalyses(db, clientId);
   }
 
   async getSaleById(saleId) {
-    return api.fetchSaleById(db, saleId);
+    return clientApi.fetchSaleById(db, saleId);
   }
 
   async getProducts() {
-    return api.fetchProducts(db);
+    return travelApi.fetchProducts(db);
   }
 
   async getRawMaterialProducts() {
-    return api.fetchRawMaterialProducts(db);
+    return travelApi.fetchRawMaterialProducts(db);
   }
 
   async getProviders() {
-    return api.fetchProviders(db);
+    return travelApi.fetchProviders(db);
   }
 
   async saveProviderDirectly(providerData) {
-    return api.saveProviderDirectly(db, providerData);
+    return travelApi.saveProviderDirectly(db, providerData);
   }
 
   async getPriceLists() {
-    return api.fetchPriceLists(db);
+    return travelApi.fetchPriceLists(db);
   }
 }
-
-
