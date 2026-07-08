@@ -1,6 +1,6 @@
 // src/api/TravelApi.js
 import { collection, getDocs, doc, updateDoc, setDoc, query, where, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { localDb } from '../db/localDb.js';
+import { localDb } from '../../frameworks/db/localDb.js';
 import { _getCached, _setCached, _invalidateCached, TTL_5MIN, TTL_10MIN, parseFirestoreDoc, fetchAndParseRootCollection } from './common.js';
 
 export async function fetchTravels(db, uid) {

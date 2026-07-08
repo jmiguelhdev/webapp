@@ -1,6 +1,6 @@
 // src/api/FaenaApi.js
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit, arrayUnion, writeBatch, onSnapshot } from 'firebase/firestore';
-import { localDb } from '../db/localDb.js';
+import { localDb } from '../../frameworks/db/localDb.js';
 import { _getCached, _setCached, _invalidateCached, TTL_5MIN } from './common.js';
 import { invalidateClientCache } from './ClientApi.js';
 

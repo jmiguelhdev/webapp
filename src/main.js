@@ -2,9 +2,10 @@
 import './style.css';
 import { auth, db } from './firebase.js';
 import { CostSimulator } from './domain/entities/CostSimulator.js';
+import { SettingsService } from './frameworks/services/SettingsService.js';
 import { onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import * as userApi from './api/UserApi.js';
-import * as clientApi from './api/ClientApi.js';
+import * as userApi from './adapters/api/UserApi.js';
+import * as clientApi from './adapters/api/ClientApi.js';
 import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
 import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
@@ -21,7 +22,7 @@ import { EstablishmentRepository } from './adapters/repositories/EstablishmentRe
 import { EstablishmentPresenter } from './adapters/presenters/EstablishmentPresenter.js';
 import { OperatorRepository } from './adapters/repositories/OperatorRepository.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
-import { SyncService } from './services/SyncService.js';
+import { SyncService } from './frameworks/services/SyncService.js';
 
 
 // Render Git commit version badge in header dynamically
@@ -358,7 +359,14 @@ const navigateTo = (view, role = currentUserRole) => {
     case 'logistics-fuel':
       logisticsPresenter.loadFuelEfficiency();
       break;
-    case 'simulator': uiLib.renderSimulator(content, { onBack: () => navigateTo('dashboard') }); break;
+    case 'simulator': {
+      const settings = SettingsService.loadSettings();
+      uiLib.renderSimulator(content, { 
+        onBack: () => navigateTo('dashboard'),
+        settings 
+      }); 
+      break;
+    }
     case 'settings': {
       uiInterface.showLoading(true);
       const loadSettingsData = async () => {

@@ -8,7 +8,7 @@
  * cálculo por rango de fechas y generación de reportes al modelo de dominio.
  */
 
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { renderTransactionDetailModal, showPrintOptionsModal, printAccountStatement, showClientModal, renderSaleDetailModal, printSaleTicket } from '../components/ClientModals.js';
 
 /**

@@ -1,5 +1,5 @@
 // src/ui/components/SettlementModal.js
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 
 /**
  * Renders the detailed settlement modal containing the interactive roughing table, manual tax inputs, and ratios.

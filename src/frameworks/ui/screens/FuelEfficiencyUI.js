@@ -7,7 +7,7 @@
  */
 
 import Chart from 'chart.js/auto';
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { GetFuelEfficiencyReport } from '../../../domain/usecases/GetFuelEfficiencyReport.js';
 
 /**

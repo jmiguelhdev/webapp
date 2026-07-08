@@ -1,4 +1,4 @@
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { CostSimulator } from '../../../domain/entities/CostSimulator.js';
 
 /**
@@ -125,7 +125,8 @@ export function renderSimulator(container, options) {
       precioVivo: parseFloat(document.getElementById('sim-precio').value) || 0,
       distancia: parseFloat(document.getElementById('sim-dist').value) || 0,
       porcentajeIIBB: parseFloat(document.getElementById('sim-iibb').value) || 0,
-      jaulaDobleOrSimple: document.getElementById('sim-doble').checked
+      jaulaDobleOrSimple: document.getElementById('sim-doble').checked,
+      settings: options.settings
     };
 
     // Update form labels

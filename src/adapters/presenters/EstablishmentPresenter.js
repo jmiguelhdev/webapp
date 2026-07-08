@@ -1,5 +1,14 @@
 // src/adapters/presenters/EstablishmentPresenter.js
+
+/**
+ * Presenter para la administración de establecimientos (sucursales) y sus empleados.
+ * Coordina la obtención de sucursales e historial de empleados, su edición, y la actualización en la UI.
+ */
 export class EstablishmentPresenter {
+  /**
+   * @param {Object} repository - Repositorio de establecimientos y personal.
+   * @param {Object} ui - Interfaz unificada de usuario para manipular el DOM.
+   */
   constructor(repository, ui) {
     this.repository = repository;
     this.ui = ui;
@@ -10,6 +19,10 @@ export class EstablishmentPresenter {
     };
   }
 
+  /**
+   * Carga la lista completa de establecimientos/sucursales y actualiza la visualización.
+   * @returns {Promise<void>}
+   */
   async loadData() {
     console.log("EstablishmentPresenter: loadData() started");
     this.ui.showLoading();
@@ -28,6 +41,11 @@ export class EstablishmentPresenter {
     }
   }
 
+  /**
+   * Selecciona una sucursal, carga su lista de empleados y actualiza la pantalla.
+   * @param {Object} establishment - La sucursal seleccionada.
+   * @returns {Promise<void>}
+   */
   async selectEstablishment(establishment) {
     this.state.selectedEstablishment = establishment;
     this.ui.showLoading();
@@ -41,12 +59,20 @@ export class EstablishmentPresenter {
     }
   }
 
+  /**
+   * Limpia la sucursal seleccionada y vuelve a renderizar la vista de lista general.
+   */
   clearSelection() {
     this.state.selectedEstablishment = null;
     this.state.employees = [];
     this.render();
   }
 
+  /**
+   * Registra una nueva sucursal o actualiza una existente y recarga los datos.
+   * @param {Object} establishment - Los datos de la sucursal.
+   * @returns {Promise<void>}
+   */
   async saveEstablishment(establishment) {
     this.ui.showLoading();
     try {
@@ -59,6 +85,11 @@ export class EstablishmentPresenter {
     }
   }
 
+  /**
+   * Elimina una sucursal tras solicitar confirmación al usuario.
+   * @param {string|number} id - Identificador de la sucursal.
+   * @returns {Promise<void>}
+   */
   async deleteEstablishment(id) {
     if (!confirm("¿Está seguro de eliminar esta sucursal? Esta acción no se puede deshacer.")) return;
     this.ui.showLoading();
@@ -72,6 +103,11 @@ export class EstablishmentPresenter {
     }
   }
 
+  /**
+   * Guarda o actualiza los datos de un empleado asociado a la sucursal activa.
+   * @param {Object} employee - Atributos del empleado.
+   * @returns {Promise<void>}
+   */
   async saveEmployee(employee) {
     if (!this.state.selectedEstablishment) return;
     this.ui.showLoading();
@@ -87,6 +123,11 @@ export class EstablishmentPresenter {
     }
   }
 
+  /**
+   * Elimina un empleado del establecimiento activo tras confirmar la acción.
+   * @param {string|number} employeeId - ID del empleado.
+   * @returns {Promise<void>}
+   */
   async deleteEmployee(employeeId) {
     if (!this.state.selectedEstablishment) return;
     if (!confirm("¿Está seguro de eliminar este empleado?")) return;
@@ -102,6 +143,9 @@ export class EstablishmentPresenter {
     }
   }
 
+  /**
+   * Invoca el renderizado de la UI de administración de sucursales en el DOM.
+   */
   render() {
     this.ui.renderEstablishmentManager(this);
   }

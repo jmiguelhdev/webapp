@@ -3,7 +3,7 @@
  * Módulo de generación e impresión de recibos contables (estándar y sueldo).
  * Pertenece a la capa de Reportes UI.
  */
-import { formatCurrency } from '../../../utils/formatters.js';
+import { formatCurrency } from '../../../frameworks/utils/formatters.js';
 
 /**
  * Genera el HTML del detalle de recuento de billetes para un recibo.

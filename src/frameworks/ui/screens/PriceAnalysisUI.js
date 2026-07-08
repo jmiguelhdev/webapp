@@ -5,7 +5,7 @@
  * full JSDoc documentation, sutil animations, and perfect theme adaptability.
  */
 
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 
 /**
  * @typedef {Object} Client

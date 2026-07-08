@@ -1,6 +1,6 @@
-import { el } from '../../../utils/dom.js';
-import { SettingsService } from '../../../services/SettingsService.js';
-import { SyncService } from '../../../services/SyncService.js';
+import { el } from '../../../frameworks/utils/dom.js';
+import { SettingsService } from '../../../frameworks/services/SettingsService.js';
+import { SyncService } from '../../../frameworks/services/SyncService.js';
 
 
 /**

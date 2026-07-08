@@ -6,9 +6,9 @@
  * @author Antigravity
  */
 
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { renderTimeFilterUI } from '../components/Filters.js';
-import { MarketService } from '../../../api/MarketService.js';
+import { MarketService } from '../../../adapters/api/MarketService.js';
 import Chart from 'chart.js/auto';
 
 /**

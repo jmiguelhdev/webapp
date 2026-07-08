@@ -1,9 +1,16 @@
-// src/api/UserApi.js
+/**
+ * @file UserApi.js
+ * @description Proveedor de servicios y consultas Firebase Firestore para roles de usuario y permisos RBAC.
+ * @module adapters/api/UserApi
+ */
 import { doc, getDoc, getDocs, setDoc, deleteDoc, collection } from 'firebase/firestore';
 import { _getCached, _setCached, _invalidateCached, TTL_10MIN } from './common.js';
 
 /**
- * USER PERMISSIONS API (RBAC)
+ * Obtiene el rol asignado al usuario activo de la sesión.
+ * @param {Object} db - Instancia de Firestore.
+ * @param {Object} user - Objeto de usuario de Firebase Auth.
+ * @returns {Promise<string>} Rol del usuario ('ADMIN', 'VISOR', etc.).
  */
 export async function fetchUserRole(db, user) {
   if (!user || !user.uid) return 'VISOR';

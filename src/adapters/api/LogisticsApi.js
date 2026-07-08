@@ -1,6 +1,6 @@
 // src/api/LogisticsApi.js
 import { collection, getDocs, doc, setDoc, deleteDoc, getDoc, query, where, limit, startAfter } from 'firebase/firestore';
-import { db, auth } from '../firebase.js';
+import { db, auth } from '../../firebase.js';
 
 const MASTER_DATA_COLLECTION = 'master_data';
 const TRAVELS_COLLECTION = 'travels';

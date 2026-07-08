@@ -1,6 +1,17 @@
-import { SettingsService } from '../../services/SettingsService.js';
-
+/**
+ * Clase que modela las simulaciones de costo gancho para hacienda.
+ * Contiene lógica matemática pura libre de dependencias de infraestructura.
+ */
 export class CostSimulator {
+  /**
+   * @param {Object} [config={}] - Parámetros de la simulación.
+   * @param {number} [config.rendimiento=58.5] - Porcentaje de rendimiento estimado.
+   * @param {number} [config.precioVivo=5050.0] - Precio en pie por kilo vivo.
+   * @param {number} [config.distancia=0] - Distancia en kilómetros al establecimiento.
+   * @param {number} [config.porcentajeIIBB=1.7] - Alícuota del impuesto IIBB en porcentaje.
+   * @param {boolean} [config.jaulaDobleOrSimple=true] - Modo de carga (true = jaula doble, false = simple).
+   * @param {Object} [config.settings] - Configuración cargada de la aplicación.
+   */
   constructor(config = {}) {
     this.rendimiento = config.rendimiento || 58.5;
     this.precioVivo = config.precioVivo || 5050.0;
@@ -8,14 +19,14 @@ export class CostSimulator {
     this.porcentajeIIBB = config.porcentajeIIBB || 1.7;
     this.jaulaDobleOrSimple = config.jaulaDobleOrSimple ?? true; // true = Double
     
-    // Config values dynamically pull from stored settings
-    const settings = SettingsService.loadSettings();
+    // Config values fallback to settings passed via constructor config
+    const settings = config.settings || {};
 
-    this.pesoJaulaDoble = config.pesoJaulaDoble || settings.pesoJaulaDoble;
-    this.pesoJaulaSimple = config.pesoJaulaSimple || settings.pesoJaulaSimple;
-    this.margenGanancia = config.margenGanancia || settings.margenGanancia;
-    this.precioKmSimple = config.precioKmSimple || settings.precioKmSimple;
-    this.precioKmDouble = config.precioKmDouble || settings.precioKmDouble;
+    this.pesoJaulaDoble = config.pesoJaulaDoble || settings.pesoJaulaDoble || 32000;
+    this.pesoJaulaSimple = config.pesoJaulaSimple || settings.pesoJaulaSimple || 16000;
+    this.margenGanancia = config.margenGanancia || settings.margenGanancia || 1.05;
+    this.precioKmSimple = config.precioKmSimple || settings.precioKmSimple || 1200;
+    this.precioKmDouble = config.precioKmDouble || settings.precioKmDouble || 2000;
   }
 
   get precioKm() { return this.jaulaDobleOrSimple ? this.precioKmDouble : this.precioKmSimple; }

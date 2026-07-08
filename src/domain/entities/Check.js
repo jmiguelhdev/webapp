@@ -1,5 +1,5 @@
 // src/domain/entities/Check.js
-import { parseDateLocal } from '../../utils/formatters.js';
+import { parseDateLocal } from '../../frameworks/utils/formatters.js';
 
 export class Check {
   constructor(data = {}) {

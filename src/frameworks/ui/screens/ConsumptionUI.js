@@ -6,7 +6,7 @@
  * confirmación y delega en su totalidad la lógica matemática de stock al modelo de dominio FaenaStock.
  */
 
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { printDispatchPreparation } from '../reports/ReportService.js';
 
 import { openScannerModal, openEditCategoryModal, showMovementsHistoryModal, openChangeDestinationModal } from '../components/ConsumptionModals.js';

@@ -2,13 +2,23 @@
 import { GetTravels } from '../../domain/usecases/GetTravels.js';
 import { CalculateCategoryStats } from '../../domain/usecases/CalculateCategoryStats.js';
 import { GetStockSummary } from '../../domain/usecases/GetStockSummary.js';
-import { PdfFaenaService } from '../../services/PdfFaenaService.js';
+import { PdfFaenaService } from '../../frameworks/services/PdfFaenaService.js';
 import { SHARED_DATA_SOURCE_UID } from '../../config.js';
 import { debounce } from '../../utils.js';
 import { Travel } from '../../domain/entities/LogisticsModels.js';
 import { Travel as CoreTravel } from '../../domain/entities/Travel.js';
 
+/**
+ * Presenter principal para la gestión de Viajes comerciales de Hacienda.
+ * Coordina la visualización en tiempo real del listado, cálculo de estadísticas agregadas de rinde y simulación de márgenes.
+ */
 export class TravelPresenter {
+  /**
+   * @param {Object} travelRepository - Repositorio de viajes en Firestore.
+   * @param {Object} ui - Interfaz unificada de usuario para el renderizado del DOM.
+   * @param {Object} logisticsRepository - Repositorio de choferes, camiones y configuraciones logísticas.
+   * @param {Object} clientRepository - Repositorio de clientes para precios y transacciones.
+   */
   constructor(travelRepository, ui, logisticsRepository, clientRepository) {
     this.travelRepository = travelRepository;
     this.logisticsRepository = logisticsRepository;

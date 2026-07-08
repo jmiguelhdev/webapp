@@ -6,11 +6,11 @@
  * Cumple con Clean Architecture y SOLID al no contener lógica de cálculo financiero.
  */
 
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { renderPaginationControls, getCheckStatusBadge, renderCheckTable, createStatCard, showStateConfirmationModal } from '../components/CheckComponents.js';
 import { renderDateModal } from '../components/Modals.js';
 import { showOperationModal, showBatchBuyModal, showBatchSellModal } from '../components/ChecksModals.js';
-import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../utils/formatters.js';
+import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../frameworks/utils/formatters.js';
 import { printSaleOperationReport, generateSaleOperationExcel } from '../reports/ReportService.js';
 
 /**

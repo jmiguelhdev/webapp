@@ -1,5 +1,5 @@
-import { el } from '../../../utils/dom.js';
-import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../utils/formatters.js';
+import { el } from '../../../frameworks/utils/dom.js';
+import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../frameworks/utils/formatters.js';
 
 export function renderPaginationControls(currentPage, totalPages, totalItems, onPageChange) {
   const pagContainer = el('div', { 

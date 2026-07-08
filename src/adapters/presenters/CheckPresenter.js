@@ -2,7 +2,17 @@
 import { Check } from '../../domain/entities/Check.js';
 import { GetChecksSummary } from '../../domain/usecases/GetChecksSummary.js';
 
+/**
+ * Presenter para la gestión del portfolio de cheques diferidos.
+ * Orquesta filtros de búsqueda, alertas por fecha de cobro y exportaciones a PDF/Excel.
+ */
 export class CheckPresenter {
+  /**
+   * @param {Object} checkRepository - Repositorio de cheques y transacciones de cartera.
+   * @param {Object} ui - Interfaz unificada de usuario para manipular el DOM.
+   * @param {Object} operatorRepository - Repositorio de transacciones financieras con operadores de bolsa.
+   * @param {Object} clientRepository - Repositorio de clientes para registrar pasivos y pagos.
+   */
   constructor(checkRepository, ui, operatorRepository, clientRepository) {
     this.checkRepository = checkRepository;
     this.ui = ui;
@@ -31,10 +41,18 @@ export class CheckPresenter {
     };
   }
 
+  /**
+   * Configura el identificador del usuario para las consultas.
+   * @param {string} uid - Identificador de usuario.
+   */
   setUid(uid) {
     this.currentUserUid = uid;
   }
 
+  /**
+   * Carga de forma asíncrona la lista unificada de contactos, operadores y cheques en tiempo real.
+   * @returns {Promise<void>}
+   */
   async loadData() {
     this.ui.showLoading();
     // Migrate old contacts cache key (if any) to the shared 'client_clients' key
@@ -94,6 +112,10 @@ export class CheckPresenter {
     }
   }
 
+  /**
+   * Mezcla y aplica nuevos criterios de filtrado y resetea las páginas activas.
+   * @param {Object} newFilters - Mapeo de filtros a combinar.
+   */
   applyFilters(newFilters) {
     this.filters = { ...this.filters, ...newFilters };
     this.pagination.portfolioPage = 1;
@@ -101,16 +123,29 @@ export class CheckPresenter {
     this.render();
   }
 
+  /**
+   * Modifica la página activa de cheques en cartera y actualiza la UI.
+   * @param {number} page - Índice de página.
+   */
   setPortfolioPage(page) {
     this.pagination.portfolioPage = page;
     this.render();
   }
 
+  /**
+   * Modifica la página activa del historial y actualiza la UI.
+   * @param {number} page - Índice de página.
+   */
   setHistoryPage(page) {
     this.pagination.historyPage = page;
     this.render();
   }
 
+  /**
+   * Extrae productores únicos de un catálogo de viajes logísticos.
+   * @param {Array<Object>} travels - Lista de viajes.
+   * @returns {Array<Object>} Lista de productores.
+   */
   extractUniqueProducers(travels) {
     const producerMap = new Map();
     if (!travels) return [];
@@ -127,6 +162,10 @@ export class CheckPresenter {
     return Array.from(producerMap.values());
   }
 
+  /**
+   * Filtra los cheques según los filtros activos de fecha, búsqueda y tipo de cheque.
+   * @returns {Array<Object>} Lista filtrada de cheques.
+   */
   getFilteredChecks() {
     return this.checks.filter(c => {
       let match = true;
@@ -175,6 +214,12 @@ export class CheckPresenter {
     });
   }
 
+  /**
+   * Exporta a Excel los cheques recibidos o cobrados dentro de un intervalo de fecha.
+   * @param {string} startDate - Fecha inicial YYYY-MM-DD.
+   * @param {string} endDate - Fecha final YYYY-MM-DD.
+   * @returns {Promise<void>}
+   */
   async exportData(startDate, endDate) {
     const filtered = this.checks.filter(c => {
       const dRec = c.receptionDate ? c.receptionDate.split('T')[0] : '';
@@ -221,6 +266,11 @@ export class CheckPresenter {
     this.ui.printChecksReport(checksToPrint, this.contacts, options);
   }
 
+  /**
+   * Registra una nueva operación financiera con cheque en Firestore y actualiza las transacciones contables.
+   * @param {Object} operationData - Los datos de la operación.
+   * @returns {Promise<void>}
+   */
   async saveOperation(operationData) {
     this.ui.showLoading();
     try {
@@ -236,6 +286,11 @@ export class CheckPresenter {
     }
   }
 
+  /**
+   * Elimina un cheque por su identificador y revierte las transacciones asociadas.
+   * @param {string|number} id - ID del cheque.
+   * @returns {Promise<void>}
+   */
   async deleteOperation(id) {
     if (!confirm("¿Está seguro de eliminar esta operación?")) return;
     this.ui.showLoading();
@@ -250,6 +305,11 @@ export class CheckPresenter {
     }
   }
 
+  /**
+   * Sincroniza los movimientos de cheques hacia cuentas corrientes de clientes u operadores de bolsa.
+   * @param {Object} check - Operación de cheque calculada.
+   * @returns {Promise<void>}
+   */
   async syncTransactions(check) {
     if (!this.operatorRepository || !this.clientRepository) return;
 
@@ -296,6 +356,11 @@ export class CheckPresenter {
     }
   }
 
+  /**
+   * Elimina y remueve las vinculaciones y registros de un cheque borrado.
+   * @param {string|number} checkId - ID del cheque.
+   * @returns {Promise<void>}
+   */
   async deleteTransactions(checkId) {
     if (!this.operatorRepository || !this.clientRepository) return;
     await this.operatorRepository.syncCheckTransaction(checkId, 'BUY', null);
@@ -303,6 +368,11 @@ export class CheckPresenter {
     await this.clientRepository.syncCheckTransaction(checkId, 'SELL', null);
   }
 
+  /**
+   * Ejecuta el cálculo financiero de un cheque instanciando la entidad de dominio.
+   * @param {Object} op - Atributos de entrada de la operación.
+   * @returns {Object} La operación calculada de acuerdo a las fórmulas de negocio.
+   */
   calculateOperation(op) {
     const check = new Check(op);
     check.calculate();
@@ -317,6 +387,11 @@ export class CheckPresenter {
     };
   }
 
+  /**
+   * Registra una compra masiva de cheques.
+   * @param {Array<Object>} operationsArray - Lote de cheques a guardar.
+   * @returns {Promise<void>}
+   */
   async saveBatchBuy(operationsArray) {
     this.ui.showLoading();
     try {
@@ -340,6 +415,12 @@ export class CheckPresenter {
     }
   }
 
+  /**
+   * Registra la venta masiva de cheques a un comprador específico.
+   * @param {Object} sellData - Atributos de venta (tasa de pesificación, interés mensual, comprador).
+   * @param {Array<string>} checkIds - Lista de IDs de cheques a vender.
+   * @returns {Promise<void>}
+   */
   async saveBatchSell(sellData, checkIds) {
     this.ui.showLoading();
     try {
@@ -370,6 +451,11 @@ export class CheckPresenter {
     }
   }
 
+  /**
+   * Deshace una operación de venta masiva de cheques, restaurándolos a cartera y eliminando sus asientos vinculados.
+   * @param {string} operationId - ID de la operación de venta masiva.
+   * @returns {Promise<void>}
+   */
   async undoSaleOperation(operationId) {
     if (!confirm(`¿Está seguro de deshacer la venta con ID ${operationId}? Los cheques volverán a cartera y se eliminarán sus registros contables.`)) {
       return;
@@ -408,6 +494,9 @@ export class CheckPresenter {
     }
   }
 
+  /**
+   * Orquesta la ejecución del resumen de cartera e historial, y actualiza el renderizado.
+   */
   render() {
     const getChecksSummary = new GetChecksSummary();
     const globalSummary = getChecksSummary.execute(this.checks);
@@ -436,4 +525,3 @@ export class CheckPresenter {
     });
   }
 }
-

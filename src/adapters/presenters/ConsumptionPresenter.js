@@ -4,7 +4,16 @@ import { GetStockSummary } from '../../domain/usecases/GetStockSummary.js';
 import { ClientAccount } from '../../domain/entities/ClientAccount.js';
 
 
+/**
+ * Presenter para la gestión del stock e inventario de faena de medias reses (Consumos y Despachos).
+ * Controla la lectura de códigos de barra QR/PDF, preparación de borradores de despacho y traslados de cámaras de frío.
+ */
 export class ConsumptionPresenter {
+  /**
+   * @param {Object} travelRepository - Repositorio de faena y viajes logísticos.
+   * @param {Object} ui - Interfaz unificada de usuario para manipular el DOM.
+   * @param {Object} clientRepository - Repositorio de clientes para precios y cuentas corrientes.
+   */
   constructor(travelRepository, ui, clientRepository) {
     this.travelRepository = travelRepository;
     this.clientRepository = clientRepository;

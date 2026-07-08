@@ -6,7 +6,7 @@
  * @author Antigravity
  */
 
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 
 /**
  * Renderiza la interfaz principal del administrador de sucursales y personal.

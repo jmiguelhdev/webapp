@@ -1,7 +1,15 @@
 // src/adapters/presenters/LogisticsPresenter.js
 import { Travel } from '../../domain/entities/LogisticsModels.js';
 
+/**
+ * Presenter para el módulo de Logística y Maestros de datos.
+ * Coordina las vistas de choferes, jaulas, camiones, comisionistas, productores, liquidaciones y consumos de combustible.
+ */
 export class LogisticsPresenter {
+  /**
+   * @param {Object} repository - Repositorio de logística para operaciones de datos.
+   * @param {Object} ui - Interfaz unificada de usuario para el renderizado del DOM.
+   */
   constructor(repository, ui) {
     this.repository = repository;
     this.ui = ui; // uiInterface from main.js
@@ -9,6 +17,10 @@ export class LogisticsPresenter {
 
   // --- MASTERS DELEGATION ---
   
+  /**
+   * Carga la lista de choferes ordenada alfabéticamente y la renderiza en el maestro correspondiente.
+   * @returns {Promise<void>}
+   */
   async loadDrivers() {
     this.ui.showLoading(true);
     try {
@@ -20,6 +32,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Registra o actualiza la información de un chofer tras validar duplicidad de DNI.
+   * @param {Object} driverObj - Atributos del chofer a guardar.
+   * @returns {Promise<void>}
+   */
   async saveDriver(driverObj) {
     this.ui.showLoading(true);
     try {
@@ -42,6 +59,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Elimina un chofer del repositorio según su ID y recarga la vista.
+   * @param {string|number} id - Identificador del chofer.
+   * @returns {Promise<void>}
+   */
   async deleteDriver(id) {
     this.ui.showLoading(true);
     try {
@@ -52,6 +74,10 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Carga la lista de jaulas/acoplados ordenada alfabéticamente y la renderiza.
+   * @returns {Promise<void>}
+   */
   async loadTrailers() {
     this.ui.showLoading(true);
     try {
@@ -63,6 +89,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Registra o actualiza la información de una jaula tras validar la patente.
+   * @param {Object} trailerObj - Parámetros de la jaula.
+   * @returns {Promise<void>}
+   */
   async saveTrailer(trailerObj) {
     this.ui.showLoading(true);
     try {
@@ -85,6 +116,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Elimina una jaula por ID.
+   * @param {string|number} id - Identificador de la jaula.
+   * @returns {Promise<void>}
+   */
   async deleteTrailer(id) {
     this.ui.showLoading(true);
     try {
@@ -95,6 +131,10 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Carga camiones, choferes y jaulas disponibles en paralelo y renderiza el maestro de camiones.
+   * @returns {Promise<void>}
+   */
   async loadTrucks() {
     this.ui.showLoading(true);
     try {
@@ -110,6 +150,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Guarda un camión tras validar duplicidad de patente.
+   * @param {Object} truckObj - Parámetros del camión.
+   * @returns {Promise<void>}
+   */
   async saveTruck(truckObj) {
     this.ui.showLoading(true);
     try {
@@ -132,6 +177,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Elimina un camión por ID.
+   * @param {string|number} id - Identificador del camión.
+   * @returns {Promise<void>}
+   */
   async deleteTruck(id) {
     this.ui.showLoading(true);
     try {
@@ -143,6 +193,11 @@ export class LogisticsPresenter {
   }
 
   // --- PRODUCERS ---
+
+  /**
+   * Carga la lista de productores y la renderiza.
+   * @returns {Promise<void>}
+   */
   async loadProducers() {
     this.ui.showLoading(true);
     try {
@@ -154,6 +209,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Registra o actualiza la información de un productor validando el CUIT.
+   * @param {Object} producerObj - Parámetros del productor.
+   * @returns {Promise<void>}
+   */
   async saveProducer(producerObj) {
     this.ui.showLoading(true);
     try {
@@ -176,6 +236,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Elimina un productor por ID.
+   * @param {string|number} id - Identificador de productor.
+   * @returns {Promise<void>}
+   */
   async deleteProducer(id) {
     this.ui.showLoading(true);
     try {
@@ -187,6 +252,11 @@ export class LogisticsPresenter {
   }
 
   // --- AGENTS ---
+
+  /**
+   * Carga la lista de comisionistas y la renderiza.
+   * @returns {Promise<void>}
+   */
   async loadAgents() {
     this.ui.showLoading(true);
     try {
@@ -198,6 +268,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Registra o actualiza la información de un comisionista validando el nombre.
+   * @param {Object} agentObj - Parámetros de comisionista.
+   * @returns {Promise<void>}
+   */
   async saveAgent(agentObj) {
     this.ui.showLoading(true);
     try {
@@ -220,6 +295,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Elimina un comisionista por ID.
+   * @param {string|number} id - Identificador de comisionista.
+   * @returns {Promise<void>}
+   */
   async deleteAgent(id) {
     this.ui.showLoading(true);
     try {
@@ -232,6 +312,10 @@ export class LogisticsPresenter {
 
   // --- TRAVELS DELEGATION ---
 
+  /**
+   * Carga viajes, camiones y configuraciones globales para renderizar el panel de administración logística de viajes.
+   * @returns {Promise<void>}
+   */
   async loadTravelManagement() {
     this.ui.showLoading(true);
     try {
@@ -246,6 +330,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Registra un nuevo viaje o guarda cambios logísticos, completando precios default si faltan.
+   * @param {Object} travelObj - Atributos logísticos del viaje.
+   * @returns {Promise<void>}
+   */
   async saveTravel(travelObj) {
     this.ui.showLoading(true);
     try {
@@ -269,6 +358,11 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Elimina un viaje logístico por ID.
+   * @param {string|number} id - Identificador de viaje.
+   * @returns {Promise<void>}
+   */
   async deleteTravel(id) {
     this.ui.showLoading(true);
     try {
@@ -281,6 +375,10 @@ export class LogisticsPresenter {
 
   // --- LIQUIDATIONS & EFFICIENCY ---
 
+  /**
+   * Carga viajes y choferes para renderizar el panel de preliquidaciones de fletes por chofer.
+   * @returns {Promise<void>}
+   */
   async loadLiquidations() {
     this.ui.showLoading(true);
     try {
@@ -294,6 +392,10 @@ export class LogisticsPresenter {
     }
   }
 
+  /**
+   * Carga viajes y camiones para renderizar la pantalla de estadísticas de rendimiento de combustible y consumo.
+   * @returns {Promise<void>}
+   */
   async loadFuelEfficiency() {
     this.ui.showLoading(true);
     try {

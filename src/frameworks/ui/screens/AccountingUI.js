@@ -9,11 +9,11 @@
  *
  * Se mantiene estrictamente dentro de la capa UI según rules.md.
  */
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { renderDateModal, showAuxiliaryCalculator } from '../components/Modals.js';
 import { showEntryModal, showSalaryPaymentModal } from '../components/AccountingModals.js';
 import { printReceipt, printSalaryReceipt } from '../reports/AccountingReceipts.js';
-import { formatCurrency, formatDate, formatTime } from '../../../utils/formatters.js';
+import { formatCurrency, formatDate, formatTime } from '../../../frameworks/utils/formatters.js';
 
 // ---------------------------------------------------------------------------
 // Función principal de renderizado

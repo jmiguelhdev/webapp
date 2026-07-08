@@ -1,4 +1,4 @@
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 
 /**
  * Reproduce pitidos agradables o de advertencia utilizando la API Web Audio de forma nativa.

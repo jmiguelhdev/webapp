@@ -1,6 +1,6 @@
 // src/api/ClientApi.js
 import { collection, getDocs, getDoc, doc, updateDoc, setDoc, addDoc, query, where, limit } from 'firebase/firestore';
-import { localDb } from '../db/localDb.js';
+import { localDb } from '../../frameworks/db/localDb.js';
 import { _getCached, _setCached, _invalidateCached, TTL_5MIN } from './common.js';
 
 let clientsCache = null;

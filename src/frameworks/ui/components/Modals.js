@@ -1,4 +1,4 @@
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { printAuxiliaryCalcReport } from '../reports/ReportService.js';
 
 const DENOMINATIONS = [20000, 10000, 2000, 1000, 500, 200, 100];

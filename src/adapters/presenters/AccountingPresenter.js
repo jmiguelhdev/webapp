@@ -1,5 +1,18 @@
+// src/adapters/presenters/AccountingPresenter.js
 
+/**
+ * Presenter para la gestión contable (Caja General y Caja Frigorífico).
+ * Filtra, pagina y exporta asientos contables, y actualiza de forma reactiva la UI contable.
+ */
 export class AccountingPresenter {
+  /**
+   * @param {Object} accountingRepository - Repositorio de asientos contables.
+   * @param {Object} clientRepository - Repositorio de transacciones de clientes para sincronización.
+   * @param {Object} ui - Interfaz unificada de usuario para el renderizado del DOM.
+   * @param {Object} [options={}] - Parámetros de configuración adicionales.
+   * @param {string} [options.title='Caja General'] - Título de la sección contable activa.
+   * @param {string} [options.syncLabel='Pago Caja General'] - Etiqueta descriptiva para asientos sincronizados.
+   */
   constructor(accountingRepository, clientRepository, ui, options = {}) {
     this.accountingRepository = accountingRepository;
     this.clientRepository = clientRepository;
@@ -23,10 +36,19 @@ export class AccountingPresenter {
     };
   }
 
+  /**
+   * Establece el ID de usuario activo para las consultas a base de datos.
+   * @param {string} uid - Identificador de usuario de Firebase Auth.
+   */
   setUid(uid) {
     this.currentUserUid = uid;
   }
 
+  /**
+   * Carga del repositorio asientos contables, clientes, productores y establecimientos con su personal en paralelo.
+   * Ordena cronológicamente descendente y renderiza la pantalla.
+   * @returns {Promise<void>}
+   */
   async loadData() {
     this.ui.showLoading();
     try {
@@ -53,17 +75,29 @@ export class AccountingPresenter {
     }
   }
 
+  /**
+   * Aplica filtros de búsqueda/fecha al listado y resetea la paginación a la página 1.
+   * @param {Object} newFilters - Mapeo de filtros a combinar.
+   */
   applyFilters(newFilters) {
     this.filters = { ...this.filters, ...newFilters };
     this.currentPage = 1; // Reset to first page on filter change
     this.render();
   }
 
+  /**
+   * Modifica la página activa y vuelve a renderizar.
+   * @param {number} page - Índice de la nueva página.
+   */
   setPage(page) {
     this.currentPage = page;
     this.render();
   }
 
+  /**
+   * Filtra la colección completa de movimientos según las directivas del filtro activo (búsqueda y rango de fechas).
+   * @returns {Array<Object>} Colección filtrada de asientos contables.
+   */
   getFilteredEntries() {
     return this.entries.filter(entry => {
       // Date filter
@@ -96,6 +130,11 @@ export class AccountingPresenter {
     });
   }
 
+  /**
+   * Helper que extrae de forma única a todos los productores con CUIT de un listado de viajes.
+   * @param {Array<Object>} travels - Colección de viajes logísticos.
+   * @returns {Array<Object>} Lista de productores únicos ordenados alfabéticamente.
+   */
   extractUniqueProducers(travels) {
     const producerMap = new Map();
     travels.forEach(t => {
@@ -111,6 +150,11 @@ export class AccountingPresenter {
     return Array.from(producerMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  /**
+   * Guarda un nuevo movimiento contable, y si es un cobro a cliente, sincroniza la transacción en su cuenta corriente.
+   * @param {Object} entryData - Los datos del asiento contable.
+   * @returns {Promise<void>}
+   */
   async saveEntry(entryData) {
     this.ui.showLoading();
     try {
@@ -139,6 +183,12 @@ export class AccountingPresenter {
     }
   }
 
+  /**
+   * Filtra los movimientos en base a un rango de fecha específico y dispara la exportación Excel en la UI.
+   * @param {string} startDate - Fecha inicial YYYY-MM-DD.
+   * @param {string} endDate - Fecha final YYYY-MM-DD.
+   * @returns {Promise<void>}
+   */
   async exportData(startDate, endDate) {
     const fromTime = new Date(startDate + 'T00:00:00').getTime();
     const toTime = new Date(endDate + 'T23:59:59').getTime();
@@ -156,6 +206,11 @@ export class AccountingPresenter {
     this.ui.generateAccountingExcel(filtered, this.title);
   }
 
+  /**
+   * Elimina un movimiento contable por su identificador.
+   * @param {string|number} id - ID del movimiento contable.
+   * @returns {Promise<void>}
+   */
   async deleteEntry(id) {
     if (!confirm("¿Eliminar este movimiento?")) return;
     this.ui.showLoading();
@@ -169,6 +224,9 @@ export class AccountingPresenter {
     }
   }
 
+  /**
+   * Orquesta el cálculo de paginación e invoca el renderizado de la UI contable.
+   */
   render() {
     const filteredEntries = this.getFilteredEntries();
     const totalItems = filteredEntries.length;
@@ -185,8 +243,8 @@ export class AccountingPresenter {
     this.ui.renderAccounting({
       title: this.title,
       entries: paginatedEntries,
-      allEntries: this.entries, // Still need all for stats or I could use filtered
-      filteredEntries: filteredEntries, // For stats based on selection
+      allEntries: this.entries,
+      filteredEntries: filteredEntries,
       clients: this.clients,
       producers: this.producers,
       establishments: this.establishments,

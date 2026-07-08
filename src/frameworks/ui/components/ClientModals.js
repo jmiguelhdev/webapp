@@ -1,4 +1,4 @@
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 
 /**
  * Crea y presenta en pantalla un modal flotante e interactivo con el desglose detallado

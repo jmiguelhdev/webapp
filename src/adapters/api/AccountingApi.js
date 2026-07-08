@@ -1,6 +1,17 @@
-// src/api/AccountingApi.js
+/**
+ * @file AccountingApi.js
+ * @description Proveedor de servicios y consultas Firebase Firestore para el libro contable de asientos de caja.
+ * @module adapters/api/AccountingApi
+ */
 import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
 
+/**
+ * Obtiene todos los asientos contables asociados al usuario.
+ * @param {Object} db - Instancia de Firestore.
+ * @param {string} uid - Identificador de usuario.
+ * @param {string} [collectionName='accounting_entries'] - Nombre de la colección contable.
+ * @returns {Promise<Array<Object>>} Lista de asientos ordenados.
+ */
 export async function fetchAccountingEntries(db, uid, collectionName = 'accounting_entries') {
   if (!uid) throw new Error("UID is required to fetch accounting entries");
   const collRef = collection(db, collectionName);

@@ -1,4 +1,4 @@
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 
 /**
  * Renders the navigation sidebar with role-based visibility and premium logical groupings.

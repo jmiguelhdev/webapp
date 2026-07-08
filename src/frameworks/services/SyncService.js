@@ -1,5 +1,5 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase.js';
+import { db } from '../../firebase.js';
 import { localDb } from '../db/localDb.js';
 
 let syncTimeout = null;

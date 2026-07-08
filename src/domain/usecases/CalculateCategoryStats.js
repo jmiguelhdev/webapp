@@ -1,6 +1,18 @@
 // src/domain/usecases/CalculateCategoryStats.js
 
+/**
+ * Caso de uso para calcular métricas y estadísticas comerciales de hacienda por categoría.
+ * Procesa la liquidación ponderada de fletes, rindes máximos por productor/comisionista y simulaciones de costos reales.
+ */
 export class CalculateCategoryStats {
+  /**
+   * Ejecuta la agregación de estadísticas de compras de hacienda.
+   * @param {Array<Object>} travels - Lista de todos los viajes.
+   * @param {Array<string>|string} categories - Categorías seleccionadas a filtrar ('TODOS' o lista de nombres).
+   * @param {boolean} [includeCommission=false] - Si se debe sumar la comisión del comisionista al costo base.
+   * @param {Object} [categoryPrices={}] - Mapeo de precios sugeridos de venta por categoría.
+   * @returns {Object} Resumen analítico calculado.
+   */
   execute(travels, categories, includeCommission = false, categoryPrices = {}) {
     let totalOp = 0;
     let totalOpWithComm = 0;
@@ -62,7 +74,7 @@ export class CalculateCategoryStats {
                 pClean += cleanKg;
                 pFaena += faenaKg;
               }
- 
+
               const bill = pr.taxes?.bill || { neto: 0, iva: 0 };
               totalFactura += (bill.neto || 0) + (bill.iva || 0);
             });

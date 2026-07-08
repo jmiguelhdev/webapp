@@ -1,4 +1,4 @@
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { PriceReference } from '../../../domain/entities/PriceReference.js';
 import html2canvas from 'html2canvas';
 

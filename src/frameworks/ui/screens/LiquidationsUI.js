@@ -6,7 +6,7 @@
  * @author Antigravity
  */
 
-import { el } from '../../../utils/dom.js';
+import { el } from '../../../frameworks/utils/dom.js';
 import { GetDriverLiquidation } from '../../../domain/usecases/GetDriverLiquidation.js';
 
 /**

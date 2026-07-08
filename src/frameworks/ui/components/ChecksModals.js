@@ -5,8 +5,8 @@
  *  - showBatchBuyModal:  compra masiva de lote.
  *  - showBatchSellModal: venta masiva de selección.
  */
-import { el } from '../../../utils/dom.js';
-import { formatCurrency, formatDateLocal } from '../../../utils/formatters.js';
+import { el } from '../../../frameworks/utils/dom.js';
+import { formatCurrency, formatDateLocal } from '../../../frameworks/utils/formatters.js';
 import { Check } from '../../../domain/entities/Check.js';
 import { printSaleOperationReport, generateSaleOperationExcel } from '../reports/ReportService.js';
 

@@ -1,9 +1,17 @@
 // src/adapters/presenters/ClientPresenter.js
-
 import { ClientAccount } from '../../domain/entities/ClientAccount.js';
 import { GetClientAccountSummary } from '../../domain/usecases/GetClientAccountSummary.js';
 
+/**
+ * Presenter para la gestión de cuentas corrientes de Clientes y Operadores de Bolsa.
+ * Coordina la carga de saldos, validación de estado de cuenta (bloqueado/activo) y análisis de precio de venta.
+ */
 export class ClientPresenter {
+  /**
+   * @param {Object} clientRepository - Repositorio para transacciones de clientes.
+   * @param {Object} operatorRepository - Repositorio para transacciones de operadores.
+   * @param {Object} ui - Interfaz unificada de usuario para el renderizado del DOM.
+   */
   constructor(clientRepository, operatorRepository, ui) {
     this.clientRepository = clientRepository;
     this.operatorRepository = operatorRepository;
@@ -21,6 +29,11 @@ export class ClientPresenter {
     this.getClientAccountSummary = new GetClientAccountSummary();
   }
 
+  /**
+   * Carga de forma asíncrona todos los clientes, operadores y transacciones.
+   * Calcula balances y estados de bloqueo financiero de manera reactiva.
+   * @returns {Promise<void>}
+   */
   async loadClients() {
     this.ui.showLoading();
     try {
@@ -61,6 +74,12 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Selecciona un cliente u operador de la lista, descarga sus transacciones y actualiza la UI.
+   * @param {Object} client - El cliente u operador seleccionado.
+   * @param {string} [type='CLIENT'] - Tipo de entidad ('CLIENT' o 'OPERATOR').
+   * @returns {Promise<void>}
+   */
   async selectClient(client, type = 'CLIENT') {
     this.selectedClient = client;
     this.selectedType = type;
@@ -80,6 +99,13 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Agrega un nuevo cobro (pago) a la cuenta del cliente u operador seleccionado.
+   * @param {number|string} amount - Monto monetario del cobro.
+   * @param {string} description - Concepto descriptivo.
+   * @param {string} receivedBy - Usuario/empleado que recibe el pago.
+   * @returns {Promise<void>}
+   */
   async addPayment(amount, description, receivedBy) {
     if (!this.selectedClient) return;
     this.ui.showLoading();
@@ -109,6 +135,12 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Agrega una venta (deuda) a la cuenta corriente del cliente u operador activo.
+   * @param {number|string} amount - Monto total del despacho/venta.
+   * @param {string} description - Detalles o concepto de venta.
+   * @returns {Promise<void>}
+   */
   async addSale(amount, description) {
     if (!this.selectedClient) return;
     this.ui.showLoading();
@@ -137,6 +169,12 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Guarda o actualiza los datos maestros de un cliente u operador.
+   * @param {Object} clientData - Atributos actualizados de la entidad.
+   * @param {string} [type='CLIENT'] - Tipo ('CLIENT' o 'OPERATOR').
+   * @returns {Promise<void>}
+   */
   async saveClient(clientData, type = 'CLIENT') {
     this.ui.showLoading();
     try {
@@ -146,7 +184,6 @@ export class ClientPresenter {
         await this.operatorRepository.saveOperator(clientData);
       }
       await this.loadClients();
-      // Optional: alert or message
     } catch (e) {
       this.ui.showError("Error al guardar cliente: " + e.message);
     } finally {
@@ -154,6 +191,9 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Orquesta la ejecución del caso de uso de cuenta y delega el renderizado de la UI.
+   */
   render() {
     let accountSummary = null;
     if (this.selectedClient) {
@@ -205,6 +245,10 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Abre la sección del simulador y análisis financiero de precios de venta históricos.
+   * @returns {Promise<void>}
+   */
   async openPriceAnalysis() {
     if (!this.selectedClient) return;
     this.viewMode = 'analysis';
@@ -222,6 +266,11 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Ejecuta el análisis cruzando los despachos en kilos y pagos recibidos en un rango de fechas.
+   * @param {Object} params - Parámetros del análisis.
+   * @returns {Promise<void>}
+   */
   async runPriceAnalysis(params) {
     this.analysisParams = params;
     this.ui.showLoading();
@@ -253,6 +302,11 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Guarda un reporte histórico del análisis financiero de precios.
+   * @param {Object} results - Resultados calculados.
+   * @returns {Promise<void>}
+   */
   async saveAnalysis(results) {
     this.ui.showLoading();
     try {
@@ -267,6 +321,10 @@ export class ClientPresenter {
     }
   }
 
+  /**
+   * Selecciona un análisis financiero guardado del historial para visualizarlo.
+   * @param {Object} item - Datos del análisis histórico.
+   */
   selectHistoryAnalysis(item) {
     this.analysisParams = {
       startDate: item.startDate,
@@ -275,13 +333,17 @@ export class ClientPresenter {
       totalSales: item.totalSales
     };
     this.analysisResults = item;
-    // We don't re-fetch faenas/payments here to keep it simple, 
-    // but we could if we wanted the detail tables to populate.
     this.analysisFaenas = []; 
     this.analysisPayments = [];
     this.render();
   }
 
+  /**
+   * Obtiene la venta en detalle y abre el modal correspondiente de impresión o visualización de garrones.
+   * @param {string|number} saleId - ID del despacho/venta.
+   * @param {string} concept - Descripción del movimiento.
+   * @returns {Promise<void>}
+   */
   async viewSaleDetail(saleId, concept) {
     document.body.style.cursor = 'wait';
     try {

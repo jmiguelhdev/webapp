@@ -5,8 +5,8 @@
  *  - showSalaryPaymentModal: formulario de pago de haberes a empleados.
  *  - showBillCalculator: calculadora de recuento físico de billetes (breakdown).
  */
-import { el } from '../../../utils/dom.js';
-import { formatCurrency } from '../../../utils/formatters.js';
+import { el } from '../../../frameworks/utils/dom.js';
+import { formatCurrency } from '../../../frameworks/utils/formatters.js';
 
 /** Denominaciones de billetes disponibles para el recuento. */
 const DENOMINATIONS = [20000, 10000, 2000, 1000, 500, 200, 100];
