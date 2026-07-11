@@ -81,21 +81,56 @@ export class LogisticsRepository {
   }
 
   /**
-   * Obtiene los camiones.
+   * Obtiene los camiones resolviendo los choferes y jaulas asignados.
    * @returns {Promise<Array<Truck>>} Lista de camiones.
    */
   async getTrucks() {
-    const data = await api.fetchTrucks();
-    return data.map(t => new Truck(t));
+    const [trucksData, drivers, trailers] = await Promise.all([
+      api.fetchTrucks(),
+      this.getDrivers(),
+      this.getTrailers()
+    ]);
+
+    return trucksData.map(t => {
+      const truck = new Truck(t);
+
+      // Resolve driver ID to complete Driver object
+      const dId = truck.driverId || (t.driver ? (t.driver.id || t.driver) : null);
+      if (dId) {
+        const foundDriver = drivers.find(d => String(d.id) === String(dId));
+        if (foundDriver) {
+          truck.driver = foundDriver;
+          truck.driverId = foundDriver.id;
+        }
+      }
+
+      // Resolve trailer ID to complete Trailer object
+      const trId = truck.trailerId || (t.trailer ? (t.trailer.id || t.trailer) : null);
+      if (trId) {
+        const foundTrailer = trailers.find(tr => String(tr.id) === String(trId));
+        if (foundTrailer) {
+          truck.trailer = foundTrailer;
+          truck.trailerId = foundTrailer.id;
+        }
+      }
+
+      return truck;
+    });
   }
 
   /**
-   * Guarda un camión en Firestore.
+   * Guarda un camión en Firestore asegurando los campos de ID y objetos.
    * @param {Object} truckObj - Atributos del camión.
    * @returns {Promise<Truck>} Camión guardado.
    */
   async saveTruck(truckObj) {
     const domainTruck = new Truck(truckObj);
+    if (domainTruck.driver && !domainTruck.driverId) {
+      domainTruck.driverId = domainTruck.driver.id;
+    }
+    if (domainTruck.trailer && !domainTruck.trailerId) {
+      domainTruck.trailerId = domainTruck.trailer.id;
+    }
     await api.saveMasterData(domainTruck.id, 'TRUCK', domainTruck);
     return domainTruck;
   }
@@ -110,12 +145,40 @@ export class LogisticsRepository {
   }
 
   /**
-   * Obtiene la lista de viajes.
+   * Obtiene la lista de viajes resolviendo las relaciones de camión, chofer y jaula.
    * @returns {Promise<Array<Travel>>} Lista de viajes.
    */
   async getTravels() {
-    const data = await api.fetchTravels();
-    return data.map(t => new Travel(t));
+    const [travelsData, trucks, drivers, trailers] = await Promise.all([
+      api.fetchTravels(),
+      this.getTrucks(),
+      this.getDrivers(),
+      this.getTrailers()
+    ]);
+
+    return travelsData.map(t => {
+      const travel = new Travel(t);
+      if (travel.truck) {
+        // Resolve truck reference to fully populated truck
+        const foundTruck = trucks.find(tr => String(tr.id) === String(travel.truck.id));
+        if (foundTruck) {
+          travel.truck = foundTruck;
+        } else {
+          // Fallback manually if truck is not in current catalog
+          const dId = travel.truck.driverId || (t.truck?.driver ? (t.truck.driver.id || t.truck.driver) : null);
+          if (dId) {
+            travel.truck.driver = drivers.find(d => String(d.id) === String(dId)) || travel.truck.driver;
+            travel.truck.driverId = dId;
+          }
+          const trId = travel.truck.trailerId || (t.truck?.trailer ? (t.truck.trailer.id || t.truck.trailer) : null);
+          if (trId) {
+            travel.truck.trailer = trailers.find(tr => String(tr.id) === String(trId)) || travel.truck.trailer;
+            travel.truck.trailerId = trId;
+          }
+        }
+      }
+      return travel;
+    });
   }
 
   /**

@@ -27,8 +27,37 @@ export class Truck {
     this.licensePlate = data.licensePlate || '';
     this.vtvExpiration = data.vtvExpiration || '';
     this.insuranceExpiration = data.insuranceExpiration || '';
-    this.driver = data.driver ? new Driver(data.driver) : null;
-    this.trailer = data.trailer ? new Trailer(data.trailer) : null;
+    
+    // Support driverId and trailerId as primary references
+    this.driverId = data.driverId || null;
+    this.trailerId = data.trailerId || null;
+
+    if (data.driver) {
+      if (typeof data.driver === 'object') {
+        this.driver = new Driver(data.driver);
+        this.driverId = this.driverId || this.driver.id;
+      } else {
+        // String/Number representing Driver ID
+        this.driver = null;
+        this.driverId = this.driverId || data.driver;
+      }
+    } else {
+      this.driver = null;
+    }
+
+    if (data.trailer) {
+      if (typeof data.trailer === 'object') {
+        this.trailer = new Trailer(data.trailer);
+        this.trailerId = this.trailerId || this.trailer.id;
+      } else {
+        // String/Number representing Trailer ID
+        this.trailer = null;
+        this.trailerId = this.trailerId || data.trailer;
+      }
+    } else {
+      this.trailer = null;
+    }
+
     this.isFreightPaid = data.isFreightPaid || false;
     this.updatedAt = data.updatedAt || Date.now();
     this.isDirty = data.isDirty !== undefined ? data.isDirty : false;

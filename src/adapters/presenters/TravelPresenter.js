@@ -262,7 +262,7 @@ export class TravelPresenter {
         const truckName = (t.truck?.name || '').toLowerCase();
         const plate = (t.truck?.licensePlate || '').toLowerCase();
         const desc = (t.description || '').toLowerCase();
-        const driverName = (t.driver?.name || '').toLowerCase();
+        const driverName = (t.truck?.driver?.name || t.driver?.name || '').toLowerCase();
         const agentName = (t.buy?.agent?.name || '').toLowerCase();
         const producersMatch = (t.buy?.listOfProducers || []).some(p => 
           (p.producer?.name || '').toLowerCase().includes(q) ||
