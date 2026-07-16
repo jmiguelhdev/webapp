@@ -110,11 +110,11 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
           </div>
           <div class="form-group" style="margin:0;">
             <label>Pesificación (%)</label>
-            <input type="number" step="0.01" name="buySide_pesificacionRate" value="${existingOp?.buySide?.pesificacionRate || ''}" required>
+            <input type="number" step="0.01" name="buySide_pesificacionRate" value="${existingOp?.buySide?.pesificacionRate !== undefined && existingOp?.buySide?.pesificacionRate !== null ? existingOp.buySide.pesificacionRate : ''}" required>
           </div>
           <div class="form-group" style="margin:0;">
             <label>Interés Mensual (%)</label>
-            <input type="number" step="0.01" name="buySide_monthlyInterest" value="${existingOp?.buySide?.monthlyInterest || ''}" required>
+            <input type="number" step="0.01" name="buySide_monthlyInterest" value="${existingOp?.buySide?.monthlyInterest !== undefined && existingOp?.buySide?.monthlyInterest !== null ? existingOp.buySide.monthlyInterest : ''}" required>
           </div>
           
           <div style="grid-column: 1 / -1; margin-top: 0.5rem; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4); border-radius: 10px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between;">
@@ -150,15 +150,23 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
           </div>
           <div class="form-group" style="margin:0;">
             <label>Pesificación Venta (%)</label>
-            <input type="number" step="0.01" name="sellSide_pesificacionRate" value="${existingOp.sellSide.pesificacionRate || ''}" placeholder="0.00">
+            <input type="number" step="0.01" name="sellSide_pesificacionRate" value="${existingOp.sellSide.pesificacionRate !== undefined && existingOp.sellSide.pesificacionRate !== null ? existingOp.sellSide.pesificacionRate : ''}" placeholder="0.00">
           </div>
           <div class="form-group" style="margin:0;">
             <label>Interés Mensual Venta (%)</label>
-            <input type="number" step="0.01" name="sellSide_monthlyInterest" value="${existingOp.sellSide.monthlyInterest || ''}" placeholder="0.00">
+            <input type="number" step="0.01" name="sellSide_monthlyInterest" value="${existingOp.sellSide.monthlyInterest !== undefined && existingOp.sellSide.monthlyInterest !== null ? existingOp.sellSide.monthlyInterest : ''}" placeholder="0.00">
           </div>
           <div class="form-group" id="edit-backreason-group" style="margin:0; grid-column: 1 / -1; display:${existingOp.sellSide.status === 'BACK' ? 'block' : 'none'};">
             <label>⚠️ Motivo de Retorno</label>
             <textarea name="sellSide_backReason" rows="2" style="resize:vertical;" placeholder="Motivo...">${existingOp.sellSide.backReason || ''}</textarea>
+          </div>
+          
+          <div style="grid-column: 1 / -1; margin-top: 0.5rem; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); border-radius: 10px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-weight: 700; color: var(--text-main); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Neto Cobrado / Venta</span>
+            <div style="text-align: right;">
+              <strong id="single-sell-net-amount" style="font-size: 1.5rem; color: #10b981; font-weight: 800;">$0,00</strong>
+              <div id="single-sell-net-days" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; font-weight: 600;">0 días</div>
+            </div>
           </div>
         </div>
       </div>` : ''}
@@ -216,9 +224,16 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
     const recDate = form.querySelector('[name="receptionDate"]').value;
     const dueDate = form.querySelector('[name="dueDate"]').value;
 
+    const singleSellNetAmt = content.querySelector('#single-sell-net-amount');
+    const singleSellNetDays = content.querySelector('#single-sell-net-days');
+
     if (!recDate || !dueDate || nv === 0) {
       content.querySelector('#single-net-amount').textContent = '$0,00';
       content.querySelector('#single-net-days').textContent = '0 días';
+      if (singleSellNetAmt && singleSellNetDays) {
+        singleSellNetAmt.textContent = '$0,00';
+        singleSellNetDays.textContent = '0 días';
+      }
       return;
     }
     
@@ -232,9 +247,24 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
     
     content.querySelector('#single-net-amount').textContent = formatCurrency(net);
     content.querySelector('#single-net-days').textContent = `${days} días`;
+
+    if (singleSellNetAmt && singleSellNetDays) {
+      const spEl = form.querySelector('[name="sellSide_pesificacionRate"]');
+      const sirEl = form.querySelector('[name="sellSide_monthlyInterest"]');
+      const sp = spEl ? (parseFloat(spEl.value) || 0) : 0;
+      const sir = sirEl ? (parseFloat(sirEl.value) || 0) : 0;
+
+      const sellPesifAmt = nv * (sp / 100);
+      const sellIntAmt = nv * (sir / 100 / 30) * days;
+      const sellNet = nv - sellPesifAmt - sellIntAmt;
+
+      singleSellNetAmt.textContent = formatCurrency(sellNet);
+      singleSellNetDays.textContent = `${days} días`;
+    }
   };
 
   form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateSingleNetPreview));
+  form.querySelectorAll('select').forEach(sel => sel.addEventListener('change', updateSingleNetPreview));
   updateSingleNetPreview();
 
   form.onsubmit = (e) => {

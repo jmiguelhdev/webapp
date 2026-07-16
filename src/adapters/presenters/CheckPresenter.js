@@ -337,7 +337,7 @@ export class CheckPresenter {
         type: 'DEBT',
         amount: check.sellSide.netAmount || 0,
         description: `Salida Cheque N°${check.checkNumber} (${check.bank})`,
-        date: Date.now()
+        date: check.sellSide.date ? new Date(check.sellSide.date).getTime() : Date.now()
       };
       
       const isOperator = this.operators.some(o => o.id === check.sellSide.contactId || o.name === check.sellSide.contactId);

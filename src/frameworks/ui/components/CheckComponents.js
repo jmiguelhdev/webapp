@@ -1,5 +1,6 @@
 import { el } from '../../../frameworks/utils/dom.js';
 import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../frameworks/utils/formatters.js';
+import { showOperationModal } from './ChecksModals.js';
 
 export function renderPaginationControls(currentPage, totalPages, totalItems, onPageChange) {
   const pagContainer = el('div', { 
@@ -89,7 +90,7 @@ export function getCheckStatusBadge(op) {
  * @param {Function} [onSelectionChange=null] - Callback ejecutado al seleccionar o deseleccionar algún checkbox.
  * @returns {HTMLElement} El elemento contenedor div ('glass-card table-responsive') con la tabla renderizada.
  */
-export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false, selectable = false, selectedIds = null, onSelectionChange = null, onlyNominal = false) {
+export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false, selectable = false, selectedIds = null, onSelectionChange = null, onlyNominal = false, buyContacts = []) {
   const tableWrapper = el('div', { 
     classes: ['glass-card', 'table-responsive'], 
     style: 'padding: 0; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; border: 1px solid var(--border);' 
@@ -265,7 +266,7 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
       if (cbVendedor) handleStateCheck(cbVendedor, 'settledBySeller', 'Levantado por Vendedor', `¿El cheque fue levantado por el vendedor (${seller})? Para continuar por favor ingresa el número del cheque:`);
 
       tr.addEventListener('click', (e) => {
-        if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, contacts, onSave); return; }
+        if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, buyContacts && buyContacts.length > 0 ? buyContacts : contacts, onSave); return; }
         if (e.target.closest('.delete-btn')) { onDelete(op.id); return; }
         if (e.target.closest('.bcra-list-btn')) {
           const cuit = (op.issuerCuit || '').replace(/\D/g, '');

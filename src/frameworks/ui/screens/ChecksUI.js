@@ -43,7 +43,7 @@ import { printSaleOperationReport, generateSaleOperationExcel } from '../reports
 export function renderChecks(container, options) {
   const { 
     checks = [], filteredChecks = [], globalSummary = {}, filteredSummary = {}, 
-    filters = {}, contacts = [], pagination = {}, 
+    filters = {}, contacts = [], buyContacts = [], pagination = {}, 
     onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell, 
     onPortfolioPageChange, onHistoryPageChange, onUndoSale
   } = options;
@@ -746,7 +746,7 @@ export function renderChecks(container, options) {
     const portStart = (portCurrentPage - 1) * (pagination?.itemsPerPage || 15);
     const portPaginated = sortedPortfolio.slice(portStart, portStart + (pagination?.itemsPerPage || 15));
 
-    const portfolioTable = renderCheckTable(portPaginated, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar, filters?.onlyNominal);
+    const portfolioTable = renderCheckTable(portPaginated, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts);
     portfolioTableWrapper.appendChild(portfolioTable);
     
     if (portfolioPaginationWrapper) {
@@ -809,7 +809,7 @@ export function renderChecks(container, options) {
       const histStart = (histCurrentPage - 1) * (pagination?.itemsPerPage || 15);
       const histPaginated = sortedHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
 
-      const historyTable = renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false, false, null, null, filters?.onlyNominal);
+      const historyTable = renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false, false, null, null, filters?.onlyNominal, buyContacts);
       historyTableWrapper.appendChild(historyTable);
 
       if (historyPaginationWrapper) {
@@ -949,7 +949,7 @@ export function renderChecks(container, options) {
             const expContainer = el('div', {
               style: 'display: none; margin-top: 0.5rem;'
             });
-            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, false, null, null, filters?.onlyNominal);
+            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, false, null, null, filters?.onlyNominal, buyContacts);
             expTable.style.marginBottom = '0';
             expTable.style.borderRadius = '12px';
             expContainer.appendChild(expTable);
@@ -1101,7 +1101,7 @@ export function renderChecks(container, options) {
             const expContainer = el('div', {
               style: 'display: none; margin-top: 0.5rem;'
             });
-            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, false, null, null, filters?.onlyNominal);
+            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, false, null, null, filters?.onlyNominal, buyContacts);
             expTable.style.marginBottom = '0';
             expTable.style.borderRadius = '12px';
             expContainer.appendChild(expTable);
