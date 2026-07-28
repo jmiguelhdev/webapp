@@ -190,9 +190,12 @@ onAuthStateChanged(auth, async (user) => {
 
     // Pass role to presenters
     consumptionPresenter.setUserRole(currentUserRole);
+    accountingPresenter.setUserRole(currentUserRole);
+    frigorificoPresenter.setUserRole(currentUserRole);
     checkPresenter.setUid(user.uid);
     accountingPresenter.setUid(user.uid);
     frigorificoPresenter.setUid(user.uid);
+
 
     try {
       if (kmpSidebar) {
@@ -398,10 +401,13 @@ const navigateTo = (view, role = currentUserRole) => {
             if (currentUser && uid === currentUser.uid) {
               currentUserRole = role;
               currentUserAllowedViews = allowedViews;
+              accountingPresenter.setUserRole(currentUserRole);
+              consumptionPresenter.setUserRole(currentUserRole);
               enforcePermissions(currentUserRole);
             }
             usersListCache = null; // Clear cache on update
           },
+
           onDeleteUser: async (uid) => {
             await userApi.deleteUserMetadata(db, uid);
             usersListCache = null; // Clear cache on delete

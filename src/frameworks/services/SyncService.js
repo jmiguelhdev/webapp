@@ -105,9 +105,33 @@ export const SyncService = {
         await localDb.faenas_detalle.bulkPut(items);
       }
 
+      // 4. Sincronizar Cash Extractions
+      try {
+        const extractionsColl = collection(db, 'cash_extractions');
+        let extractionsQuery = query(extractionsColl);
+        if (lastSync > 0) {
+          extractionsQuery = query(extractionsColl, where('updatedAt', '>', lastSync));
+        }
+        const extractionsSnap = await getDocs(extractionsQuery);
+        const extractionsToPut = extractionsSnap.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            status: data.status || 'PENDING',
+            ...data
+          };
+        });
+        if (extractionsToPut.length > 0) {
+          await localDb.cash_extractions.bulkPut(extractionsToPut);
+        }
+      } catch (errExt) {
+        console.warn("[SyncService] Error en sync de cash_extractions:", errExt);
+      }
+
       const duration = Date.now() - startTime;
       recordsSyncedStr = `Clientes: ${clients.length}, Viajes: ${travels.length}, Faenas: ${faenasToPut.length}`;
       details = `Sincronización delta completada exitosamente en ${duration}ms.`;
+
 
       // Registrar log de éxito
       await localDb.sync_logs.add({

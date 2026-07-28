@@ -24,7 +24,13 @@ export class AccountingPresenter {
     this.clients = [];
     this.producers = [];
     this.establishments = [];
+    this.extractions = [];
+    this.selectedExtraction = null;
+    this.extractionScreenMode = null; // null | 'control' | 'detail'
     this.currentUserUid = null;
+    this.currentUserRole = 'VISOR';
+    this.activeTab = 'journal'; // 'journal' | 'extractions'
+
     
     // Pagination & Filtering state
     this.currentPage = 1;
@@ -45,7 +51,15 @@ export class AccountingPresenter {
   }
 
   /**
-   * Carga del repositorio asientos contables, clientes, productores y establecimientos con su personal en paralelo.
+   * Establece el rol de usuario activo ('ADMIN', 'OPERARIO', 'VISOR').
+   * @param {string} role 
+   */
+  setUserRole(role) {
+    this.currentUserRole = role || 'VISOR';
+  }
+
+  /**
+   * Carga del repositorio asientos contables, clientes, productores, establecimientos y extracciones de carnicerías.
    * Ordena cronológicamente descendente y renderiza la pantalla.
    * @returns {Promise<void>}
    */
@@ -66,6 +80,14 @@ export class AccountingPresenter {
       for (const est of this.establishments) {
         est.employees = await this.accountingRepository.getEmployees(est.id);
       }
+
+      // Load Cash Extractions
+      try {
+        this.extractions = await this.accountingRepository.getCashExtractions();
+      } catch (errExt) {
+        console.warn("Error cargando cash_extractions:", errExt);
+        this.extractions = [];
+      }
       
       this.render();
     } catch (e) {
@@ -74,6 +96,76 @@ export class AccountingPresenter {
       this.ui.hideLoading();
     }
   }
+
+  /**
+   * Cambia la pestaña activa ('journal' o 'extractions').
+   * @param {string} tab 
+   */
+  setActiveTab(tab) {
+    this.activeTab = tab;
+    this.selectedExtraction = null;
+    this.extractionScreenMode = null;
+    this.render();
+  }
+
+  /**
+   * Abre la pantalla dedicada de control y recepción de extracción.
+   * @param {Object} extraction 
+   */
+  openExtractionControlScreen(extraction) {
+    this.selectedExtraction = extraction;
+    this.extractionScreenMode = 'control';
+    this.render();
+  }
+
+  /**
+   * Abre la pantalla dedicada de visualización de extracción ingresada.
+   * @param {Object} extraction 
+   */
+  openExtractionDetailScreen(extraction) {
+    this.selectedExtraction = extraction;
+    this.extractionScreenMode = 'detail';
+    this.render();
+  }
+
+  /**
+   * Cierra la pantalla dedicada y regresa al listado principal de la Caja General.
+   */
+  closeExtractionScreen() {
+    this.selectedExtraction = null;
+    this.extractionScreenMode = null;
+    this.render();
+  }
+
+  /**
+   * Procesa y da ingreso a una extracción de caja carnicería como asiento contable en Caja General.
+   * @param {{ entryData: Object, extractionId: string }} payload 
+   */
+  async saveExtractionEntry({ entryData, extractionId }) {
+    if (this.currentUserRole !== 'ADMIN') {
+      alert("⚠️ Acción restringida a usuarios con rol ADMINISTRADOR.");
+      return;
+    }
+
+    this.ui.showLoading();
+    try {
+      // 1. Guardar el movimiento contable tipo IN en Caja General
+      const entryId = await this.accountingRepository.saveEntry(this.currentUserUid, entryData);
+
+      // 2. Marcar la extracción como ACCEPTED y vincular el entryId
+      await this.accountingRepository.updateExtractionStatus(extractionId, 'ACCEPTED', entryId);
+
+      // 3. Regresar al listado principal y recargar datos
+      this.selectedExtraction = null;
+      this.extractionScreenMode = null;
+      await this.loadData();
+    } catch (e) {
+      this.ui.showError("Error al dar ingreso a la extracción: " + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
 
   /**
    * Aplica filtros de búsqueda/fecha al listado y resetea la paginación a la página 1.
@@ -242,9 +334,14 @@ export class AccountingPresenter {
 
     this.ui.renderAccounting({
       title: this.title,
+      activeTab: this.activeTab,
+      userRole: this.currentUserRole,
+      selectedExtraction: this.selectedExtraction,
+      extractionScreenMode: this.extractionScreenMode,
       entries: paginatedEntries,
       allEntries: this.entries,
       filteredEntries: filteredEntries,
+      extractions: this.extractions,
       clients: this.clients,
       producers: this.producers,
       establishments: this.establishments,
@@ -255,11 +352,18 @@ export class AccountingPresenter {
         onPageChange: this.setPage.bind(this)
       },
       filters: this.filters,
+      onTabChange: (tab) => this.setActiveTab(tab),
+      onOpenControlScreen: (ext) => this.openExtractionControlScreen(ext),
+      onOpenDetailScreen: (ext) => this.openExtractionDetailScreen(ext),
+      onCloseExtractionScreen: () => this.closeExtractionScreen(),
       onFilterChange: this.applyFilters.bind(this),
       onSave: (data) => this.saveEntry(data),
+      onSaveExtractionEntry: (payload) => this.saveExtractionEntry(payload),
       onDelete: (id) => this.deleteEntry(id),
       onRefresh: () => this.loadData(),
       onExport: (start, end) => this.exportData(start, end)
     });
+
   }
 }
+

@@ -348,8 +348,9 @@ export function showSalaryPaymentModal({ establishments, onSave, title }) {
  * Muestra la calculadora de recuento físico de billetes.
  * @param {number} expectedAmount - Monto esperado para calcular la diferencia.
  * @param {function} onApply - Callback que recibe { grand, breakdown }.
+ * @param {Object} [initialBreakdown=null] - Desglose inicial para pre-cargar billetes.
  */
-export function showBillCalculator(expectedAmount, onApply) {
+export function showBillCalculator(expectedAmount, onApply, initialBreakdown = null) {
   const modal = el('div', {
     classes: ['modal-overlay'],
     style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;'
@@ -571,7 +572,6 @@ export function showBillCalculator(expectedAmount, onApply) {
   modal.appendChild(content);
   document.body.appendChild(modal);
 
-
   const rowElements = content.querySelectorAll('.denom-row');
   const grandTotalEl = content.querySelector('#calc-grand-total');
   const allInputs = content.querySelectorAll('.bill-block, .bill-batch, .bill-qty');
@@ -618,6 +618,25 @@ export function showBillCalculator(expectedAmount, onApply) {
     return { grand, breakdown };
   };
 
+  // Pre-cargar billetes si fueron proporcionados
+  if (initialBreakdown) {
+    rowElements.forEach(row => {
+      const blockInput = row.querySelector('.bill-block');
+      const batchInput = row.querySelector('.bill-batch');
+      const qtyInput = row.querySelector('.bill-qty');
+      const d = parseInt(batchInput.dataset.denom);
+
+      const item = initialBreakdown[d] || initialBreakdown[String(d)];
+      if (item) {
+        blockInput.value = (item.blocks !== undefined && item.blocks !== null && item.blocks !== '') ? item.blocks : '';
+        batchInput.value = (item.batches !== undefined && item.batches !== null && item.batches !== '') ? item.batches : '';
+        qtyInput.value = (item.qtys !== undefined && item.qtys !== null && item.qtys !== '') ? item.qtys : '';
+      }
+    });
+    updateGrandTotal();
+  }
+
+
   allInputs.forEach(input => input.addEventListener('input', updateGrandTotal));
 
   content.querySelector('#calc-cancel').onclick = () => modal.remove();
@@ -627,3 +646,4 @@ export function showBillCalculator(expectedAmount, onApply) {
     modal.remove();
   };
 }
+

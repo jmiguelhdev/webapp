@@ -1,9 +1,9 @@
-// src/adapters/repositories/AccountingRepository.js
 import { db } from '../../firebase.js';
 import * as accountingApi from '../api/AccountingApi.js';
 import * as clientApi from '../api/ClientApi.js';
 import * as travelApi from '../api/TravelApi.js';
 import * as establishmentApi from '../api/EstablishmentApi.js';
+import * as cashExtractionApi from '../api/CashExtractionApi.js';
 
 /**
  * Repositorio para la gestión contable de asientos y vinculaciones.
@@ -43,6 +43,25 @@ export class AccountingRepository {
    */
   async deleteEntry(entryId) {
     return accountingApi.deleteAccountingEntry(db, entryId, this.collectionName);
+  }
+
+  /**
+   * Obtiene la lista de extracciones de efectivo desde Firestore con respaldo en IndexedDB local.
+   * @returns {Promise<Array<Object>>} Lista de extracciones.
+   */
+  async getCashExtractions() {
+    return cashExtractionApi.fetchCashExtractions(db);
+  }
+
+  /**
+   * Actualiza el estado de una extracción en Firestore e IndexedDB local.
+   * @param {string} extractionId - ID de la extracción.
+   * @param {string} status - Estado ('PENDING', 'ACCEPTED', etc.).
+   * @param {string|null} accountingEntryId - ID del asiento de ingreso generado.
+   * @returns {Promise<void>}
+   */
+  async updateExtractionStatus(extractionId, status, accountingEntryId = null) {
+    return cashExtractionApi.updateExtractionStatus(db, extractionId, status, accountingEntryId);
   }
 
   /**
@@ -88,3 +107,4 @@ export class AccountingRepository {
     return accountingApi.removeLinkedTransaction(db, entryId);
   }
 }
+

@@ -14,6 +14,8 @@ import { renderDateModal, showAuxiliaryCalculator } from '../components/Modals.j
 import { showEntryModal, showSalaryPaymentModal } from '../components/AccountingModals.js';
 import { printReceipt, printSalaryReceipt } from '../reports/AccountingReceipts.js';
 import { formatCurrency, formatDate, formatTime } from '../../../frameworks/utils/formatters.js';
+import { buildExtractionsTab } from '../components/CashExtractionUI.js';
+import { renderExtractionControlScreen, renderExtractionDetailScreen } from '../components/CashExtractionModals.js';
 
 // ---------------------------------------------------------------------------
 // Función principal de renderizado
@@ -23,13 +25,23 @@ export function renderAccounting(container, options) {
   const {
     entries,
     filteredEntries,
+    extractions = [],
+    selectedExtraction = null,
+    extractionScreenMode = null,
     clients,
     producers,
     establishments = [],
     pagination,
     filters,
+    activeTab = 'journal',
+    userRole = 'VISOR',
+    onTabChange,
+    onOpenControlScreen,
+    onOpenDetailScreen,
+    onCloseExtractionScreen,
     onFilterChange,
     onSave,
+    onSaveExtractionEntry,
     onDelete,
     onRefresh,
     onExport,
@@ -38,15 +50,88 @@ export function renderAccounting(container, options) {
 
   container.innerHTML = '';
 
-  container.appendChild(buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onBack: options.onBack }));
-  container.appendChild(buildFiltersBar({ filters, onFilterChange }));
-  container.appendChild(buildStatsGrid(filteredEntries || entries));
-  container.appendChild(buildTable(entries, { clients, producers, onSave, onDelete, title }));
+  // Render Sub-Screens for Extractions if active
+  if (selectedExtraction && extractionScreenMode === 'control') {
+    renderExtractionControlScreen(container, {
+      extraction: selectedExtraction,
+      userRole,
+      onSave: onSaveExtractionEntry,
+      onBack: onCloseExtractionScreen
+    });
+    return;
+  }
 
-  if (pagination && pagination.totalPages > 1) {
-    container.appendChild(buildPagination(entries, pagination));
+  if (selectedExtraction && extractionScreenMode === 'detail') {
+    renderExtractionDetailScreen(container, {
+      extraction: selectedExtraction,
+      onBack: onCloseExtractionScreen
+    });
+    return;
+  }
+
+  const pendingExtractionsCount = extractions.filter(e => e.status !== 'ACCEPTED').length;
+
+  container.appendChild(buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onBack: options.onBack }));
+
+  // Render Tabs ONLY for Caja General
+  if (title === 'Caja General') {
+    container.appendChild(buildTabsBar({ activeTab, pendingCount: pendingExtractionsCount, onTabChange }));
+  }
+
+  if (title === 'Caja General' && activeTab === 'extractions') {
+    container.appendChild(buildExtractionsTab({
+      extractions,
+      userRole,
+      onSaveEntry: onSaveExtractionEntry,
+      onOpenControlScreen,
+      onOpenDetailScreen
+    }));
+  } else {
+    container.appendChild(buildFiltersBar({ filters, onFilterChange }));
+    container.appendChild(buildStatsGrid(filteredEntries || entries));
+    container.appendChild(buildTable(entries, { clients, producers, onSave, onDelete, title }));
+
+    if (pagination && pagination.totalPages > 1) {
+      container.appendChild(buildPagination(entries, pagination));
+    }
   }
 }
+
+
+function buildTabsBar({ activeTab, pendingCount, onTabChange }) {
+  const tabsBar = el('div', {
+    style: 'display: flex; gap: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; padding-bottom: 0.25rem;'
+  });
+
+  const tabJournal = el('button', {
+    classes: activeTab === 'journal' ? ['btn-tab', 'active'] : ['btn-tab'],
+    style: `background: transparent; border: none; font-size: 0.95rem; font-weight: 700; padding: 0.6rem 1rem; border-bottom: 3px solid ${activeTab === 'journal' ? 'var(--primary)' : 'transparent'}; color: ${activeTab === 'journal' ? 'var(--primary)' : 'var(--text-muted)'}; cursor: pointer; border-radius: 6px; transition: all 0.2s;`,
+    html: '<span>📖 Libro Diario / Movimientos</span>'
+  });
+  tabJournal.onclick = () => {
+    if (typeof onTabChange === 'function') onTabChange('journal');
+  };
+
+  const pendingBadge = pendingCount > 0 
+    ? `<span style="background: #ef4444; color: #ffffff; padding: 0.15rem 0.55rem; border-radius: 12px; font-size: 0.75rem; font-weight: 800; margin-left: 0.5rem; box-shadow: 0 2px 8px rgba(239,68,68,0.4);">${pendingCount}</span>`
+    : `<span style="background: rgba(255,255,255,0.08); color: var(--text-muted); padding: 0.15rem 0.55rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem;">0</span>`;
+
+  const tabExtractions = el('button', {
+    classes: activeTab === 'extractions' ? ['btn-tab', 'active'] : ['btn-tab'],
+    style: `background: transparent; border: none; font-size: 0.95rem; font-weight: 700; padding: 0.6rem 1rem; border-bottom: 3px solid ${activeTab === 'extractions' ? '#10b981' : 'transparent'}; color: ${activeTab === 'extractions' ? '#10b981' : 'var(--text-muted)'}; cursor: pointer; border-radius: 6px; transition: all 0.2s; display: flex; align-items: center;`,
+    html: `<span>📥 Extracciones por Recibir</span> ${pendingBadge}`
+  });
+
+  tabExtractions.onclick = () => {
+    if (typeof onTabChange === 'function') onTabChange('extractions');
+  };
+
+  tabsBar.appendChild(tabJournal);
+  tabsBar.appendChild(tabExtractions);
+
+  return tabsBar;
+}
+
 
 // ---------------------------------------------------------------------------
 // Bloques de construcción de la pantalla

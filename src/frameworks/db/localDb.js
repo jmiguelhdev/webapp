@@ -9,3 +9,12 @@ localDb.version(1).stores({
   clientes: 'id, name, updatedAt',
   sync_logs: '++id, timestamp, status'
 });
+
+localDb.version(2).stores({
+  travels: 'id, status, updatedAt',
+  faenas_detalle: 'id, status, tropa, garron, destination, dispatchDate, barcode, updatedAt',
+  clientes: 'id, name, updatedAt',
+  sync_logs: '++id, timestamp, status',
+  cash_extractions: 'id, cashSessionId, butcheryName, status, timestamp, updatedAt'
+});
+
