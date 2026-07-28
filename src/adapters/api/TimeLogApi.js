@@ -68,8 +68,8 @@ export async function fetchEmployeeTimeLogs(db, establishmentId, employeeId) {
       const data = docSnap.data();
       return {
         id: docSnap.id,
-        status: data.status || 'UNPAID',
-        ...data
+        ...data,
+        status: data.status || 'UNPAID'
       };
     }).sort((a, b) => (b.checkInTime || 0) - (a.checkInTime || 0));
 
@@ -96,7 +96,8 @@ export async function getLocalEmployeeTimeLogs(establishmentId, employeeId) {
       .where('establishmentId').equals(establishmentId)
       .and(item => item.employeeId === employeeId)
       .toArray();
-    return logs.sort((a, b) => (b.checkInTime || 0) - (a.checkInTime || 0));
+    return logs.map(item => ({ ...item, status: item.status || 'UNPAID' }))
+      .sort((a, b) => (b.checkInTime || 0) - (a.checkInTime || 0));
   } catch (e) {
     console.error("Error leyendo localDb.employee_time_logs:", e);
     return [];
@@ -122,12 +123,18 @@ export async function markTimeLogsAsPaid(db, logIds, salaryPaymentEntryId) {
   };
 
   // 1. Actualización por lotes en Firestore
-  const batch = writeBatch(db);
-  logIds.forEach(id => {
-    const ref = doc(db, 'employee_time_logs', id);
-    batch.update(ref, updatePayload);
-  });
-  await batch.commit();
+  if (db) {
+    try {
+      const batch = writeBatch(db);
+      logIds.forEach(id => {
+        const ref = doc(db, 'employee_time_logs', id);
+        batch.update(ref, updatePayload);
+      });
+      await batch.commit();
+    } catch (fsErr) {
+      console.warn("[TimeLogApi] Error actualizando Firestore para logs pagados:", fsErr);
+    }
+  }
 
   // 2. Actualizar IndexedDB local
   try {
@@ -135,12 +142,15 @@ export async function markTimeLogsAsPaid(db, logIds, salaryPaymentEntryId) {
       const item = await localDb.employee_time_logs.get(id);
       if (item) {
         await localDb.employee_time_logs.put({ ...item, ...updatePayload });
+      } else {
+        await localDb.employee_time_logs.put({ id, ...updatePayload });
       }
     }
   } catch (e) {
     console.warn("Error actualizando IndexedDB para time logs:", e);
   }
 }
+
 
 /**
  * Actualiza las tarifas y modalidad de pago del empleado en Firestore y local.

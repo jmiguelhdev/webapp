@@ -1,10 +1,11 @@
-// src/adapters/presenters/AccountingPresenter.js
+import { markTimeLogsAsPaid } from '../api/TimeLogApi.js';
 
 /**
  * Presenter para la gestión contable (Caja General y Caja Frigorífico).
  * Filtra, pagina y exporta asientos contables, y actualiza de forma reactiva la UI contable.
  */
 export class AccountingPresenter {
+
   /**
    * @param {Object} accountingRepository - Repositorio contable.
    * @param {Object} clientRepository - Repositorio de clientes.

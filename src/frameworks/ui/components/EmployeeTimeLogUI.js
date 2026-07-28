@@ -63,7 +63,8 @@ export function renderEmployeeTimeLogScreen(container, { establishment, employee
   }));
   header.appendChild(titleGroup);
 
-  const typeLabel = employee.paymentType === 'FIXED_DAILY' ? `Jornada Fija ($ ${formatCurrency(employee.dailyFixedRate || 0)})` : `Por Hora ($ ${formatCurrency(employee.hourlyRate || 0)}/h)`;
+  const typeLabel = employee.paymentType === 'FIXED_DAILY' ? `Jornada Fija (${formatCurrency(employee.dailyFixedRate || 0)})` : `Por Hora (${formatCurrency(employee.hourlyRate || 0)}/h)`;
+
   const typeBadge = el('div', {
     html: `<span style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-weight: 700; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.85rem;">
              Esquema: ${typeLabel}
@@ -222,17 +223,17 @@ export function renderEmployeeTimeLogScreen(container, { establishment, employee
     </td></tr>`;
   } else {
     timeLogs.forEach(log => {
-      const tr = el('tr', { style: 'border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.2s;' });
+      const isPaid = log.status === 'PAID';
+      const isCurrentWeek = isLogFromCurrentWeek(log.checkInTime);
+      const { workedHours, totalPayment, isOvertime } = calculatePayment(log, employee);
+
+      const tr = el('tr', { style: `border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.2s; ${isPaid ? 'background: rgba(16, 185, 129, 0.05);' : ''}` });
       
       const checkInDate = new Date(log.checkInTime);
       const dayName = DAYS_ES[checkInDate.getDay()];
       const formattedDateStr = `${dayName} ${formatDate(log.checkInTime)}`;
       const inTimeStr = formatTime(log.checkInTime);
       const outTimeStr = log.checkOutTime ? formatTime(log.checkOutTime) : 'Trabajando...';
-
-      const { workedHours, totalPayment, isOvertime } = calculatePayment(log, employee);
-      const isPaid = log.status === 'PAID';
-      const isCurrentWeek = isLogFromCurrentWeek(log.checkInTime);
 
       // Regla de negocio aprobada por usuario:
       // Si está impago y es de la semana actual (sábado pasado a viernes), checkbox checked = true.
@@ -243,11 +244,13 @@ export function renderEmployeeTimeLogScreen(container, { establishment, employee
         ? (log.totalPayment || totalPayment)
         : totalPayment;
 
+
       tr.innerHTML = `
         <td style="padding: 0.6rem 1rem; text-align: center;">
-          <input type="checkbox" class="log-chk" data-id="${log.id}" data-hours="${workedHours}" data-payment="${subtotalDisplay}" 
+          <input type="checkbox" class="log-chk" data-id="${log.id}" data-date="${log.checkInTime}" data-hours="${workedHours}" data-payment="${subtotalDisplay}" 
                  ${isPaid ? 'disabled' : (defaultChecked ? 'checked' : '')}>
         </td>
+
         <td style="padding: 0.6rem 1rem; font-weight: 600;">
           ${formattedDateStr}
         </td>
@@ -292,16 +295,22 @@ export function renderEmployeeTimeLogScreen(container, { establishment, employee
   const roundModeSelect = wrapper.querySelector('#round-mode-select');
 
   const updateCalculations = () => {
+
+
     let totalHours = 0;
     let selectedDaysCount = 0;
     let rawTotal = 0;
     const selectedLogIds = [];
+    const selectedTimestamps = [];
 
     wrapper.querySelectorAll('.log-chk:checked:not(:disabled)').forEach(chk => {
       selectedDaysCount++;
       totalHours += parseFloat(chk.dataset.hours) || 0;
       rawTotal += parseFloat(chk.dataset.payment) || 0;
       selectedLogIds.push(chk.dataset.id);
+      if (chk.dataset.date) {
+        selectedTimestamps.push(parseInt(chk.dataset.date));
+      }
     });
 
     const mode = roundModeSelect ? roundModeSelect.value : 'exact';
@@ -323,7 +332,7 @@ export function renderEmployeeTimeLogScreen(container, { establishment, employee
     payBtn.style.opacity = selectedDaysCount === 0 ? '0.5' : '1';
     payBtn.style.cursor = selectedDaysCount === 0 ? 'not-allowed' : 'pointer';
 
-    return { selectedLogIds, totalHours, selectedDaysCount, totalAmount };
+    return { selectedLogIds, selectedTimestamps, totalHours, selectedDaysCount, totalAmount };
   };
 
   if (roundModeSelect) {
@@ -334,7 +343,6 @@ export function renderEmployeeTimeLogScreen(container, { establishment, employee
     chk.addEventListener('change', updateCalculations);
   });
 
-
   const currentSummary = updateCalculations();
 
   payBtn.onclick = () => {
@@ -344,7 +352,24 @@ export function renderEmployeeTimeLogScreen(container, { establishment, employee
       return;
     }
 
-    const periodSummary = `Pago Sueldo: ${employee.name} (${summary.selectedDaysCount} días, ${summary.totalHours.toFixed(1)} hs)`;
+    const timestamps = summary.selectedTimestamps.sort((a, b) => a - b);
+    let dateDetailStr = '';
+
+    if (timestamps.length === 1) {
+      const singleDate = new Date(timestamps[0]);
+      const dayName = DAYS_ES[singleDate.getDay()];
+      dateDetailStr = `${dayName} ${formatDate(timestamps[0])}`;
+    } else if (timestamps.length > 1) {
+      const minTs = timestamps[0];
+      const maxTs = timestamps[timestamps.length - 1];
+      const minDate = new Date(minTs);
+      const maxDate = new Date(maxTs);
+      const minDay = DAYS_ES[minDate.getDay()];
+      const maxDay = DAYS_ES[maxDate.getDay()];
+      dateDetailStr = `Del ${minDay} ${formatDate(minTs)} al ${maxDay} ${formatDate(maxTs)}`;
+    }
+
+    const periodSummary = `Pago Sueldo: ${employee.name} (${summary.selectedDaysCount} ${summary.selectedDaysCount === 1 ? 'día' : 'días'}, ${summary.totalHours.toFixed(1)} hs${dateDetailStr ? ` - ${dateDetailStr}` : ''})`;
     const targetCaja = targetCajaSelect.value || 'accounting';
 
     if (typeof onNavigateToSalaryPayment === 'function') {
@@ -358,5 +383,5 @@ export function renderEmployeeTimeLogScreen(container, { establishment, employee
       });
     }
   };
-
 }
+
