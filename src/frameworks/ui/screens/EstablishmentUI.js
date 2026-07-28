@@ -7,26 +7,37 @@
  */
 
 import { el } from '../../../frameworks/utils/dom.js';
+import { renderEmployeeTimeLogScreen } from '../components/EmployeeTimeLogUI.js';
 
 /**
  * Renderiza la interfaz principal del administrador de sucursales y personal.
- * Alterna dinámicamente entre la vista de sucursales y la lista de empleados de la sucursal seleccionada.
+ * Alterna dinámicamente entre la vista de sucursales, la lista de empleados y el control de asistencia.
  * @param {HTMLElement} container - Contenedor raíz del DOM donde se inyectará la pantalla.
  * @param {Object} presenter - Presentador que expone el estado y los métodos de acción.
- * @param {Object} presenter.state - Estado reactivo de la pantalla.
- * @param {Array<Object>} presenter.state.establishments - Lista de sucursales cargadas.
- * @param {Object|null} presenter.state.selectedEstablishment - Sucursal actualmente seleccionada (si aplica).
- * @param {Array<Object>} presenter.state.employees - Empleados de la sucursal seleccionada.
- * @param {Function} presenter.clearSelection - Desselecciona la sucursal para volver al listado general.
- * @param {Function} presenter.selectEstablishment - Selecciona una sucursal para ver sus empleados.
- * @param {Function} presenter.deleteEstablishment - Elimina una sucursal.
- * @param {Function} presenter.deleteEmployee - Elimina un empleado de la sucursal actual.
- * @param {Function} presenter.saveEstablishment - Guarda (crea/edita) una sucursal.
- * @param {Function} presenter.saveEmployee - Guarda (crea/edita) un empleado.
  */
 export function renderEstablishmentManager(container, presenter) {
-  const { establishments = [], selectedEstablishment = null, employees = [] } = presenter.state || {};
+  const { 
+    establishments = [], 
+    selectedEstablishment = null, 
+    employees = [],
+    selectedEmployee = null,
+    timeLogs = []
+  } = presenter.state || {};
+
   container.innerHTML = '';
+
+  // Vista dedicada a pantalla completa de Asistencia y Liquidación del Empleado
+  if (selectedEstablishment && selectedEmployee) {
+    renderEmployeeTimeLogScreen(container, {
+      establishment: selectedEstablishment,
+      employee: selectedEmployee,
+      timeLogs,
+      onSaveRates: (rateData) => presenter.updateEmployeeRates(rateData),
+      onNavigateToSalaryPayment: (payload) => presenter.navigateToSalaryPayment(payload),
+      onBack: () => presenter.clearSelectedEmployee()
+    });
+    return;
+  }
 
   const header = el('div', { 
     classes: ['dashboard-header'],
@@ -170,13 +181,16 @@ function renderEmployeesTable(employees, presenter) {
           <div>${emp.address ? `📍 ${emp.address}` : ''}</div>
         </td>
         <td style="padding: 1rem; text-align: right; white-space: nowrap;">
+          <button class="btn-secondary timelog-btn" style="padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.85rem; margin-right: 0.5rem;" title="Ver asistencia, fichadas y liquidar sueldo">⏱️ Asistencia</button>
           <button class="icon-btn edit-btn" title="Editar">✏️</button>
           <button class="icon-btn delete-btn" style="color: var(--danger);" title="Eliminar">🗑️</button>
         </td>
       `;
       
+      tr.querySelector('.timelog-btn').onclick = () => presenter.selectEmployee(emp);
       tr.querySelector('.edit-btn').onclick = () => showEmployeeModal(emp, presenter);
       tr.querySelector('.delete-btn').onclick = () => presenter.deleteEmployee(emp.id);
+
       
       tbody.appendChild(tr);
     });

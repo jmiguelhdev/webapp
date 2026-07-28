@@ -16,6 +16,7 @@ import { printReceipt, printSalaryReceipt } from '../reports/AccountingReceipts.
 import { formatCurrency, formatDate, formatTime } from '../../../frameworks/utils/formatters.js';
 import { buildExtractionsTab } from '../components/CashExtractionUI.js';
 import { renderExtractionControlScreen, renderExtractionDetailScreen } from '../components/CashExtractionModals.js';
+import { renderSalaryPaymentScreen } from '../components/SalaryPaymentUI.js';
 
 // ---------------------------------------------------------------------------
 // Función principal de renderizado
@@ -28,6 +29,8 @@ export function renderAccounting(container, options) {
     extractions = [],
     selectedExtraction = null,
     extractionScreenMode = null,
+    isSalaryPaymentActive = false,
+    salaryPaymentPayload = null,
     clients,
     producers,
     establishments = [],
@@ -39,6 +42,8 @@ export function renderAccounting(container, options) {
     onOpenControlScreen,
     onOpenDetailScreen,
     onCloseExtractionScreen,
+    onOpenSalaryPaymentScreen,
+    onCloseSalaryPaymentScreen,
     onFilterChange,
     onSave,
     onSaveExtractionEntry,
@@ -69,9 +74,24 @@ export function renderAccounting(container, options) {
     return;
   }
 
+  // Render Sub-Screen for Salary Payment if active
+  if (isSalaryPaymentActive) {
+    renderSalaryPaymentScreen(container, {
+      establishments,
+      initialData: salaryPaymentPayload,
+      onSave: (data) => {
+        onSave(data);
+        if (typeof onCloseSalaryPaymentScreen === 'function') onCloseSalaryPaymentScreen();
+      },
+      onBack: onCloseSalaryPaymentScreen
+    });
+    return;
+  }
+
   const pendingExtractionsCount = extractions.filter(e => e.status !== 'ACCEPTED').length;
 
-  container.appendChild(buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onBack: options.onBack }));
+  container.appendChild(buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onOpenSalaryPaymentScreen, onBack: options.onBack }));
+
 
   // Render Tabs ONLY for Caja General
   if (title === 'Caja General') {
@@ -137,11 +157,12 @@ function buildTabsBar({ activeTab, pendingCount, onTabChange }) {
 // Bloques de construcción de la pantalla
 // ---------------------------------------------------------------------------
 
-function buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onBack }) {
+function buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onOpenSalaryPaymentScreen, onBack }) {
   const header = el('div', {
     classes: ['dashboard-header'],
     style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;'
   });
+
 
   // ---- Grupo título ----
   const titleGroup = el('div', { style: 'display: flex; align-items: center; gap: 1rem;' });
@@ -208,7 +229,14 @@ function buildHeader({ title, filteredEntries, entries, clients, producers, esta
     style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; color: #10b981; border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.1);',
     html: '<span>👨‍💼 Pagar Sueldo</span>'
   });
-  paySalaryBtn.onclick = () => showSalaryPaymentModal({ establishments, onSave, title });
+  paySalaryBtn.onclick = () => {
+    if (typeof onOpenSalaryPaymentScreen === 'function') {
+      onOpenSalaryPaymentScreen();
+    } else {
+      showSalaryPaymentModal({ establishments, onSave, title });
+    }
+  };
+
 
   actionGroup.appendChild(zeroBtn);
   actionGroup.appendChild(auxCalcBtn);

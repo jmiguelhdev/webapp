@@ -6,17 +6,16 @@
  */
 export class AccountingPresenter {
   /**
-   * @param {Object} accountingRepository - Repositorio de asientos contables.
-   * @param {Object} clientRepository - Repositorio de transacciones de clientes para sincronización.
-   * @param {Object} ui - Interfaz unificada de usuario para el renderizado del DOM.
-   * @param {Object} [options={}] - Parámetros de configuración adicionales.
-   * @param {string} [options.title='Caja General'] - Título de la sección contable activa.
-   * @param {string} [options.syncLabel='Pago Caja General'] - Etiqueta descriptiva para asientos sincronizados.
+   * @param {Object} accountingRepository - Repositorio contable.
+   * @param {Object} clientRepository - Repositorio de clientes.
+   * @param {Object} ui - Interfaz unificada de usuario.
+   * @param {Object} options - Configuración adicional (db, title, syncLabel).
    */
   constructor(accountingRepository, clientRepository, ui, options = {}) {
     this.accountingRepository = accountingRepository;
     this.clientRepository = clientRepository;
     this.ui = ui;
+    this.db = options.db;
     this.title = options.title || 'Caja General';
     this.syncLabel = options.syncLabel || 'Pago Caja General';
     
@@ -27,6 +26,8 @@ export class AccountingPresenter {
     this.extractions = [];
     this.selectedExtraction = null;
     this.extractionScreenMode = null; // null | 'control' | 'detail'
+    this.salaryPaymentPayload = null;
+    this.isSalaryPaymentActive = false;
     this.currentUserUid = null;
     this.currentUserRole = 'VISOR';
     this.activeTab = 'journal'; // 'journal' | 'extractions'
@@ -136,6 +137,26 @@ export class AccountingPresenter {
     this.extractionScreenMode = null;
     this.render();
   }
+
+  /**
+   * Abre la pantalla dedicada para registrar un Pago de Sueldo.
+   * @param {Object} [payload] 
+   */
+  openSalaryPaymentScreen(payload = null) {
+    this.salaryPaymentPayload = payload;
+    this.isSalaryPaymentActive = true;
+    this.render();
+  }
+
+  /**
+   * Cierra la pantalla dedicada de Pago de Sueldo y regresa a la Caja General.
+   */
+  closeSalaryPaymentScreen() {
+    this.salaryPaymentPayload = null;
+    this.isSalaryPaymentActive = false;
+    this.render();
+  }
+
 
   /**
    * Procesa y da ingreso a una extracción de caja carnicería como asiento contable en Caja General.
@@ -267,6 +288,13 @@ export class AccountingPresenter {
         await this.accountingRepository.removeLinkedTransaction(entryId);
       }
 
+      // SYNC: If salary payment with selected time log IDs, mark logs as PAID in Firestore & localDb
+      if (entryData.isSalary && entryData.selectedLogIds && entryData.selectedLogIds.length > 0) {
+        await markTimeLogsAsPaid(this.db, entryData.selectedLogIds, entryId);
+      }
+
+      this.salaryPaymentPayload = null;
+      this.isSalaryPaymentActive = false;
       await this.loadData();
     } catch (e) {
       this.ui.showError("Error al guardar movimiento: " + e.message);
@@ -274,6 +302,7 @@ export class AccountingPresenter {
       this.ui.hideLoading();
     }
   }
+
 
   /**
    * Filtra los movimientos en base a un rango de fecha específico y dispara la exportación Excel en la UI.
@@ -338,6 +367,8 @@ export class AccountingPresenter {
       userRole: this.currentUserRole,
       selectedExtraction: this.selectedExtraction,
       extractionScreenMode: this.extractionScreenMode,
+      isSalaryPaymentActive: this.isSalaryPaymentActive,
+      salaryPaymentPayload: this.salaryPaymentPayload,
       entries: paginatedEntries,
       allEntries: this.entries,
       filteredEntries: filteredEntries,
@@ -356,6 +387,8 @@ export class AccountingPresenter {
       onOpenControlScreen: (ext) => this.openExtractionControlScreen(ext),
       onOpenDetailScreen: (ext) => this.openExtractionDetailScreen(ext),
       onCloseExtractionScreen: () => this.closeExtractionScreen(),
+      onOpenSalaryPaymentScreen: (payload) => this.openSalaryPaymentScreen(payload),
+      onCloseSalaryPaymentScreen: () => this.closeSalaryPaymentScreen(),
       onFilterChange: this.applyFilters.bind(this),
       onSave: (data) => this.saveEntry(data),
       onSaveExtractionEntry: (payload) => this.saveExtractionEntry(payload),
@@ -363,6 +396,7 @@ export class AccountingPresenter {
       onRefresh: () => this.loadData(),
       onExport: (start, end) => this.exportData(start, end)
     });
+
 
   }
 }

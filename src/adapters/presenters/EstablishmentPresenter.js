@@ -1,4 +1,4 @@
-// src/adapters/presenters/EstablishmentPresenter.js
+import { fetchEmployeeTimeLogs, updateEmployeeRates as updateRatesApi } from '../api/TimeLogApi.js';
 
 /**
  * Presenter para la administración de establecimientos (sucursales) y sus empleados.
@@ -8,14 +8,19 @@ export class EstablishmentPresenter {
   /**
    * @param {Object} repository - Repositorio de establecimientos y personal.
    * @param {Object} ui - Interfaz unificada de usuario para manipular el DOM.
+   * @param {Object} [options] - Opciones adicionales (db, onNavigateToSalaryPayment).
    */
-  constructor(repository, ui) {
+  constructor(repository, ui, options = {}) {
     this.repository = repository;
     this.ui = ui;
+    this.db = options.db;
+    this.onNavigateToSalaryPaymentCallback = options.onNavigateToSalaryPayment;
     this.state = {
       establishments: [],
       selectedEstablishment: null,
-      employees: []
+      employees: [],
+      selectedEmployee: null,
+      timeLogs: []
     };
   }
 
@@ -48,6 +53,8 @@ export class EstablishmentPresenter {
    */
   async selectEstablishment(establishment) {
     this.state.selectedEstablishment = establishment;
+    this.state.selectedEmployee = null;
+    this.state.timeLogs = [];
     this.ui.showLoading();
     try {
       this.state.employees = await this.repository.getEmployees(establishment.id);
@@ -65,8 +72,76 @@ export class EstablishmentPresenter {
   clearSelection() {
     this.state.selectedEstablishment = null;
     this.state.employees = [];
+    this.state.selectedEmployee = null;
+    this.state.timeLogs = [];
     this.render();
   }
+
+  /**
+   * Selecciona un empleado y carga sus registros de asistencia y fichadas.
+   * @param {Object} employee 
+   */
+  async selectEmployee(employee) {
+    if (!this.state.selectedEstablishment) return;
+    this.state.selectedEmployee = employee;
+    this.ui.showLoading();
+    try {
+      this.state.timeLogs = await fetchEmployeeTimeLogs(
+        this.db, 
+        this.state.selectedEstablishment.id, 
+        employee.id
+      );
+      this.render();
+    } catch (error) {
+      this.ui.showError("Error al cargar asistencia del empleado: " + error.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
+  /**
+   * Desselecciona el empleado activo y regresa al listado de personal de la sucursal.
+   */
+  clearSelectedEmployee() {
+    this.state.selectedEmployee = null;
+    this.state.timeLogs = [];
+    this.render();
+  }
+
+  /**
+   * Actualiza las tarifas y modalidad de pago del empleado activo.
+   * @param {Object} rateData 
+   */
+  async updateEmployeeRates(rateData) {
+    if (!this.state.selectedEstablishment || !this.state.selectedEmployee) return;
+    this.ui.showLoading();
+    try {
+      await updateRatesApi(
+        this.db, 
+        this.state.selectedEstablishment.id, 
+        this.state.selectedEmployee.id, 
+        rateData
+      );
+      this.state.selectedEmployee = { ...this.state.selectedEmployee, ...rateData };
+      this.state.employees = await this.repository.getEmployees(this.state.selectedEstablishment.id, true);
+      this.render();
+    } catch (error) {
+      this.ui.showError("Error al actualizar tarifas: " + error.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
+  /**
+   * Redirige hacia la Caja General para efectuar el pago de sueldo precargado.
+   * @param {Object} payload 
+   */
+  navigateToSalaryPayment(payload) {
+    if (typeof this.onNavigateToSalaryPaymentCallback === 'function') {
+      this.onNavigateToSalaryPaymentCallback(payload);
+    }
+  }
+
 
   /**
    * Registra una nueva sucursal o actualiza una existente y recarga los datos.

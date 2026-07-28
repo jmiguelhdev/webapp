@@ -161,15 +161,24 @@ const consumptionPresenter = new ConsumptionPresenter(travelRepository, uiInterf
 const clientPresenter = new ClientPresenter(clientRepository, operatorRepository, uiInterface);
 const checkPresenter = new CheckPresenter(checkRepository, uiInterface, operatorRepository, clientRepository);
 const accountingPresenter = new AccountingPresenter(accountingRepository, clientRepository, uiInterface, { 
+  db,
   title: 'Caja General', 
   syncLabel: 'Pago Caja General' 
 });
 const frigorificoPresenter = new AccountingPresenter(frigorificoRepository, clientRepository, uiInterface, { 
+  db,
   title: 'Caja Frigorífico', 
   syncLabel: 'Pago Frigorífico' 
 });
 const logisticsPresenter = new LogisticsPresenter(logisticsRepository, uiInterface);
-const establishmentPresenter = new EstablishmentPresenter(establishmentRepository, uiInterface);
+const establishmentPresenter = new EstablishmentPresenter(establishmentRepository, uiInterface, {
+  db,
+  onNavigateToSalaryPayment: (payload) => {
+    navigateTo('accounting');
+    accountingPresenter.openSalaryPaymentScreen(payload);
+  }
+});
+
 
 // Auth Global Watcher
 onAuthStateChanged(auth, async (user) => {

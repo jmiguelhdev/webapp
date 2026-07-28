@@ -18,3 +18,13 @@ localDb.version(2).stores({
   cash_extractions: 'id, cashSessionId, butcheryName, status, timestamp, updatedAt'
 });
 
+localDb.version(3).stores({
+  travels: 'id, status, updatedAt',
+  faenas_detalle: 'id, status, tropa, garron, destination, dispatchDate, barcode, updatedAt',
+  clientes: 'id, name, updatedAt',
+  sync_logs: '++id, timestamp, status',
+  cash_extractions: 'id, cashSessionId, butcheryName, status, timestamp, updatedAt',
+  employee_time_logs: 'id, employeeId, establishmentId, status, checkInTime, checkOutTime, updatedAt'
+});
+
+
