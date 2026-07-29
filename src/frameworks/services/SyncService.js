@@ -25,6 +25,7 @@ export const SyncService = {
     const startTime = Date.now();
     let recordsSyncedStr = '';
     let details = '';
+    let extractionsCount = 0;
 
     try {
       const lastSync = await this.getLastSyncTime();
@@ -123,6 +124,7 @@ export const SyncService = {
         });
         if (extractionsToPut.length > 0) {
           await localDb.cash_extractions.bulkPut(extractionsToPut);
+          extractionsCount = extractionsToPut.length;
         }
       } catch (errExt) {
         console.warn("[SyncService] Error en sync de cash_extractions:", errExt);
@@ -144,8 +146,15 @@ export const SyncService = {
 
       console.log(`[SyncService] Sincronización exitosa. ${recordsSyncedStr}`);
       
+      const syncedCount = clients.length + travels.length + faenasToPut.length + extractionsCount;
+      
       // Lanzar evento global para avisar a la UI que los datos cambiaron
-      window.dispatchEvent(new CustomEvent('app:sync-completed', { detail: { stats: recordsSyncedStr } }));
+      window.dispatchEvent(new CustomEvent('app:sync-completed', { 
+        detail: { 
+          stats: recordsSyncedStr,
+          syncedCount
+        } 
+      }));
 
     } catch (error) {
       console.error('[SyncService] Error al sincronizar:', error);

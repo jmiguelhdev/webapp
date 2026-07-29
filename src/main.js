@@ -232,7 +232,15 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // Refresh UI when background sync completes (silent mode: no loading spinner to avoid screen flicker)
-window.addEventListener('app:sync-completed', () => {
+window.addEventListener('app:sync-completed', (e) => {
+  const syncedCount = e.detail?.syncedCount ?? 0;
+  if (syncedCount === 0) {
+    console.log("[SyncEvent] No new cloud data synced (syncedCount = 0). Skipping UI refresh.");
+    return;
+  }
+
+  console.log(`[SyncEvent] Synced ${syncedCount} new records from cloud. Invalidation & Auto-refresh triggered.`);
+
   // Always invalidate clients in-memory cache so next read picks fresh IndexedDB data
   clientApi.invalidateClientCache();
 

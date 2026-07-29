@@ -154,8 +154,26 @@ export class TravelPresenter {
             }
             // Fetch fresh local cache state and render
             const freshRaw = await this.travelRepository.fetchTravels(uid);
-            this.processRawTravels(freshRaw);
-            this.refresh();
+            
+            // Check for actual data differences to prevent redundant refreshes
+            let hasChanges = false;
+            if (!this.allTravels || this.allTravels.length !== freshRaw.length) {
+              hasChanges = true;
+            } else {
+              const currentMap = new Map(this.allTravels.map(t => [t.id, t.updatedAt]));
+              for (const fresh of freshRaw) {
+                const currentVal = currentMap.get(fresh.id);
+                if (currentVal === undefined || currentVal !== fresh.updatedAt) {
+                  hasChanges = true;
+                  break;
+                }
+              }
+            }
+
+            if (hasChanges) {
+              this.processRawTravels(freshRaw);
+              this.refresh();
+            }
           } catch (e) {
             console.error("Error updating travels from snapshot:", e);
           }

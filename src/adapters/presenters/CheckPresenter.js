@@ -92,9 +92,25 @@ export class CheckPresenter {
         this.checksUnsubscribe = this.checkRepository.subscribeChecks(
           this.currentUserUid,
           (checksList) => {
-            this.checks = checksList;
+            let hasChanges = false;
+            if (!this.checks || this.checks.length !== checksList.length) {
+              hasChanges = true;
+            } else {
+              const currentMap = new Map(this.checks.map(c => [c.id, c.updatedAt || c.timestamp || 0]));
+              for (const fresh of checksList) {
+                const currentVal = currentMap.get(fresh.id);
+                if (currentVal === undefined || currentVal !== (fresh.updatedAt || fresh.timestamp || 0)) {
+                  hasChanges = true;
+                  break;
+                }
+              }
+            }
+
+            if (hasChanges || !this.checks) {
+              this.checks = checksList;
+              this.render();
+            }
             this.ui.hideLoading();
-            this.render();
           },
           (error) => {
             console.error("Checks subscription error:", error);
