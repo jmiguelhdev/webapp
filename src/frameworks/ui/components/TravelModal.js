@@ -31,6 +31,7 @@ export function showTravelModal(travel, options) {
   let kmOnDestination = Number(travel?.kmOnDestination || 0);
   let kmOnPump = Number(travel?.kmOnPump || 0);
   let litersOnPump = Number(travel?.litersOnPump || 0);
+  let tropa = travel?.tropa || '';
 
   // Expenses State
   let expArray = travel?.expenses ? (Array.isArray(travel.expenses) ? travel.expenses : Object.values(travel.expenses)) : [];
@@ -183,12 +184,18 @@ export function showTravelModal(travel, options) {
             <input type="text" id="t-desc" value="${description}" placeholder="Ej. Remisión Vacunos Liniers..." style="padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-size: 0.85rem;">
           </div>
 
-          <div class="form-group" style="display: flex; flex-direction: column; gap: 0.4rem;">
-            <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">🚛 Camión Asignado</label>
-            <select id="t-truck" required style="padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600; font-size: 0.85rem;">
-              <option value="">-- Seleccionar Camión --</option>
-              ${trucksOpts}
-            </select>
+          <div class="responsive-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+            <div class="form-group" style="margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
+              <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">🚛 Camión Asignado</label>
+              <select id="t-truck" required style="padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-weight: 600; font-size: 0.85rem; width: 100%;">
+                <option value="">-- Seleccionar Camión --</option>
+                ${trucksOpts}
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0; display: flex; flex-direction: column; gap: 0.4rem;">
+              <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">🔢 Número de Tropa / Remito</label>
+              <input type="text" id="t-tropa" value="${tropa}" placeholder="Ej. Tropa 4028..." style="padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-size: 0.85rem; width: 100%;">
+            </div>
           </div>
 
           <!-- Odómetro panel card -->
@@ -238,6 +245,7 @@ export function showTravelModal(travel, options) {
       const tStatus = panel.querySelector('#t-status');
       const tDesc = panel.querySelector('#t-desc');
       const tTruck = panel.querySelector('#t-truck');
+      const tTropa = panel.querySelector('#t-tropa');
       const tKmO = panel.querySelector('#t-km-o');
       const tKmD = panel.querySelector('#t-km-d');
       const tKmP = panel.querySelector('#t-km-p');
@@ -275,6 +283,9 @@ export function showTravelModal(travel, options) {
       };
       tDesc.oninput = (e) => { description = e.target.value; };
       tTruck.onchange = (e) => { selectedTruckId = e.target.value; };
+      if (tTropa) {
+        tTropa.oninput = (e) => { tropa = e.target.value; };
+      }
       tKmO.oninput = (e) => { 
         kmOnOrigin = Number(e.target.value); 
         panel.querySelector('strong').textContent = Math.max(0, kmOnDestination - kmOnOrigin) + ' km';
@@ -785,6 +796,7 @@ export function showTravelModal(travel, options) {
         date: date,
         status: status,
         description: description,
+        tropa: tropa,
         truck: selectedTruck || null,
         kmOnOrigin: kmOnOrigin,
         kmOnDestination: kmOnDestination,

@@ -7,6 +7,7 @@ import { SHARED_DATA_SOURCE_UID } from '../../config.js';
 import { debounce } from '../../utils.js';
 import { Travel } from '../../domain/entities/LogisticsModels.js';
 import { Travel as CoreTravel } from '../../domain/entities/Travel.js';
+import { localDb } from '../../frameworks/db/localDb.js';
 
 /**
  * Presenter principal para la gestión de Viajes comerciales de Hacienda.
@@ -98,6 +99,35 @@ export class TravelPresenter {
     this.categoryPricesCache = null;
   }
 
+  processRawTravels(raw) {
+    this.invalidateDashboardCache();
+    
+    // Deduplicate by ID and instantiate core Travel entities
+    const seen = new Set();
+    this.allTravels = raw.map(t => new CoreTravel(t)).filter(t => {
+      if (!t || !t.id || seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+
+    // Cache completed travels and their categories to prevent recalculation on every filter change
+    this.completedTravelsCache = this.allTravels.filter(t => {
+      const s = String(t.status || '').toUpperCase();
+      const isComp = t.isCompleted === true || s === 'COMPLETED' || s === 'FINALIZADO' || s === 'ACTIVE' || s === 'ACTIVO';
+      return isComp && s !== 'DRAFT' && s !== 'BORRADOR';
+    });
+
+    const categoriesSet = new Set();
+    this.completedTravelsCache.forEach(t => {
+      if (t.buy && t.buy.categories) {
+        t.buy.categories.forEach(cat => {
+          if (cat) categoriesSet.add(cat);
+        });
+      }
+    });
+    this.allCategoriesCache = ['TODOS', ...Array.from(categoriesSet).sort()];
+  }
+
   async loadTravels(uid) {
     if (this.travelsUnsubscribe) {
       this.travelsUnsubscribe();
@@ -107,42 +137,27 @@ export class TravelPresenter {
     try {
       this.invalidateDashboardCache();
       
+      // 1. Initial Local Read from IndexedDB (Local-First fast boot)
+      const initialRaw = await this.travelRepository.fetchTravels(uid);
+      this.processRawTravels(initialRaw);
+      this.ui.hideLoading();
+      this.refresh();
+
+      // 2. Real-time background sync from Firestore
       this.travelsUnsubscribe = this.travelRepository.subscribeTravels(
         uid,
-        (raw) => {
+        async (raw) => {
           try {
-            this.invalidateDashboardCache();
-            
-            // Deduplicate by ID and instantiate core Travel entities
-            const seen = new Set();
-            this.allTravels = raw.map(t => new CoreTravel(t)).filter(t => {
-              if (!t || !t.id || seen.has(t.id)) return false;
-              seen.add(t.id);
-              return true;
-            });
-
-            // Cache completed travels and their categories to prevent recalculation on every filter change
-            this.completedTravelsCache = this.allTravels.filter(t => {
-              const s = String(t.status || '').toUpperCase();
-              const isComp = t.isCompleted === true || s === 'COMPLETED' || s === 'FINALIZADO' || s === 'ACTIVE' || s === 'ACTIVO';
-              return isComp && s !== 'DRAFT' && s !== 'BORRADOR';
-            });
-
-            const categoriesSet = new Set();
-            this.completedTravelsCache.forEach(t => {
-              if (t.buy && t.buy.categories) {
-                t.buy.categories.forEach(cat => {
-                  if (cat) categoriesSet.add(cat);
-                });
-              }
-            });
-            this.allCategoriesCache = ['TODOS', ...Array.from(categoriesSet).sort()];
-
-            this.ui.hideLoading();
+            // Write-Through to Dexie
+            if (raw.length > 0) {
+              await localDb.travels.bulkPut(raw);
+            }
+            // Fetch fresh local cache state and render
+            const freshRaw = await this.travelRepository.fetchTravels(uid);
+            this.processRawTravels(freshRaw);
             this.refresh();
-          } catch (error) {
-            console.error("Error in travels subscription callback:", error);
-            this.ui.showError("Error al procesar actualización de viajes: " + error.message);
+          } catch (e) {
+            console.error("Error updating travels from snapshot:", e);
           }
         },
         (error) => {
@@ -226,22 +241,20 @@ export class TravelPresenter {
     }
   }
 
-  updateView() {
+  async updateView() {
     this.state.currentView = 'travels';
     
     const allCategories = this.allCategoriesCache || ['TODOS'];
 
-    // 1. Filter & Sort
-    let filtered = this._applyTimeFilter(this.allTravels);
+    // 1. Filter & Sort via Clean Architecture Use Case
+    let filtered = await this.getTravelsUseCase.execute({
+      uid: SHARED_DATA_SOURCE_UID,
+      filter: this.state.filter,
+      sort: this.state.sort
+    });
     
-    // Status Filter
-    if (this.state.filter !== 'TODOS') {
-      filtered = filtered.filter(t => {
-        if (this.state.filter === 'ACTIVO') return t.status === 'ACTIVE' || t.status === 'COMPLETED';
-        if (this.state.filter === 'BORRADOR') return t.status === 'DRAFT';
-        return true;
-      });
-    }
+    // Apply time filter
+    filtered = this._applyTimeFilter(filtered);
 
     // Category Filter (Multi-select)
     if (this.state.selectedCategories.length > 0) {
@@ -272,12 +285,6 @@ export class TravelPresenter {
                driverName.includes(q) || agentName.includes(q) || producersMatch;
       });
     }
-
-    filtered.sort((a, b) => {
-      const dateA = new Date(a.date || 0);
-      const dateB = new Date(b.date || 0);
-      return this.state.sort === 'DESC' ? dateB - dateA : dateA - dateB;
-    });
 
     // 2. Stats
     const categoryStats = this.calculateStatsUseCase.execute(
@@ -362,7 +369,12 @@ export class TravelPresenter {
       }
 
       await this.travelRepository.saveTravel(SHARED_DATA_SOURCE_UID, travel);
-      await this.loadTravels(SHARED_DATA_SOURCE_UID);
+      
+      // Local reload for 0ms visual updates
+      const raw = await this.travelRepository.fetchTravels(SHARED_DATA_SOURCE_UID);
+      this.processRawTravels(raw);
+      this.refresh();
+      this.ui.hideLoading();
     } catch (e) {
       this.ui.hideLoading();
       this.ui.showError("Error al guardar viaje: " + e.message);
@@ -373,7 +385,12 @@ export class TravelPresenter {
     try {
       this.ui.showLoading();
       await this.travelRepository.deleteTravel(SHARED_DATA_SOURCE_UID, id);
-      await this.loadTravels(SHARED_DATA_SOURCE_UID);
+      
+      // Local reload for 0ms visual updates
+      const raw = await this.travelRepository.fetchTravels(SHARED_DATA_SOURCE_UID);
+      this.processRawTravels(raw);
+      this.refresh();
+      this.ui.hideLoading();
     } catch (e) {
       this.ui.hideLoading();
       this.ui.showError("Error al eliminar viaje: " + e.message);
@@ -396,7 +413,10 @@ export class TravelPresenter {
       updatedRaw.reduce = newValue; // Picked up by updated Travel.js constructor 
       
       await this.travelRepository.updateTravel(uid, travelId, updatedRaw);
-      this.invalidateDashboardCache();
+      
+      // Local reload for 0ms visual updates
+      const raw = await this.travelRepository.fetchTravels(uid);
+      this.processRawTravels(raw);
       this.refresh();
     } catch (error) {
       this.ui.showError("Error al actualizar achique: " + error.message);
@@ -439,10 +459,15 @@ export class TravelPresenter {
       producer.manualIva = manualIvaValue;
       
       await this.travelRepository.updateTravel(uid, travelId, updatedRaw);
-      await this.loadTravels(uid); // Full reload to refresh all calculations
+      
+      // Local reload for 0ms visual updates
+      const raw = await this.travelRepository.fetchTravels(uid);
+      this.processRawTravels(raw);
+      this.refresh();
       this.ui.showLoading(false);
     } catch (error) {
       this.ui.showError("Error al guardar liquidación: " + error.message);
+      this.ui.hideLoading();
     }
   }
 
@@ -668,7 +693,12 @@ export class TravelPresenter {
 
       // Find matching travel
       const match = this.allTravels.find(t => {
-        // 1. Check Producer CUIT
+        // A. Prioritize matching by Tropa number if both exist
+        if (t.tropa && pdfData.tropa && String(t.tropa).trim() === String(pdfData.tropa).trim()) {
+          return true;
+        }
+
+        // B. Fallback to CUIT + Date range matching (+/- 7 days)
         const hasProducer = (t.buy?.listOfProducers || []).some(p => {
           const pCuit = (p.producer?.cuit || '').replace(/\D/g, '');
           const targetCuit = pdfData.producer.cuit.replace(/\D/g, '');

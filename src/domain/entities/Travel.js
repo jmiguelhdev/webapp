@@ -11,6 +11,7 @@ export class Travel {
     this.date = data.date || '';
     this.description = data.description || '';
     this.status = data.status || 'DRAFT'; // DRAFT, ACTIVE, COMPLETED
+    this.tropa = data.tropa || '';
     this.truck = data.truck || { name: '' };
     this.kmOnOrigin = data.kmOnOrigin || 0;
     this.kmOnDestination = data.kmOnDestination || 0;
