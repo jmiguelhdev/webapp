@@ -1,6 +1,8 @@
 // src/main.js
 import './style.css';
 import { auth, db } from './firebase.js';
+import { collection, getDocs, writeBatch } from 'firebase/firestore';
+import { localDb } from './frameworks/db/localDb.js';
 import { CostSimulator } from './domain/entities/CostSimulator.js';
 import { SettingsService } from './frameworks/services/SettingsService.js';
 import { onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -421,6 +423,93 @@ const navigateTo = (view, role = currentUserRole) => {
             await userApi.deleteUserMetadata(db, uid);
             usersListCache = null; // Clear cache on delete
             await loadSettingsData(); // Refresh the view
+          },
+          onResetCajasOnly: async () => {
+            uiInterface.showLoading(true);
+            try {
+              const collRef = collection(db, 'cash_extractions');
+              const snapshot = await getDocs(collRef);
+              let batch = writeBatch(db);
+              let count = 0;
+              for (const docSnap of snapshot.docs) {
+                batch.delete(docSnap.ref);
+                count++;
+                if (count % 100 === 0) {
+                  await batch.commit();
+                  batch = writeBatch(db);
+                }
+              }
+              if (count % 100 !== 0) {
+                await batch.commit();
+              }
+
+              try {
+                await localDb.cash_extractions.clear();
+              } catch (err) {
+                console.warn("Error clearing local cash_extractions IndexedDB:", err);
+              }
+              console.log("cash_extractions successfully reset.");
+              navigateTo('dashboard');
+            } catch (e) {
+              console.error("Error resetting cash_extractions:", e);
+              throw e;
+            } finally {
+              uiInterface.hideLoading();
+            }
+          },
+          onResetCajaGeneralOnly: async () => {
+            uiInterface.showLoading(true);
+            try {
+              const collRef = collection(db, 'accounting_entries');
+              const snapshot = await getDocs(collRef);
+              let batch = writeBatch(db);
+              let count = 0;
+              for (const docSnap of snapshot.docs) {
+                batch.delete(docSnap.ref);
+                count++;
+                if (count % 100 === 0) {
+                  await batch.commit();
+                  batch = writeBatch(db);
+                }
+              }
+              if (count % 100 !== 0) {
+                await batch.commit();
+              }
+              console.log("accounting_entries successfully reset.");
+              navigateTo('dashboard');
+            } catch (e) {
+              console.error("Error resetting accounting_entries:", e);
+              throw e;
+            } finally {
+              uiInterface.hideLoading();
+            }
+          },
+          onResetCajaFrigorificoOnly: async () => {
+            uiInterface.showLoading(true);
+            try {
+              const collRef = collection(db, 'frigorifico_entries');
+              const snapshot = await getDocs(collRef);
+              let batch = writeBatch(db);
+              let count = 0;
+              for (const docSnap of snapshot.docs) {
+                batch.delete(docSnap.ref);
+                count++;
+                if (count % 100 === 0) {
+                  await batch.commit();
+                  batch = writeBatch(db);
+                }
+              }
+              if (count % 100 !== 0) {
+                await batch.commit();
+              }
+              console.log("frigorifico_entries successfully reset.");
+              navigateTo('dashboard');
+            } catch (e) {
+              console.error("Error resetting frigorifico_entries:", e);
+              throw e;
+            } finally {
+              uiInterface.hideLoading();
+            }
           },
           onReloadClients: loadSettingsData,
           onPriceShare: () => navigateTo('price-share'),

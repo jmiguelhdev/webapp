@@ -721,8 +721,147 @@ export function renderSettings(container, options) {
 
   loadSyncLogs();
 
+  // Section: Zona de Peligro / Mantenimiento
+  const sectionTitleDanger = el('h3', { 
+    classes: ['settings-section-title'], 
+    text: '⚠️ Zona de Peligro / Mantenimiento',
+    style: 'margin: 2.5rem 0 1rem 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--danger); font-weight: 700;'
+  });
+  wrapper.appendChild(sectionTitleDanger);
+
+  const dangerCard = el('div', {
+    classes: ['glass-card'],
+    style: 'padding: 1.5rem; border-radius: 16px; margin-bottom: 2.5rem; border: 1px solid rgba(239, 68, 68, 0.2); display: flex; flex-direction: column; gap: 1.25rem;'
+  });
+  
+  dangerCard.innerHTML = `
+    <!-- Fila 1: Cajas (Retiros) -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+      <div style="flex: 1; min-width: 250px;">
+        <span style="font-weight: 600; color: var(--text-main); display: block;">Reiniciar Cajas (Retiros)</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Vacía por completo la colección de Cajas (Retiros de carnicería) en la nube y su caché local IndexedDB.</span>
+      </div>
+      <button id="reset-cajas-btn" class="btn-primary" style="padding: 0.65rem 1.5rem; font-size: 0.82rem; margin: 0; background: var(--danger); border: none; color: #fff; font-weight: 600; cursor: pointer; border-radius: 8px;">
+        💥 Reiniciar Cajas
+      </button>
+    </div>
+
+    <!-- Fila 2: Caja General -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+      <div style="flex: 1; min-width: 250px;">
+        <span style="font-weight: 600; color: var(--text-main); display: block;">Reiniciar Caja General</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Vacía por completo el libro contable de la Caja General en la nube.</span>
+      </div>
+      <button id="reset-caja-general-btn" class="btn-primary" style="padding: 0.65rem 1.5rem; font-size: 0.82rem; margin: 0; background: var(--danger); border: none; color: #fff; font-weight: 600; cursor: pointer; border-radius: 8px;">
+        💥 Reiniciar Caja General
+      </button>
+    </div>
+
+    <!-- Fila 3: Caja Frigorífico -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div style="flex: 1; min-width: 250px;">
+        <span style="font-weight: 600; color: var(--text-main); display: block;">Reiniciar Caja Frigorífico</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Vacía por completo la colección de la Caja Frigorífico en la nube.</span>
+      </div>
+      <button id="reset-caja-frigorifico-btn" class="btn-primary" style="padding: 0.65rem 1.5rem; font-size: 0.82rem; margin: 0; background: var(--danger); border: none; color: #fff; font-weight: 600; cursor: pointer; border-radius: 8px;">
+        💥 Reiniciar Caja Frigorífico
+      </button>
+    </div>
+  `;
+  wrapper.appendChild(dangerCard);
+
+  const setupResetButton = (buttonId, title, description, callbackName) => {
+    const btn = dangerCard.querySelector('#' + buttonId);
+    if (btn) {
+      btn.onclick = () => {
+        showConfirmResetCajasModal(title, description, async () => {
+          btn.disabled = true;
+          const origText = btn.textContent;
+          btn.textContent = 'Reiniciando...';
+          try {
+            if (options[callbackName]) {
+              await options[callbackName]();
+              showMsg(`¡${title} reiniciada con éxito!`);
+            } else {
+              showMsg(`Error: callback ${callbackName} no definido.`, true);
+            }
+          } catch (e) {
+            console.error(`Error al reiniciar ${title.toLowerCase()}:`, e);
+            showMsg('Error al reiniciar: ' + e.message, true);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = origText;
+          }
+        });
+      };
+    }
+  };
+
+  setupResetButton('reset-cajas-btn', 'Cajas (Retiros)', 'Esta acción borrará permanentemente todos los registros de Cajas (Retiros de carnicería) de forma irreversible en la base de datos de la nube y su caché local.', 'onResetCajasOnly');
+  setupResetButton('reset-caja-general-btn', 'Caja General', 'Esta acción borrará permanentemente todos los registros contables de la Caja General de forma irreversible en la base de datos de la nube.', 'onResetCajaGeneralOnly');
+  setupResetButton('reset-caja-frigorifico-btn', 'Caja Frigorífico', 'Esta acción borrará permanentemente todos los registros de la Caja Frigorífico de forma irreversible en la base de datos de la nube.', 'onResetCajaFrigorificoOnly');
+
   // Append the constructed settings wrapper to the view container
   container.appendChild(wrapper);
+}
+
+/**
+ * Muestra una modal de confirmación con contraseña para reiniciar una colección de cajas específica.
+ * @param {string} title - Título de la modal.
+ * @param {string} description - Advertencia detallada.
+ * @param {function} onConfirm - Callback ejecutado si la contraseña es correcta.
+ */
+function showConfirmResetCajasModal(title, description, onConfirm) {
+  const overlay = el('div', {
+    classes: ['modal-overlay'],
+    style: 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; animation: fadeIn 0.2s ease;'
+  });
+
+  const modal = el('div', {
+    classes: ['modal', 'glass-card'],
+    style: 'max-width: 420px; padding: 2rem; border-radius: 24px; border: 1px solid rgba(239, 68, 68, 0.3); background: var(--card-bg); box-shadow: var(--elevation-3); text-align: center;'
+  });
+
+  modal.innerHTML = `
+    <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto; border: 1.5px solid rgba(239, 68, 68, 0.4); color: var(--danger); font-size: 1.8rem;">
+      ⚠️
+    </div>
+    <h3 style="margin: 0 0 0.75rem 0; font-size: 1.25rem; font-weight: 700; color: var(--text-main);">¿Reiniciar ${title}?</h3>
+    <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin: 0 0 1.5rem 0;">
+      ${description}
+    </p>
+    <div style="margin-bottom: 1.5rem; text-align: left; display: flex; flex-direction: column; gap: 0.4rem;">
+      <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Ingrese la contraseña de confirmación:</label>
+      <input type="password" id="reset-confirm-password" class="form-input" placeholder="Contraseña..." style="width: 100%; text-align: center; font-size: 1.1rem; letter-spacing: 2px;">
+    </div>
+    <div style="display: flex; gap: 1rem; justify-content: stretch;">
+      <button id="cancel-reset-btn" class="btn-outline" style="flex: 1; padding: 0.75rem; border-radius: 12px; font-weight: 600; cursor: pointer; border-color: var(--border); color: var(--text-main); background: transparent;">
+        Cancelar
+      </button>
+      <button id="confirm-reset-btn" class="btn-primary" style="flex: 1; padding: 0.75rem; border-radius: 12px; font-weight: 700; cursor: pointer; background: var(--danger); border: none; color: #fff; margin: 0;">
+        Proceder
+      </button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  modal.querySelector('#cancel-reset-btn').onclick = close;
+  
+  const passwordInput = modal.querySelector('#reset-confirm-password');
+  
+  modal.querySelector('#confirm-reset-btn').onclick = () => {
+    const password = passwordInput.value;
+    if (password === '180283') {
+      close();
+      onConfirm();
+    } else {
+      alert('Contraseña incorrecta. Acción cancelada.');
+    }
+  };
 }
 
 /**
