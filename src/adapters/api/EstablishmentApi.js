@@ -41,9 +41,14 @@ export async function deleteEstablishment(db, id) {
 
 export async function fetchEmployees(db, establishmentId) {
   if (!establishmentId) throw new Error("establishmentId is required to fetch employees");
+  const cacheKey = `employees:${establishmentId}`;
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
   const collRef = collection(db, 'establishments', establishmentId, 'employees');
   const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const result = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  _setCached(cacheKey, result, TTL_10MIN);
+  return result;
 }
 
 export async function saveEmployee(db, establishmentId, employee) {
@@ -60,6 +65,7 @@ export async function saveEmployee(db, establishmentId, employee) {
     dataToSave.createdAt = Date.now();
     docRef = await addDoc(collRef, dataToSave);
   }
+  _invalidateCached(`employees:${establishmentId}`);
   return docRef.id;
 }
 
@@ -67,4 +73,5 @@ export async function deleteEmployee(db, establishmentId, employeeId) {
   if (!establishmentId || !employeeId) throw new Error("establishmentId and employeeId are required");
   const docRef = doc(db, 'establishments', establishmentId, 'employees', employeeId);
   await deleteDoc(docRef);
+  _invalidateCached(`employees:${establishmentId}`);
 }

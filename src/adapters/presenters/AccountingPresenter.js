@@ -68,27 +68,33 @@ export class AccountingPresenter {
   async loadData() {
     this.ui.showLoading();
     try {
-      this.entries = await this.accountingRepository.fetchEntries(this.currentUserUid);
+      // 1. Fetch entries, clients, travels, establishments, and extractions in parallel
+      const [entries, clients, travels, establishments, extractions] = await Promise.all([
+        this.accountingRepository.fetchEntries(this.currentUserUid),
+        this.accountingRepository.getClients(),
+        this.accountingRepository.getTravels(this.currentUserUid),
+        this.accountingRepository.getEstablishments(),
+        this.accountingRepository.getCashExtractions().catch(errExt => {
+          console.warn("Error cargando cash_extractions:", errExt);
+          return [];
+        })
+      ]);
+
+      this.entries = entries;
       // Sort by date descending by default
       this.entries.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      
-      this.clients = await this.accountingRepository.getClients();
-      
-      const travels = await this.accountingRepository.getTravels(this.currentUserUid);
+      this.clients = clients;
       this.producers = this.extractUniqueProducers(travels);
-      
-      // Load Establishments and their employees
-      this.establishments = await this.accountingRepository.getEstablishments();
-      for (const est of this.establishments) {
-        est.employees = await this.accountingRepository.getEmployees(est.id);
-      }
+      this.establishments = establishments;
+      this.extractions = extractions;
 
-      // Load Cash Extractions
-      try {
-        this.extractions = await this.accountingRepository.getCashExtractions();
-      } catch (errExt) {
-        console.warn("Error cargando cash_extractions:", errExt);
-        this.extractions = [];
+      // 2. Fetch employees for all establishments in parallel
+      if (this.establishments && this.establishments.length > 0) {
+        await Promise.all(
+          this.establishments.map(async (est) => {
+            est.employees = await this.accountingRepository.getEmployees(est.id);
+          })
+        );
       }
       
       this.render();
