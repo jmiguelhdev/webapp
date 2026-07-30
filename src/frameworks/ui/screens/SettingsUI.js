@@ -403,7 +403,24 @@ export function renderSettings(container, options) {
             style: 'padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1.25rem; border-radius: 14px; border: 1px solid var(--border);' 
           });
 
+          const isSelf = u.uid === options.currentUserUid;
+          const isSuperAdmin = u.uid === 'iqy12KgqiDU0Z1QwwbqRSqvSpCM2';
+
           const initials = String(u.email || u.uid || 'U').substring(0, 2).toUpperCase();
+
+          const deleteBtnHtml = (isSelf || isSuperAdmin) ? `
+            <span style="font-size: 0.72rem; color: var(--text-muted); background: rgba(255,255,255,0.04); padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 600; border: 1px solid var(--border); user-select: none;">
+              ${isSuperAdmin ? '🛡️ Super-Admin' : '👤 Tú'}
+            </span>
+          ` : `
+            <button class="btn-outline btn-delete-user icon-btn delete-btn" data-uid="${u.uid}" data-email="${u.email}" title="Eliminar Usuario" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger); border-radius: 8px; background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+              🗑️
+            </button>
+          `;
+
+          const selectAttrs = (isSuperAdmin || (isSelf && u.role === 'ADMIN')) ? 'disabled title="No puedes cambiar tu propio rol de administrador o modificar el del Super-Admin"' : '';
+          const checkboxAttrs = isSuperAdmin ? 'disabled' : '';
+          const saveBtnAttrs = isSuperAdmin ? 'disabled style="opacity: 0.5; cursor: not-allowed;" title="El rol del Super-Admin no se puede modificar"' : '';
 
           card.innerHTML = `
             <div style="display: flex; align-items: center; gap: 0.85rem; justify-content: space-between; width: 100%;">
@@ -416,9 +433,7 @@ export function renderSettings(container, options) {
                   <span style="font-size: 0.75rem; color: var(--text-muted);">Registrado: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString('es-AR') : 'N/A'}</span>
                 </div>
               </div>
-              <button class="btn-outline btn-delete-user icon-btn delete-btn" data-uid="${u.uid}" data-email="${u.email}" title="Eliminar Usuario" style="padding: 0.4rem 0.6rem; font-size: 0.8rem; color: var(--danger); border-color: var(--danger); border-radius: 8px; background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                🗑️
-              </button>
+              ${deleteBtnHtml}
             </div>
             
             <details style="border-top: 1px dashed var(--border); padding-top: 0.75rem;">
@@ -430,7 +445,7 @@ export function renderSettings(container, options) {
                   const hasView = (u.allowedViews && u.allowedViews.includes(s.id)) || (!u.allowedViews && defaultViewsForRole(u.role).includes(s.id));
                   return `
                     <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; user-select: none;">
-                      <input type="checkbox" class="section-check" data-uid="${u.uid}" data-view="${s.id}" ${hasView ? 'checked' : ''} style="cursor: pointer;">
+                      <input type="checkbox" class="section-check" data-uid="${u.uid}" data-view="${s.id}" ${hasView ? 'checked' : ''} ${checkboxAttrs} style="cursor: pointer;">
                       ${s.name}
                     </label>
                   `;
@@ -439,12 +454,12 @@ export function renderSettings(container, options) {
             </details>
 
             <div style="display: flex; gap: 0.5rem; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem; justify-content: space-between;">
-              <select class="form-input rbac-select" data-uid="${u.uid}" style="padding: 0.45rem 1rem 0.45rem 0.5rem; font-size: 0.8rem; border-radius: 8px; flex: 1;">
+              <select class="form-input rbac-select" data-uid="${u.uid}" ${selectAttrs} style="padding: 0.45rem 1rem 0.45rem 0.5rem; font-size: 0.8rem; border-radius: 8px; flex: 1;">
                 <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>Administrador (Full)</option>
                 <option value="OPERARIO" ${u.role === 'OPERARIO' ? 'selected' : ''}>Operario (Edición)</option>
                 <option value="VISOR" ${u.role === 'VISOR' ? 'selected' : ''}>Solo Lectura (Visor)</option>
               </select>
-              <button class="btn-primary btn-save-role" data-uid="${u.uid}" data-email="${u.email}" style="padding: 0.5rem 1rem; font-size: 0.8rem; margin: 0; border-radius: 8px; font-weight: 600;">Actualizar</button>
+              <button class="btn-primary btn-save-role" data-uid="${u.uid}" data-email="${u.email}" ${saveBtnAttrs} style="padding: 0.5rem 1rem; font-size: 0.8rem; margin: 0; border-radius: 8px; font-weight: 600;">Actualizar</button>
             </div>
           `;
           rbacListEl.appendChild(card);

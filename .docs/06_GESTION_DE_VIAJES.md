@@ -39,37 +39,28 @@ const dataToSave = {
 ```
 Al leer, la función `parseFirestoreDoc` en `common.js` deserializa el contenido para fusionarlo con propiedades del nivel superior del documento.
 
-## 3. Problemas Detectados y Cuellos de Botella
+## 3. Problemas Corregidos y Optimizaciones Aplicadas
 
-A través del análisis del código, se han identificado las siguientes áreas críticas que afectan el rendimiento, la mantenibilidad y el cumplimiento de Clean Architecture:
+### A. Alineación de la Capa de Presentación con el Caso de Uso (`GetTravels`) [RESUELTO]
+* **Antes**: El presentador (`TravelPresenter`) instanciaba el caso de uso `GetTravels` pero realizaba lecturas crudas directas al repositorio en la carga inicial y en las actualizaciones, duplicando la lógica de filtrado y ordenamiento.
+* **Solución**: Se refactorizó `TravelPresenter.js` para realizar todas las operaciones de carga y actualización de datos a través de `this.getTravelsUseCase.execute(...)`, cumpliendo rigurosamente las reglas de Clean Architecture.
 
-### A. Omisión del Caso de Uso (`GetTravels`) en el Presenter
-Aunque el presentador instancia el caso de uso `this.getTravelsUseCase = new GetTravels(travelRepository)` en su constructor, **nunca lo utiliza**. 
-En su lugar, el presentador se suscribe directamente a la actualización en tiempo real mediante `this.travelRepository.subscribeTravels(...)` y mapea los datos crudos a entidades directamente dentro de su flujo interno. Esto rompe la regla de dependencia de Clean Architecture y duplica la lógica de filtrado de estados y ordenación que ya existe en el caso de uso.
+### B. Consumo Excesivo de Ancho de Banda y CPU por Serialización JSON [RESUELTO]
+* **Antes**: Todo el objeto de viaje se guardaba en un campo string `data`, lo que impedía consultas nativas indexadas en Firestore, requería carga masiva en memoria del cliente y causaba riesgos de colisión de escrituras.
+* **Solución**: Se ejecutó una migración a un esquema nativo JSON en Firestore (preservando el campo `data` string para mantener la total compatibilidad con la app móvil de Android y clientes antiguos). Las funciones `saveTravel` y `updateTravel` ahora operan en formato dual.
 
-### B. Consumo Excesivo de Ancho de Banda y CPU por Serialización JSON
-Dado que todo el objeto de viaje (incluyendo productores asociados, listas de productos y liquidaciones fiscales) se almacena dentro de un campo string `data` en Firestore:
-* **No es posible realizar consultas indexadas en Firestore**: Filtros simples como "filtrar por estado `ACTIVE`" o "buscar viajes de determinado CUIT" no pueden ejecutarse en el servidor de base de datos.
-* **Carga masiva en el cliente**: El cliente web se ve forzado a descargar **todos** los viajes creados por el usuario, procesar las strings JSON en memoria y aplicar búsquedas o paginación en el navegador. A medida que el volumen histórico crezca, esto causará bloqueos de la UI y un consumo de red insostenible.
-* **Riesgo de colisión de escrituras**: Si múltiples usuarios actualizan el mismo viaje de forma concurrente, se sobreescribirán mutuamente debido a que la actualización modifica el JSON completo de forma atómica en lugar de actualizar campos individuales.
+### C. Implementación de una Arquitectura "Local-First" Real [RESUELTO]
+* **Antes**: `TravelPresenter` abría un listener de Firestore en tiempo real (`subscribeToTravels`) sobre toda la colección de viajes, anulando las ventajas offline y consumiendo excesiva cuota de lecturas de red.
+* **Solución**: Se eliminó la suscripción en tiempo real de Firestore. El presentador lee exclusivamente de la base de datos local IndexedDB (`localDb.travels`). El servicio de sincronización `SyncService.js` descarga las modificaciones delta en segundo plano y notifica a `main.js` mediante el evento `app:sync-completed`, el cual refresca de forma silenciosa la vista activa de viajes.
 
-### C. Asimetría de Caché Local y Tiempo Real
-* El sistema cuenta con `SyncService.js` para sincronizar los viajes de forma eficiente a IndexedDB (`localDb.travels`).
-* Sin embargo, `TravelPresenter` utiliza `subscribeToTravels` de Firestore en lugar del almacén local. Esto anula las ventajas del modo offline para viajes y provoca múltiples llamadas de red de lectura a Firebase en tiempo real, incrementando drásticamente el costo de cuota de Firestore.
+### D. Robusto Algoritmo de Emparejamiento de PDF de Faena [RESUELTO]
+* **Antes**: El algoritmo de matching de PDF utilizaba solo el CUIT del productor y proximidad de fechas, lo que producía colisiones en periodos de alto tráfico si el productor enviaba múltiples tropas.
+* **Solución**: Se mejoró el algoritmo para priorizar estrictamente el identificador único `tropa`. Si ambos registros (el viaje y el PDF) exponen números de tropa pero estos difieren, la asociación es rechazada de inmediato, evitando asignaciones erróneas.
 
-### D. Fragilidad en el Emparejamiento de PDF de Faena
-El algoritmo de emparejamiento entre un PDF importado de faena y un viaje existente se basa en la coincidencia del CUIT del productor y una proximidad de fechas de +/- 7 días:
-* Si un productor envía múltiples tropas en una misma semana, el sistema puede emparejar los datos con el viaje logístico equivocado.
+## 4. Estructura de Datos y Estado de Persistencia Actual
 
-## 4. Plan de Acción y Propuestas de Mejora
-
-Para solucionar estos inconvenientes y preparar el sistema para alta escala, se proponen las siguientes mejoras estratégicas:
-
-### 1. Re-alinear la Capa de Presentación con los Casos de Uso
-Refactorizar `TravelPresenter.js` para consumir el caso de uso `GetTravels`. La suscripción en tiempo real debería gatillar una actualización del almacén local o alertar al presentador de que debe invocar el caso de uso nuevamente para actualizar el estado visual de la UI.
-
-### 2. Nuevo Esquema de JSON Documentado
-Para corregir el cuello de botella de la serialización en el futuro sin romper la compatibilidad inmediatamente, se propone migrar al siguiente esquema JSON nativo en Firestore, abstrayéndose de la string serializada en `data`:
+### Nuevo Esquema Nativo en Firestore
+Tanto las escrituras como las lecturas conviven en un modelo híbrido estructurado:
 
 ```json
 {
@@ -120,13 +111,8 @@ Para corregir el cuello de botella de la serialización en el futuro sin romper 
       }
     ]
   },
+  "data": "{\"id\":\"15\",\"status\":\"ACTIVE\",...}", // Copia stringificada para compatibilidad móvil
   "updatedAt": 1774893700000,
   "createdAt": 1774807300000
 }
 ```
-
-### 3. Implementación de una Arquitectura "Local-First" para Viajes
-Aprovechando Dexie.js (IndexedDB), el presentador debería suscribirse al almacén local de viajes. Cualquier escritura se realiza en `localDb` de forma inmediata (interfaz instantánea de 0ms de latencia) y un servicio de sincronización en segundo plano se encarga de subir las modificaciones pendientes a Firestore. Esto garantiza una operatividad offline del 100% y reduce a cero las lecturas redundantes en la nube.
-
-### 4. Mejora del Algoritmo de Matching
-Introducir un campo opcional para el "Número de Tropa" o "Número de Remito de Compra" al crear el viaje. Al procesar el PDF, la coincidencia por este identificador único de tropa debe priorizarse por encima del rango de fechas, eliminando la ambigüedad en periodos de alto tráfico de hacienda.

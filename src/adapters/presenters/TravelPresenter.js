@@ -99,12 +99,12 @@ export class TravelPresenter {
     this.categoryPricesCache = null;
   }
 
-  processRawTravels(raw) {
+  processTravelEntities(travels) {
     this.invalidateDashboardCache();
     
     // Deduplicate by ID and instantiate core Travel entities
     const seen = new Set();
-    this.allTravels = raw.map(t => new CoreTravel(t)).filter(t => {
+    this.allTravels = travels.map(t => t instanceof CoreTravel ? t : new CoreTravel(t)).filter(t => {
       if (!t || !t.id || seen.has(t.id)) return false;
       seen.add(t.id);
       return true;
@@ -128,61 +128,25 @@ export class TravelPresenter {
     this.allCategoriesCache = ['TODOS', ...Array.from(categoriesSet).sort()];
   }
 
+  // Backwards compatibility shim
+  processRawTravels(raw) {
+    this.processTravelEntities(raw);
+  }
+
   async loadTravels(uid) {
-    if (this.travelsUnsubscribe) {
-      this.travelsUnsubscribe();
-      this.travelsUnsubscribe = null;
-    }
     this.ui.showLoading();
     try {
       this.invalidateDashboardCache();
       
-      // 1. Initial Local Read from IndexedDB (Local-First fast boot)
-      const initialRaw = await this.travelRepository.fetchTravels(uid);
-      this.processRawTravels(initialRaw);
+      // 1. Initial Local Read from IndexedDB via Clean Architecture Use Case (Local-First fast boot)
+      const travels = await this.getTravelsUseCase.execute({
+        uid,
+        filter: 'TODOS',
+        sort: this.state.sort
+      });
+      this.processTravelEntities(travels);
       this.ui.hideLoading();
       this.refresh();
-
-      // 2. Real-time background sync from Firestore
-      this.travelsUnsubscribe = this.travelRepository.subscribeTravels(
-        uid,
-        async (raw) => {
-          try {
-            // Write-Through to Dexie
-            if (raw.length > 0) {
-              await localDb.travels.bulkPut(raw);
-            }
-            // Fetch fresh local cache state and render
-            const freshRaw = await this.travelRepository.fetchTravels(uid);
-            
-            // Check for actual data differences to prevent redundant refreshes
-            let hasChanges = false;
-            if (!this.allTravels || this.allTravels.length !== freshRaw.length) {
-              hasChanges = true;
-            } else {
-              const currentMap = new Map(this.allTravels.map(t => [t.id, t.updatedAt]));
-              for (const fresh of freshRaw) {
-                const currentVal = currentMap.get(fresh.id);
-                if (currentVal === undefined || currentVal !== fresh.updatedAt) {
-                  hasChanges = true;
-                  break;
-                }
-              }
-            }
-
-            if (hasChanges) {
-              this.processRawTravels(freshRaw);
-              this.refresh();
-            }
-          } catch (e) {
-            console.error("Error updating travels from snapshot:", e);
-          }
-        },
-        (error) => {
-          console.error("Critical error in travels subscription:", error);
-          this.ui.showError("Error de suscripción a Firebase: " + error.message);
-        }
-      );
     } catch (error) {
       console.error("Critical error in loadTravels setup:", error);
       this.ui.showError(error.message);
@@ -389,8 +353,12 @@ export class TravelPresenter {
       await this.travelRepository.saveTravel(SHARED_DATA_SOURCE_UID, travel);
       
       // Local reload for 0ms visual updates
-      const raw = await this.travelRepository.fetchTravels(SHARED_DATA_SOURCE_UID);
-      this.processRawTravels(raw);
+      const travels = await this.getTravelsUseCase.execute({
+        uid: SHARED_DATA_SOURCE_UID,
+        filter: 'TODOS',
+        sort: this.state.sort
+      });
+      this.processTravelEntities(travels);
       this.refresh();
       this.ui.hideLoading();
     } catch (e) {
@@ -405,8 +373,12 @@ export class TravelPresenter {
       await this.travelRepository.deleteTravel(SHARED_DATA_SOURCE_UID, id);
       
       // Local reload for 0ms visual updates
-      const raw = await this.travelRepository.fetchTravels(SHARED_DATA_SOURCE_UID);
-      this.processRawTravels(raw);
+      const travels = await this.getTravelsUseCase.execute({
+        uid: SHARED_DATA_SOURCE_UID,
+        filter: 'TODOS',
+        sort: this.state.sort
+      });
+      this.processTravelEntities(travels);
       this.refresh();
       this.ui.hideLoading();
     } catch (e) {
@@ -433,8 +405,12 @@ export class TravelPresenter {
       await this.travelRepository.updateTravel(uid, travelId, updatedRaw);
       
       // Local reload for 0ms visual updates
-      const raw = await this.travelRepository.fetchTravels(uid);
-      this.processRawTravels(raw);
+      const travels = await this.getTravelsUseCase.execute({
+        uid,
+        filter: 'TODOS',
+        sort: this.state.sort
+      });
+      this.processTravelEntities(travels);
       this.refresh();
     } catch (error) {
       this.ui.showError("Error al actualizar achique: " + error.message);
@@ -479,8 +455,12 @@ export class TravelPresenter {
       await this.travelRepository.updateTravel(uid, travelId, updatedRaw);
       
       // Local reload for 0ms visual updates
-      const raw = await this.travelRepository.fetchTravels(uid);
-      this.processRawTravels(raw);
+      const travels = await this.getTravelsUseCase.execute({
+        uid,
+        filter: 'TODOS',
+        sort: this.state.sort
+      });
+      this.processTravelEntities(travels);
       this.refresh();
       this.ui.showLoading(false);
     } catch (error) {
@@ -714,6 +694,11 @@ export class TravelPresenter {
         // A. Prioritize matching by Tropa number if both exist
         if (t.tropa && pdfData.tropa && String(t.tropa).trim() === String(pdfData.tropa).trim()) {
           return true;
+        }
+
+        // B. If both have tropa numbers but they are different, they do NOT match (no fallback)
+        if (t.tropa && pdfData.tropa && String(t.tropa).trim() !== String(pdfData.tropa).trim()) {
+          return false;
         }
 
         // B. Fallback to CUIT + Date range matching (+/- 7 days)

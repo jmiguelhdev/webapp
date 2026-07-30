@@ -258,6 +258,9 @@ window.addEventListener('app:sync-completed', (e) => {
   } else if (activeView === 'clients') {
     console.log("[SyncEvent] Auto-refreshing Clients UI (silent)...");
     clientPresenter.loadClients();
+  } else if (activeView === 'travels') {
+    console.log("[SyncEvent] Auto-refreshing Travels UI (silent)...");
+    travelPresenter.loadTravels(SHARED_DATA_SOURCE_UID);
   }
 });
 
@@ -412,6 +415,7 @@ const navigateTo = (view, role = currentUserRole) => {
           camarasList: camaras,
           userRole: currentUserRole,
           usersList: usersList,
+          currentUserUid: currentUser ? currentUser.uid : null,
           onSavePrices: (newPrices) => clientRepository.saveCategoryPrices(newPrices),
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
