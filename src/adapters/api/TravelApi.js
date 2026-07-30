@@ -40,12 +40,14 @@ export async function fetchMasterData(db, uid, type) {
 
 /** 
  * Update a travel document. 
- * Since the original structure stores a JSON string in 'data', we wrap it back.
+ * Stores both the native JSON properties and the stringified 'data' field
+ * for backward compatibility with mobile and legacy web clients.
  */
 export async function updateTravel(db, uid, travelId, travelObject) {
   if (!uid) throw new Error("UID is required to update data");
   const docRef = doc(db, 'travels', String(travelId));
   const dataToSave = {
+    ...JSON.parse(JSON.stringify(travelObject)),
     data: JSON.stringify(travelObject),
     updatedAt: Date.now()
   };
@@ -62,10 +64,15 @@ export async function updateTravel(db, uid, travelId, travelObject) {
 export async function saveTravel(db, uid, travelObject) {
   if (!uid) throw new Error("UID is required to save data");
   const docRef = doc(db, 'travels', String(travelObject.id));
+  const cleanTravel = JSON.parse(JSON.stringify(travelObject));
   const dataToSave = {
+    ...cleanTravel,
     data: JSON.stringify(travelObject),
     updatedAt: Date.now()
   };
+  if (!dataToSave.createdAt) {
+    dataToSave.createdAt = Date.now();
+  }
   await setDoc(docRef, dataToSave);
   
   // Write-Through Cache to Dexie

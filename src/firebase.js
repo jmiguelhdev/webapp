@@ -19,6 +19,9 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 
 export const db = getFirestore(app);
+if (typeof window !== 'undefined') {
+  window.db = db;
+}
 
 // Activar persistencia offline (IndexedDB)
 enableIndexedDbPersistence(db).catch((err) => {
