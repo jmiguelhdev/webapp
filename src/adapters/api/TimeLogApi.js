@@ -56,32 +56,8 @@ export function calculatePayment(log, employee = {}) {
  * @returns {Promise<Array<Object>>} Lista de fichadas.
  */
 export async function fetchEmployeeTimeLogs(db, establishmentId, employeeId) {
-  try {
-    const logsColl = collection(db, 'employee_time_logs');
-    const q = query(
-      logsColl, 
-      where('establishmentId', '==', establishmentId),
-      where('employeeId', '==', employeeId)
-    );
-    const snapshot = await getDocs(q);
-    const logs = snapshot.docs.map(docSnap => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        ...data,
-        status: data.status || 'UNPAID'
-      };
-    }).sort((a, b) => (b.checkInTime || 0) - (a.checkInTime || 0));
-
-    if (logs.length > 0) {
-      await localDb.employee_time_logs.bulkPut(logs);
-    }
-
-    return logs;
-  } catch (e) {
-    console.warn("[TimeLogApi] Error consultando Firestore, buscando en IndexedDB local:", e);
-    return getLocalEmployeeTimeLogs(establishmentId, employeeId);
-  }
+  // Real Local-First: read directly from local IndexedDB (synced in background by SyncService)
+  return getLocalEmployeeTimeLogs(establishmentId, employeeId);
 }
 
 /**

@@ -33,8 +33,9 @@ export const SyncService = {
 
       // 1. Sincronizar Clientes
       const clientsColl = collection(db, 'clientes');
+      const clientsLocalCount = await localDb.clientes.count();
       let clientsQuery = query(clientsColl);
-      if (lastSync > 0) {
+      if (lastSync > 0 && clientsLocalCount > 0) {
         clientsQuery = query(clientsColl, where('updatedAt', '>', lastSync));
       }
       const clientsSnap = await getDocs(clientsQuery);
@@ -45,8 +46,9 @@ export const SyncService = {
 
       // 2. Sincronizar Travels
       const travelsColl = collection(db, 'travels');
+      const travelsLocalCount = await localDb.travels.count();
       let travelsQuery = query(travelsColl);
-      if (lastSync > 0) {
+      if (lastSync > 0 && travelsLocalCount > 0) {
         travelsQuery = query(travelsColl, where('updatedAt', '>', lastSync));
       }
       const travelsSnap = await getDocs(travelsQuery);
@@ -74,9 +76,10 @@ export const SyncService = {
 
       // 3. Sincronizar Faenas Detalle
       const faenasColl = collection(db, 'faenas_detalle');
+      const faenasLocalCount = await localDb.faenas_detalle.count();
       let faenasToPut = [];
 
-      if (lastSync === 0) {
+      if (lastSync === 0 || faenasLocalCount === 0) {
         // Carga inicial: faenas activas (AVAILABLE/DRAFT) + despachadas en los últimos 30 días
         const qActive = query(faenasColl, where('status', 'in', ['AVAILABLE', 'DRAFT']));
         const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -109,8 +112,9 @@ export const SyncService = {
       // 4. Sincronizar Cash Extractions
       try {
         const extractionsColl = collection(db, 'cash_extractions');
+        const extractionsLocalCount = await localDb.cash_extractions.count();
         let extractionsQuery = query(extractionsColl);
-        if (lastSync > 0) {
+        if (lastSync > 0 && extractionsLocalCount > 0) {
           extractionsQuery = query(extractionsColl, where('updatedAt', '>', lastSync));
         }
         const extractionsSnap = await getDocs(extractionsQuery);
@@ -130,8 +134,99 @@ export const SyncService = {
         console.warn("[SyncService] Error en sync de cash_extractions:", errExt);
       }
 
+      // 5. Sincronizar Accounting Entries
+      let accountingCount = 0;
+      try {
+        const accColl = collection(db, 'accounting_entries');
+        const accLocalCount = await localDb.accounting_entries.where('type').equals('accounting_entries').count();
+        let accQuery = query(accColl);
+        if (lastSync > 0 && accLocalCount > 0) {
+          accQuery = query(accColl, where('updatedAt', '>', lastSync));
+        }
+        const accSnap = await getDocs(accQuery);
+        const accToPut = accSnap.docs.map(docSnap => ({
+          id: docSnap.id,
+          type: 'accounting_entries',
+          ...docSnap.data()
+        }));
+        if (accToPut.length > 0) {
+          await localDb.accounting_entries.bulkPut(accToPut);
+          accountingCount += accToPut.length;
+        }
+      } catch (e) {
+        console.warn("[SyncService] Error en sync de accounting_entries:", e);
+      }
+
+      // 6. Sincronizar Frigorifico Entries
+      let frigorificoCount = 0;
+      try {
+        const frigColl = collection(db, 'frigorifico_entries');
+        const frigLocalCount = await localDb.accounting_entries.where('type').equals('frigorifico_entries').count();
+        let frigQuery = query(frigColl);
+        if (lastSync > 0 && frigLocalCount > 0) {
+          frigQuery = query(frigColl, where('updatedAt', '>', lastSync));
+        }
+        const frigSnap = await getDocs(frigQuery);
+        const frigToPut = frigSnap.docs.map(docSnap => ({
+          id: docSnap.id,
+          type: 'frigorifico_entries',
+          ...docSnap.data()
+        }));
+        if (frigToPut.length > 0) {
+          await localDb.accounting_entries.bulkPut(frigToPut);
+          frigorificoCount += frigToPut.length;
+        }
+      } catch (e) {
+        console.warn("[SyncService] Error en sync de frigorifico_entries:", e);
+      }
+
+      // 7. Sincronizar Check Operations
+      let checksCount = 0;
+      try {
+        const checksColl = collection(db, 'check_operations');
+        const checksLocalCount = await localDb.check_operations.count();
+        let checksQuery = query(checksColl);
+        if (lastSync > 0 && checksLocalCount > 0) {
+          checksQuery = query(checksColl, where('updatedAt', '>', lastSync));
+        }
+        const checksSnap = await getDocs(checksQuery);
+        const checksToPut = checksSnap.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+        if (checksToPut.length > 0) {
+          await localDb.check_operations.bulkPut(checksToPut);
+          checksCount += checksToPut.length;
+        }
+      } catch (e) {
+        console.warn("[SyncService] Error en sync de check_operations:", e);
+      }
+
+      // 8. Sincronizar Employee Time Logs
+      let logsCount = 0;
+      try {
+        const logsColl = collection(db, 'employee_time_logs');
+        const logsLocalCount = await localDb.employee_time_logs.count();
+        let logsQuery = query(logsColl);
+        if (lastSync > 0 && logsLocalCount > 0) {
+          logsQuery = query(logsColl, where('updatedAt', '>', lastSync));
+        }
+        const logsSnap = await getDocs(logsQuery);
+        const logsToPut = logsSnap.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+          status: docSnap.data().status || 'UNPAID'
+        }));
+        if (logsToPut.length > 0) {
+          await localDb.employee_time_logs.bulkPut(logsToPut);
+          logsCount += logsToPut.length;
+        }
+      } catch (e) {
+        console.warn("[SyncService] Error en sync de employee_time_logs:", e);
+      }
+
       const duration = Date.now() - startTime;
-      recordsSyncedStr = `Clientes: ${clients.length}, Viajes: ${travels.length}, Faenas: ${faenasToPut.length}`;
+      recordsSyncedStr = `Clientes: ${clients.length}, Viajes: ${travels.length}, Faenas: ${faenasToPut.length}, Asientos: ${accountingCount + frigorificoCount}, Cheques: ${checksCount}, Fichadas: ${logsCount}`;
       details = `Sincronización delta completada exitosamente en ${duration}ms.`;
 
 
@@ -146,7 +241,7 @@ export const SyncService = {
 
       console.log(`[SyncService] Sincronización exitosa. ${recordsSyncedStr}`);
       
-      const syncedCount = clients.length + travels.length + faenasToPut.length + extractionsCount;
+      const syncedCount = clients.length + travels.length + faenasToPut.length + extractionsCount + accountingCount + frigorificoCount + checksCount + logsCount;
       
       // Lanzar evento global para avisar a la UI que los datos cambiaron
       window.dispatchEvent(new CustomEvent('app:sync-completed', { 

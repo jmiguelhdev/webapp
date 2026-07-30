@@ -63,28 +63,8 @@ export function parseCashExtractionBreakdown(breakdownJson) {
  * @returns {Promise<Array<Object>>} Lista de extracciones.
  */
 export async function fetchCashExtractions(db) {
-  try {
-    const collRef = collection(db, 'cash_extractions');
-    const snapshot = await getDocs(collRef);
-    const extractions = snapshot.docs.map(docSnap => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        status: data.status || 'PENDING',
-        ...data
-      };
-    }).sort((a, b) => (b.timestamp || b.updatedAt || 0) - (a.timestamp || a.updatedAt || 0));
-
-    // Guardado en IndexedDB para respaldo local y reducción de cuota
-    if (extractions.length > 0) {
-      await localDb.cash_extractions.bulkPut(extractions);
-    }
-
-    return extractions;
-  } catch (e) {
-    console.warn("[CashExtractionApi] Error consultando Firestore, leyendo desde IndexedDB local:", e);
-    return getCashExtractionsFromLocal();
-  }
+  // Real Local-First: read directly from local IndexedDB (synced in background by SyncService)
+  return getCashExtractionsFromLocal();
 }
 
 /**

@@ -261,6 +261,12 @@ window.addEventListener('app:sync-completed', (e) => {
   } else if (activeView === 'travels') {
     console.log("[SyncEvent] Auto-refreshing Travels UI (silent)...");
     travelPresenter.loadTravels(SHARED_DATA_SOURCE_UID);
+  } else if (activeView === 'accounting' || activeView === 'frigorifico') {
+    console.log("[SyncEvent] Auto-refreshing Accounting UI (silent)...");
+    accountingPresenter.loadData();
+  } else if (activeView === 'checks') {
+    console.log("[SyncEvent] Auto-refreshing Checks UI (silent)...");
+    checkPresenter.loadData();
   }
 });
 

@@ -87,41 +87,28 @@ export class CheckPresenter {
       });
       this.contacts = Array.from(unifiedContactsMap.values()).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
 
-      // Reutilizar listener activo si ya existe — evita re-descargar todos los cheques en cada navegación
-      if (!this.checksUnsubscribe) {
-        this.checksUnsubscribe = this.checkRepository.subscribeChecks(
-          this.currentUserUid,
-          (checksList) => {
-            let hasChanges = false;
-            if (!this.checks || this.checks.length !== checksList.length) {
-              hasChanges = true;
-            } else {
-              const currentMap = new Map(this.checks.map(c => [c.id, c.updatedAt || c.timestamp || 0]));
-              for (const fresh of checksList) {
-                const currentVal = currentMap.get(fresh.id);
-                if (currentVal === undefined || currentVal !== (fresh.updatedAt || fresh.timestamp || 0)) {
-                  hasChanges = true;
-                  break;
-                }
-              }
-            }
-
-            if (hasChanges || !this.checks) {
-              this.checks = checksList;
-              this.render();
-            }
-            this.ui.hideLoading();
-          },
-          (error) => {
-            console.error("Checks subscription error:", error);
-            this.ui.showError("Error de suscripción a cheques: " + error.message);
-          }
-        );
+      // Real Local-First: query local checks on every navigation/reload
+      const checksList = await this.checkRepository.fetchChecks(this.currentUserUid);
+      
+      let hasChanges = false;
+      if (!this.checks || this.checks.length !== checksList.length) {
+        hasChanges = true;
       } else {
-        // Listener already active - just re-render with cached checks
-        this.ui.hideLoading();
-        this.render();
+        const currentMap = new Map(this.checks.map(c => [c.id, c.updatedAt || c.timestamp || 0]));
+        for (const fresh of checksList) {
+          const currentVal = currentMap.get(fresh.id);
+          if (currentVal === undefined || currentVal !== (fresh.updatedAt || fresh.timestamp || 0)) {
+            hasChanges = true;
+            break;
+          }
+        }
       }
+
+      if (hasChanges || !this.checks) {
+        this.checks = checksList;
+      }
+      this.ui.hideLoading();
+      this.render();
     } catch (e) {
       this.ui.showError("Error al cargar cheques: " + e.message);
       this.ui.hideLoading();

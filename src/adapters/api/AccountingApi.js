@@ -4,6 +4,22 @@
  * @module adapters/api/AccountingApi
  */
 import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { localDb } from '../../frameworks/db/localDb.js';
+
+/**
+ * Obtiene los asientos contables desde IndexedDB.
+ */
+export async function getLocalAccountingEntries(collectionName) {
+  try {
+    const entries = await localDb.accounting_entries
+      .where('type').equals(collectionName)
+      .toArray();
+    return entries.sort((a, b) => (b.date || b.createdAt || 0) - (a.date || a.createdAt || 0));
+  } catch (e) {
+    console.error(`Error al leer asientos locales para ${collectionName}:`, e);
+    return [];
+  }
+}
 
 /**
  * Obtiene todos los asientos contables asociados al usuario.
@@ -13,11 +29,7 @@ import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where } 
  * @returns {Promise<Array<Object>>} Lista de asientos ordenados.
  */
 export async function fetchAccountingEntries(db, uid, collectionName = 'accounting_entries') {
-  if (!uid) throw new Error("UID is required to fetch accounting entries");
-  const collRef = collection(db, collectionName);
-  const snapshot = await getDocs(collRef);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-    .sort((a, b) => (b.date || b.createdAt || 0) - (a.date || a.createdAt || 0));
+  return getLocalAccountingEntries(collectionName);
 }
 
 export async function saveAccountingEntry(db, uid, entry, collectionName = 'accounting_entries') {
@@ -25,21 +37,44 @@ export async function saveAccountingEntry(db, uid, entry, collectionName = 'acco
   const collRef = collection(db, collectionName);
   let docRef;
   const { id, ...data } = entry;
-  const dataToSave = { ...data, ownerUid: uid, updatedAt: Date.now() };
+  const now = Date.now();
+  const dataToSave = { ...data, ownerUid: uid, updatedAt: now };
 
+  let finalId = id;
   if (id) {
     docRef = doc(db, collectionName, id);
     await updateDoc(docRef, dataToSave);
   } else {
-    dataToSave.createdAt = Date.now();
+    dataToSave.createdAt = now;
     docRef = await addDoc(collRef, dataToSave);
+    finalId = docRef.id;
   }
-  return docRef.id;
+
+  // Escribir en caché local IndexedDB (Write-Through)
+  try {
+    await localDb.accounting_entries.put({
+      id: finalId,
+      type: collectionName,
+      createdAt: dataToSave.createdAt || now,
+      ...dataToSave
+    });
+  } catch (errDb) {
+    console.warn("[AccountingApi] Error escribiendo asiento contable local:", errDb);
+  }
+
+  return finalId;
 }
 
 export async function deleteAccountingEntry(db, entryId, collectionName = 'accounting_entries') {
   const docRef = doc(db, collectionName, entryId);
   await deleteDoc(docRef);
+
+  // Eliminar en caché local IndexedDB
+  try {
+    await localDb.accounting_entries.delete(entryId);
+  } catch (errDb) {
+    console.warn("[AccountingApi] Error eliminando asiento contable local:", errDb);
+  }
 }
 
 export async function removeLinkedTransaction(db, accountingEntryId) {
