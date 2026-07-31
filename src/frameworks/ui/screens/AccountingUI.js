@@ -11,7 +11,7 @@
  */
 import { el } from '../../../frameworks/utils/dom.js';
 import { renderDateModal, showAuxiliaryCalculator } from '../components/Modals.js';
-import { showEntryModal, showSalaryPaymentModal } from '../components/AccountingModals.js';
+import { showEntryModal, showSalaryPaymentModal, showArcaImportModal, showIssuedArcaModal } from '../components/AccountingModals.js';
 import { printReceipt, printSalaryReceipt } from '../reports/AccountingReceipts.js';
 import { formatCurrency, formatDate, formatTime } from '../../../frameworks/utils/formatters.js';
 import { buildExtractionsTab } from '../components/CashExtractionUI.js';
@@ -88,9 +88,17 @@ export function renderAccounting(container, options) {
     return;
   }
 
+  const {
+    onFetchArcaPipeline,
+    onSaveArcaEntries,
+    onFetchIssuedArcaPipeline,
+    onLinkIssuedInvoiceToClient
+  } = options;
+
   const pendingExtractionsCount = extractions.filter(e => e.status !== 'ACCEPTED').length;
 
-  container.appendChild(buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onOpenSalaryPaymentScreen, onBack: options.onBack }));
+  container.appendChild(buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onOpenSalaryPaymentScreen, onFetchArcaPipeline, onSaveArcaEntries, onFetchIssuedArcaPipeline, onLinkIssuedInvoiceToClient, onBack: options.onBack }));
+
 
 
   // Render Tabs ONLY for Caja General
@@ -157,7 +165,7 @@ function buildTabsBar({ activeTab, pendingCount, onTabChange }) {
 // Bloques de construcción de la pantalla
 // ---------------------------------------------------------------------------
 
-function buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onOpenSalaryPaymentScreen, onBack }) {
+function buildHeader({ title, filteredEntries, entries, clients, producers, establishments, onSave, onExport, onOpenSalaryPaymentScreen, onFetchArcaPipeline, onSaveArcaEntries, onFetchIssuedArcaPipeline, onLinkIssuedInvoiceToClient, onBack }) {
   const header = el('div', {
     classes: ['dashboard-header'],
     style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;'
@@ -183,7 +191,64 @@ function buildHeader({ title, filteredEntries, entries, clients, producers, esta
   header.appendChild(titleGroup);
 
   // ---- Grupo acciones ----
-  const actionGroup = el('div', { style: 'display: flex; gap: 0.75rem;' });
+  const actionGroup = el('div', { style: 'display: flex; gap: 0.75rem; flex-wrap: wrap;' });
+
+  const arcaBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; color: #3b82f6; border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.1);',
+    html: '<span>🤖 Facturas Recibidas ARCA</span>'
+  });
+  arcaBtn.onclick = () => {
+    renderDateModal({
+      title: '🤖 Importar Facturas Recibidas ARCA',
+      description: 'Selecciona el rango de fechas para consultar comprobantes recibidos de proveedores y su atribución contable.',
+      submitText: 'Buscar Comprobantes',
+      onSubmit: async (desde, hasta) => {
+        if (typeof onFetchArcaPipeline === 'function') {
+          const invoices = await onFetchArcaPipeline(desde, hasta);
+          showArcaImportModal({
+            invoices,
+            onConfirm: (selected) => {
+              if (typeof onSaveArcaEntries === 'function') {
+                onSaveArcaEntries(selected);
+              }
+            }
+          });
+        } else {
+          alert('Error: La integración con ARCA no está disponible.');
+        }
+      }
+    });
+  };
+
+  const issuedArcaBtn = el('button', {
+    classes: ['btn-secondary'],
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; color: #10b981; border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.1);',
+    html: '<span>📤 Ventas Emitidas ARCA</span>'
+  });
+  issuedArcaBtn.onclick = () => {
+    renderDateModal({
+      title: '📤 Consulta de Ventas / Comprobantes Emitidos ARCA',
+      description: 'Selecciona el rango de fechas para consultar el reporte de ventas emitidas (sin alterar el saldo de caja).',
+      submitText: 'Consultar Ventas',
+      onSubmit: async (desde, hasta) => {
+        if (typeof onFetchIssuedArcaPipeline === 'function') {
+          const invoices = await onFetchIssuedArcaPipeline(desde, hasta);
+          showIssuedArcaModal({
+            invoices,
+            clients,
+            onLinkToClient: (data) => {
+              if (typeof onLinkIssuedInvoiceToClient === 'function') {
+                onLinkIssuedInvoiceToClient(data);
+              }
+            }
+          });
+        } else {
+          alert('Error: La consulta de ventas emitidas ARCA no está disponible.');
+        }
+      }
+    });
+  };
 
   const exportBtn = el('button', {
     classes: ['btn-secondary'],
@@ -226,7 +291,7 @@ function buildHeader({ title, filteredEntries, entries, clients, producers, esta
 
   const paySalaryBtn = el('button', {
     classes: ['btn-secondary'],
-    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; color: #10b981; border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.1);',
+    style: 'display: flex; align-items: center; gap: 0.5rem; border-radius: 12px; padding: 0.75rem 1rem; color: #8b5cf6; border-color: rgba(139,92,246,0.3); background: rgba(139,92,246,0.1);',
     html: '<span>👨‍💼 Pagar Sueldo</span>'
   });
   paySalaryBtn.onclick = () => {
@@ -241,12 +306,16 @@ function buildHeader({ title, filteredEntries, entries, clients, producers, esta
   actionGroup.appendChild(zeroBtn);
   actionGroup.appendChild(auxCalcBtn);
   actionGroup.appendChild(paySalaryBtn);
+  actionGroup.appendChild(arcaBtn);
+  actionGroup.appendChild(issuedArcaBtn);
   actionGroup.appendChild(exportBtn);
   actionGroup.appendChild(addBtn);
   header.appendChild(actionGroup);
 
   return header;
 }
+
+
 
 function handleCloseToZero(statsEntries, onSave) {
   const currentIn  = statsEntries.filter(e => e.type === 'IN').reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);

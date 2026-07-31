@@ -1,4 +1,5 @@
 import { markTimeLogsAsPaid } from '../api/TimeLogApi.js';
+import { fetchAccountingPipeline, fetchIssuedPipeline } from '../api/AfipApi.js';
 
 /**
  * Presenter para la gestión contable (Caja General y Caja Frigorífico).
@@ -353,6 +354,113 @@ export class AccountingPresenter {
   }
 
   /**
+   * Ejecuta el pipeline de atribución contable ARCA entre dos fechas.
+   * @param {string} desde YYYY-MM-DD
+   * @param {string} hasta YYYY-MM-DD
+   * @returns {Promise<Array<Object>>} Lista de comprobantes enriquecidos con cuenta sugerida
+   */
+  async fetchArcaPipeline(desde, hasta) {
+    this.ui.showLoading();
+    try {
+      return await fetchAccountingPipeline(desde, hasta);
+    } catch (e) {
+      this.ui.showError("Error al consultar comprobantes ARCA: " + e.message);
+      return [];
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
+  /**
+   * Guarda un conjunto de comprobantes importados de ARCA como asientos contables tipo OUT.
+   * @param {Array<Object>} selectedInvoices 
+   */
+  async saveArcaEntries(selectedInvoices) {
+    if (!selectedInvoices || selectedInvoices.length === 0) return;
+    this.ui.showLoading();
+    try {
+      for (const inv of selectedInvoices) {
+        const amount = Number(inv.importeTotal || inv.importe || inv.total || 0);
+        const fecha = inv.fecha || inv.fechaEmision || new Date().toISOString().split('T')[0];
+        const cuit = inv.cuitEmisor || inv.cuit || '';
+        const razonSocial = inv.razonSocialEmisor || inv.razonSocial || `CUIT ${cuit}`;
+        const cbteTipo = inv.tipoComprobante || 'Factura';
+        const cbteNum = inv.numero || inv.numeroComprobante || '';
+
+        const entryData = {
+          type: 'OUT',
+          amount: amount,
+          description: `[ARCA / ${cbteTipo} N° ${cbteNum}] ${razonSocial} - ${inv.cuentaSugerida?.nombre || 'Gastos Generales'}`,
+          date: fecha,
+          category: inv.cuentaSugerida?.nombre || 'Gastos Generales',
+          accountCode: inv.cuentaSugerida?.codigo || '5.9.99',
+          cuitEmisor: cuit,
+          leyendaTransparencia: inv.leyendaTransparencia || 'Régimen de Transparencia Fiscal Ley 27.743',
+          source: 'ARCA_IMPORT'
+        };
+
+        await this.accountingRepository.saveEntry(this.currentUserUid, entryData);
+      }
+      await this.loadData();
+    } catch (e) {
+      this.ui.showError("Error al importar asientos contables de ARCA: " + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
+  /**
+   * Ejecuta el pipeline de ventas / comprobantes emitidos ARCA entre dos fechas.
+   * @param {string} desde YYYY-MM-DD
+   * @param {string} hasta YYYY-MM-DD
+   * @returns {Promise<Array<Object>>} Lista de comprobantes emitidos enriquecidos con datos de cliente y padrón
+   */
+  async fetchIssuedArcaPipeline(desde, hasta) {
+    this.ui.showLoading();
+    try {
+      return await fetchIssuedPipeline(desde, hasta);
+    } catch (e) {
+      this.ui.showError("Error al consultar comprobantes emitidos ARCA: " + e.message);
+      return [];
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
+  /**
+   * Vincula opcionalmente un comprobante emitido de ARCA a la Cuenta Corriente de un Cliente sin impactar la caja física.
+   * @param {{ invoice: Object, clientId: string }} params
+   */
+  async linkIssuedInvoiceToClient({ invoice, clientId }) {
+    if (!invoice || !clientId) return;
+    this.ui.showLoading();
+    try {
+      const amount = Number(invoice.importeTotal || invoice.importe || invoice.total || 0);
+      const fecha = invoice.fecha || invoice.fechaEmision || Date.now();
+      const cbteTipo = invoice.tipoComprobante || 'Factura';
+      const cbteNum = invoice.numero || invoice.numeroComprobante || '';
+
+      const transactionData = {
+        clientId: clientId,
+        type: 'SALE',
+        amount: amount,
+        description: `[Venta ARCA / ${cbteTipo} N° ${cbteNum}]`,
+        date: fecha,
+        arcaRef: invoice.id || cbteNum,
+        cuitReceptor: invoice.cuitReceptor || ''
+      };
+
+      // Registrar débito por venta en la cuenta corriente del cliente
+      await this.clientRepository.syncAccountingToTransaction(`ARCA_SALE_${Date.now()}`, transactionData);
+      this.ui.showSuccess ? this.ui.showSuccess("Comprobante vinculado a la cuenta corriente del cliente.") : alert("Comprobante vinculado a la cuenta corriente del cliente.");
+    } catch (e) {
+      this.ui.showError("Error al vincular comprobante a cuenta corriente: " + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
+  }
+
+  /**
    * Orquesta el cálculo de paginación e invoca el renderizado de la UI contable.
    */
   render() {
@@ -401,10 +509,16 @@ export class AccountingPresenter {
       onSaveExtractionEntry: (payload) => this.saveExtractionEntry(payload),
       onDelete: (id) => this.deleteEntry(id),
       onRefresh: () => this.loadData(),
-      onExport: (start, end) => this.exportData(start, end)
+      onExport: (start, end) => this.exportData(start, end),
+      onFetchArcaPipeline: (desde, hasta) => this.fetchArcaPipeline(desde, hasta),
+      onSaveArcaEntries: (invoices) => this.saveArcaEntries(invoices),
+      onFetchIssuedArcaPipeline: (desde, hasta) => this.fetchIssuedArcaPipeline(desde, hasta),
+      onLinkIssuedInvoiceToClient: (data) => this.linkIssuedInvoiceToClient(data)
     });
 
 
   }
 }
+
+
 

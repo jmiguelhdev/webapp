@@ -647,3 +647,257 @@ export function showBillCalculator(expectedAmount, onApply, initialBreakdown = n
   };
 }
 
+/**
+ * Muestra el modal para previsualizar y seleccionar comprobantes recibidos de ARCA con su imputación contable.
+ * @param {{ invoices: Array<Object>, onConfirm: Function }} options 
+ */
+export function showArcaImportModal({ invoices = [], onConfirm }) {
+  const modal = el('div', {
+    classes: ['modal-overlay'],
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
+  });
+
+  const content = el('div', {
+    classes: ['glass-card'],
+    style: 'width: 100%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 2rem;'
+  });
+
+  if (!invoices || invoices.length === 0) {
+    content.innerHTML = `
+      <h2 style="margin-top:0;">🤖 Importar Comprobantes ARCA</h2>
+      <p style="color: var(--text-muted);">No se encontraron comprobantes recibidos ('R') en el rango de fechas seleccionado.</p>
+      <div style="display:flex; justify-content:flex-end; margin-top: 1.5rem;">
+        <button id="arca-close" class="btn-secondary">Cerrar</button>
+      </div>
+    `;
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    content.querySelector('#arca-close').onclick = () => modal.remove();
+    return;
+  }
+
+  const invoiceRowsHtml = invoices.map((inv, idx) => {
+    const total = Number(inv.importeTotal || inv.importe || inv.total || 0);
+    const cuit = inv.cuitEmisor || inv.cuit || inv.NroDocEmisor || 'N/A';
+    const razonSocial = inv.razonSocialEmisor || inv.razonSocial || `CUIT ${cuit}`;
+    const cbteTipo = inv.tipoComprobante || inv.descTipoComprobante || 'Factura';
+    const cbteNum = inv.numero || inv.numeroComprobante || inv.NroComprobante || idx + 1;
+    const fecha = inv.fecha || inv.fechaEmision || inv.Fecha || '';
+    const cuenta = inv.cuentaSugerida || { nombre: 'Gastos Generales', codigo: '5.9.99' };
+
+    return `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <td style="padding: 0.75rem 0.5rem; text-align: center;">
+          <input type="checkbox" class="arca-inv-checkbox" data-index="${idx}" checked style="width: 18px; height: 18px; cursor: pointer;">
+        </td>
+        <td style="padding: 0.75rem 0.5rem; font-size: 0.85rem; color: var(--text-muted);">${fecha}</td>
+        <td style="padding: 0.75rem 0.5rem;">
+          <div style="font-weight: 600;">${razonSocial}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">CUIT: ${cuit}</div>
+        </td>
+        <td style="padding: 0.75rem 0.5rem; font-size: 0.85rem;">${cbteTipo} N° ${cbteNum}</td>
+        <td style="padding: 0.75rem 0.5rem;">
+          <span style="background: rgba(59,130,246,0.15); color: #60a5fa; padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">
+            ${cuenta.codigo} - ${cuenta.nombre}
+          </span>
+        </td>
+        <td style="padding: 0.75rem 0.5rem; font-weight: 700; text-align: right; color: var(--danger);">
+          $ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  content.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        🤖 Comprobantes Recibidos (ARCA)
+      </h2>
+      <span style="background: rgba(16,185,129,0.15); color: #10b981; padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 700;">
+        ${invoices.length} Comprobante(s)
+      </span>
+    </div>
+    
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.82rem; color: var(--text-muted);">
+      ℹ️ Se ha aplicado el <strong>Régimen de Transparencia Fiscal Ley 27.743 (RG 5614/24)</strong> y la consulta al Padrón Registral para la atribución de cuentas contables.
+    </div>
+
+    <div style="max-height: 50vh; overflow-y: auto; margin-bottom: 1.5rem;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border); text-align: left; font-size: 0.8rem; color: var(--text-muted);">
+            <th style="padding: 0.5rem; text-align: center;"><input type="checkbox" id="arca-select-all" checked style="width: 18px; height: 18px; cursor: pointer;"></th>
+            <th style="padding: 0.5rem;">Fecha</th>
+            <th style="padding: 0.5rem;">Emisor / CUIT</th>
+            <th style="padding: 0.5rem;">Comprobante</th>
+            <th style="padding: 0.5rem;">Cuenta Sugerida (CLAE)</th>
+            <th style="padding: 0.5rem; text-align: right;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoiceRowsHtml}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <button id="arca-cancel" class="btn-secondary">Cancelar</button>
+      <button id="arca-submit" class="btn-nueva-operacion" style="margin: 0;">
+        📥 Importar Seleccionados
+      </button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  const selectAllCb = content.querySelector('#arca-select-all');
+  const itemCbs = content.querySelectorAll('.arca-inv-checkbox');
+
+  selectAllCb.onchange = (e) => {
+    itemCbs.forEach(cb => cb.checked = e.target.checked);
+  };
+
+  content.querySelector('#arca-cancel').onclick = () => modal.remove();
+  content.querySelector('#arca-submit').onclick = () => {
+    const selected = [];
+    itemCbs.forEach(cb => {
+      if (cb.checked) {
+        const idx = parseInt(cb.dataset.index);
+        if (invoices[idx]) selected.push(invoices[idx]);
+      }
+    });
+
+    if (selected.length === 0) {
+      alert("Selecciona al menos un comprobante para importar.");
+      return;
+    }
+
+    onConfirm(selected);
+    modal.remove();
+  };
+}
+
+/**
+ * Muestra el modal de reporte y consulta de Comprobantes Emitidos (Ventas) ARCA.
+ * Permite visualizar el Libro de Ventas y vincular opcionalmente a la Cuenta Corriente de un cliente.
+ * @param {{ invoices: Array<Object>, clients: Array<Object>, onLinkToClient: Function }} options
+ */
+export function showIssuedArcaModal({ invoices = [], clients = [], onLinkToClient }) {
+  const modal = el('div', {
+    classes: ['modal-overlay'],
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
+  });
+
+  const content = el('div', {
+    classes: ['glass-card'],
+    style: 'width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 2rem;'
+  });
+
+  if (!invoices || invoices.length === 0) {
+    content.innerHTML = `
+      <h2 style="margin-top:0;">📤 Comprobantes Emitidos (ARCA)</h2>
+      <p style="color: var(--text-muted);">No se encontraron facturas ni comprobantes emitidos en el rango de fechas seleccionado.</p>
+      <div style="display:flex; justify-content:flex-end; margin-top: 1.5rem;">
+        <button id="issued-close" class="btn-secondary">Cerrar</button>
+      </div>
+    `;
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    content.querySelector('#issued-close').onclick = () => modal.remove();
+    return;
+  }
+
+  const totalFacturado = invoices.reduce((s, inv) => s + Number(inv.importeTotal || inv.importe || inv.total || 0), 0);
+
+  const invoiceRowsHtml = invoices.map((inv, idx) => {
+    const total = Number(inv.importeTotal || inv.importe || inv.total || 0);
+    const cuit = inv.cuitReceptor || inv.cuit || inv.NroDocReceptor || 'N/A';
+    const razonSocial = inv.razonSocialReceptor || inv.razonSocial || `Cliente CUIT ${cuit}`;
+    const cbteTipo = inv.tipoComprobante || inv.descTipoComprobante || 'Factura';
+    const cbteNum = inv.numero || inv.numeroComprobante || inv.NroComprobante || idx + 1;
+    const fecha = inv.fecha || inv.fechaEmision || inv.Fecha || '';
+
+    return `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <td style="padding: 0.75rem 0.5rem; font-size: 0.85rem; color: var(--text-muted);">${fecha}</td>
+        <td style="padding: 0.75rem 0.5rem;">
+          <div style="font-weight: 600;">${razonSocial}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">CUIT: ${cuit}</div>
+        </td>
+        <td style="padding: 0.75rem 0.5rem; font-size: 0.85rem;">${cbteTipo} N° ${cbteNum}</td>
+        <td style="padding: 0.75rem 0.5rem; font-weight: 700; text-align: right; color: var(--success);">
+          $ ${total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+        </td>
+        <td style="padding: 0.75rem 0.5rem; text-align: center;">
+          <button class="btn-link-client btn-secondary" data-index="${idx}" style="font-size: 0.75rem; padding: 0.35rem 0.6rem; border-radius: 6px;">
+            🔗 Vincular a Cta Cte
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  content.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+        📤 Comprobantes Emitidos / Libro de Ventas (ARCA)
+      </h2>
+      <span style="background: rgba(16,185,129,0.15); color: #10b981; padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 700;">
+        Total: $ ${totalFacturado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+      </span>
+    </div>
+    
+    <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.82rem; color: var(--text-muted);">
+      🛡️ <strong>Información Fiscal Independiente:</strong> Estos comprobantes pertenecen a tus ventas/facturación en ARCA. <strong>No afectan el saldo ni los movimientos de la Caja General</strong>. Puedes vincular voluntariamente cualquier venta a la Cuenta Corriente de un Cliente.
+    </div>
+
+    <div style="max-height: 50vh; overflow-y: auto; margin-bottom: 1.5rem;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border); text-align: left; font-size: 0.8rem; color: var(--text-muted);">
+            <th style="padding: 0.5rem;">Fecha</th>
+            <th style="padding: 0.5rem;">Cliente / Receptor</th>
+            <th style="padding: 0.5rem;">Comprobante</th>
+            <th style="padding: 0.5rem; text-align: right;">Total Facturado</th>
+            <th style="padding: 0.5rem; text-align: center;">Acción Cta. Cte.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoiceRowsHtml}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end;">
+      <button id="issued-done" class="btn-secondary">Cerrar</button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  content.querySelectorAll('.btn-link-client').forEach(btn => {
+    btn.onclick = () => {
+      const idx = parseInt(btn.dataset.index);
+      const inv = invoices[idx];
+      if (!inv) return;
+
+      const clientNames = clients.map(c => c.name).join('\n');
+      const chosenName = prompt(`Selecciona o escribe el nombre del cliente para asociar la venta:\n\n${clientNames}`, inv.razonSocialReceptor || '');
+      if (chosenName) {
+        const foundClient = clients.find(c => c.name.toLowerCase() === chosenName.trim().toLowerCase());
+        if (foundClient && typeof onLinkToClient === 'function') {
+          onLinkToClient({ invoice: inv, clientId: foundClient.id });
+        } else {
+          alert(`Cliente "${chosenName}" no encontrado en el maestro de clientes.`);
+        }
+      }
+    };
+  });
+
+  content.querySelector('#issued-done').onclick = () => modal.remove();
+}
+
+
+
