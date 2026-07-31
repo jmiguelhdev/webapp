@@ -138,7 +138,7 @@ export const SyncService = {
       let accountingCount = 0;
       try {
         const accColl = collection(db, 'accounting_entries');
-        const accLocalCount = await localDb.accounting_entries.where('type').equals('accounting_entries').count();
+        const accLocalCount = await localDb.accounting_entries.where('collectionName').equals('accounting_entries').count();
         let accQuery = query(accColl);
         if (lastSync > 0 && accLocalCount > 0) {
           accQuery = query(accColl, where('updatedAt', '>', lastSync));
@@ -146,7 +146,7 @@ export const SyncService = {
         const accSnap = await getDocs(accQuery);
         const accToPut = accSnap.docs.map(docSnap => ({
           id: docSnap.id,
-          type: 'accounting_entries',
+          collectionName: 'accounting_entries',
           ...docSnap.data()
         }));
         if (accToPut.length > 0) {
@@ -161,7 +161,7 @@ export const SyncService = {
       let frigorificoCount = 0;
       try {
         const frigColl = collection(db, 'frigorifico_entries');
-        const frigLocalCount = await localDb.accounting_entries.where('type').equals('frigorifico_entries').count();
+        const frigLocalCount = await localDb.accounting_entries.where('collectionName').equals('frigorifico_entries').count();
         let frigQuery = query(frigColl);
         if (lastSync > 0 && frigLocalCount > 0) {
           frigQuery = query(frigColl, where('updatedAt', '>', lastSync));
@@ -169,7 +169,7 @@ export const SyncService = {
         const frigSnap = await getDocs(frigQuery);
         const frigToPut = frigSnap.docs.map(docSnap => ({
           id: docSnap.id,
-          type: 'frigorifico_entries',
+          collectionName: 'frigorifico_entries',
           ...docSnap.data()
         }));
         if (frigToPut.length > 0) {

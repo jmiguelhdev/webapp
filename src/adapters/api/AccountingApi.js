@@ -12,7 +12,7 @@ import { localDb } from '../../frameworks/db/localDb.js';
 export async function getLocalAccountingEntries(collectionName) {
   try {
     const entries = await localDb.accounting_entries
-      .where('type').equals(collectionName)
+      .where('collectionName').equals(collectionName)
       .toArray();
     return entries.sort((a, b) => (b.date || b.createdAt || 0) - (a.date || a.createdAt || 0));
   } catch (e) {
@@ -54,7 +54,7 @@ export async function saveAccountingEntry(db, uid, entry, collectionName = 'acco
   try {
     await localDb.accounting_entries.put({
       id: finalId,
-      type: collectionName,
+      collectionName: collectionName,
       createdAt: dataToSave.createdAt || now,
       ...dataToSave
     });
