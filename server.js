@@ -31,14 +31,14 @@ try {
 
 // Matriz de Imputación Contable por Actividad CLAE
 const MATRIZ_CONTABLE = {
-  620100: { nombre: 'Gastos de SaaS y Cloud', codigo: '5.1.01' },
-  691001: { nombre: 'Honorarios Profesionales', codigo: '5.1.08' },
-  351110: { nombre: 'Servicios Públicos', codigo: '5.1.12' },
-  014113: { nombre: 'Gastos Ganaderos y Cría', codigo: '5.1.02' },
-  14113:  { nombre: 'Gastos Ganaderos y Cría', codigo: '5.1.02' },
-  492330: { nombre: 'Fletes y Logística', codigo: '5.1.05' },
-  101011: { nombre: 'Procesamiento y Faena', codigo: '5.1.06' },
-  462000: { nombre: 'Compra de Hacienda e Insumos', codigo: '5.1.03' }
+  '620100': { nombre: 'Gastos de SaaS y Cloud', codigo: '5.1.01' },
+  '691001': { nombre: 'Honorarios Profesionales', codigo: '5.1.08' },
+  '351110': { nombre: 'Servicios Públicos', codigo: '5.1.12' },
+  '014113': { nombre: 'Gastos Ganaderos y Cría', codigo: '5.1.02' },
+  '14113':  { nombre: 'Gastos Ganaderos y Cría', codigo: '5.1.02' },
+  '492330': { nombre: 'Fletes y Logística', codigo: '5.1.05' },
+  '101011': { nombre: 'Procesamiento y Faena', codigo: '5.1.06' },
+  '462000': { nombre: 'Compra de Hacienda e Insumos', codigo: '5.1.03' }
 };
 
 // Caché en memoria para datos de Padrón Registral (disminuir latencia y evitar rate-limit)
