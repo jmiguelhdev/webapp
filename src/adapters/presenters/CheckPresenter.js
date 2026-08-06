@@ -31,6 +31,7 @@ export class CheckPresenter {
       searchTerm: '',
       sortPortfolioAsc: true,
       onlyNominal: false,
+      onlySelected: false,
       historyStatusFilter: 'ALL',
       checkType: 'ALL'
     };

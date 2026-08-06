@@ -317,12 +317,36 @@ export function renderChecks(container, options) {
       }
     });
 
+    const selectedToggleGroup = el('div', { 
+      classes: ['form-group'], 
+      style: 'margin-bottom: 0; display: flex; align-items: center; gap: 0.6rem; height: 38px; cursor: pointer; user-select: none;' 
+    });
+    const selectedCb = el('input', {
+      attrs: { type: 'checkbox', id: 'filter-only-selected' },
+      style: 'width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;'
+    });
+    const selectedLabel = el('label', {
+      attrs: { for: 'filter-only-selected' },
+      text: '☑️ Solo Seleccionados',
+      style: 'font-size: 0.8rem; font-weight: 700; color: #34d399; cursor: pointer; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;'
+    });
+    
+    selectedToggleGroup.appendChild(selectedCb);
+    selectedToggleGroup.appendChild(selectedLabel);
+
+    selectedCb.addEventListener('change', () => {
+      if (container._options && typeof container._options.onFilterChange === 'function') {
+        container._options.onFilterChange({ onlySelected: selectedCb.checked });
+      }
+    });
+
     filtersGrid.appendChild(searchGroup);
     filtersGrid.appendChild(checkTypeGroup);
     filtersGrid.appendChild(dateTypeGroup);
     filtersGrid.appendChild(startField.group);
     filtersGrid.appendChild(endField.group);
     filtersGrid.appendChild(nominalToggleGroup);
+    filtersGrid.appendChild(selectedToggleGroup);
     filtersGrid.appendChild(applyBtnGroup);
     filtersBar.appendChild(filtersGrid);
 
@@ -401,7 +425,21 @@ export function renderChecks(container, options) {
       html: '📤 Vender Selección'
     });
     
+    const filterSelBtn = el('button', {
+      attrs: { id: 'btn-toggle-only-selected' },
+      classes: ['btn-secondary'],
+      style: 'border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 0.3rem; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399;',
+      html: '👁️ Ver Solo Seleccionados'
+    });
+    filterSelBtn.onclick = () => {
+      if (container._options && typeof container._options.onFilterChange === 'function') {
+        const isSelectedOnly = !!container._options.filters?.onlySelected;
+        container._options.onFilterChange({ onlySelected: !isSelectedOnly });
+      }
+    };
+
     batchSellBar.appendChild(batchSellLabel);
+    batchSellBar.appendChild(filterSelBtn);
     batchSellBar.appendChild(clearSelBtn);
     batchSellBar.appendChild(printSelBtn);
     batchSellBar.appendChild(batchSellBtn);
@@ -691,9 +729,25 @@ export function renderChecks(container, options) {
     nominalCb.checked = !!filters?.onlyNominal;
   }
 
+  const selectedCb = container.querySelector('#filter-only-selected');
+  if (selectedCb) {
+    selectedCb.checked = !!filters?.onlySelected;
+  }
+
+  const toggleOnlySelBtn = container.querySelector('#btn-toggle-only-selected');
+  if (toggleOnlySelBtn) {
+    toggleOnlySelBtn.innerHTML = filters?.onlySelected ? '👁️ Ver Todos los Cheques' : '👁️ Ver Solo Seleccionados';
+    toggleOnlySelBtn.style.background = filters?.onlySelected ? 'rgba(99, 102, 241, 0.2)' : 'rgba(16, 185, 129, 0.15)';
+    toggleOnlySelBtn.style.color = filters?.onlySelected ? '#818cf8' : '#34d399';
+  }
+
   // Split precalculated datasets
-  const currentPortfolio = filteredSummary.portfolioChecks || [];
+  let currentPortfolio = filteredSummary.portfolioChecks || [];
   let currentHistory = filteredSummary.historyChecks || [];
+
+  if (filters?.onlySelected) {
+    currentPortfolio = currentPortfolio.filter(c => selectedIds.has(String(c.id)));
+  }
 
   // Filter history by SOLD / REJECTED status
   const historyStatus = filters?.historyStatusFilter || 'ALL';

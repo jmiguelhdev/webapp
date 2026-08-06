@@ -493,6 +493,13 @@ const navigateTo = (view, role = currentUserRole) => {
               if (count % 100 !== 0) {
                 await batch.commit();
               }
+
+              try {
+                await localDb.accounting_entries.where('collectionName').equals('accounting_entries').delete();
+              } catch (err) {
+                console.warn("Error clearing local accounting_entries IndexedDB:", err);
+              }
+
               console.log("accounting_entries successfully reset.");
               navigateTo('dashboard');
             } catch (e) {
@@ -520,6 +527,13 @@ const navigateTo = (view, role = currentUserRole) => {
               if (count % 100 !== 0) {
                 await batch.commit();
               }
+
+              try {
+                await localDb.accounting_entries.where('collectionName').equals('frigorifico_entries').delete();
+              } catch (err) {
+                console.warn("Error clearing local frigorifico_entries IndexedDB:", err);
+              }
+
               console.log("frigorifico_entries successfully reset.");
               navigateTo('dashboard');
             } catch (e) {

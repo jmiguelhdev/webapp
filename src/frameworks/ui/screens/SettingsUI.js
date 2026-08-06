@@ -765,7 +765,7 @@ export function renderSettings(container, options) {
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
       <div style="flex: 1; min-width: 250px;">
         <span style="font-weight: 600; color: var(--text-main); display: block;">Reiniciar Caja General</span>
-        <span style="font-size: 0.8rem; color: var(--text-muted);">Vacía por completo el libro contable de la Caja General en la nube.</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Vacía por completo el libro contable de la Caja General en la nube y su caché local IndexedDB.</span>
       </div>
       <button id="reset-caja-general-btn" class="btn-primary" style="padding: 0.65rem 1.5rem; font-size: 0.82rem; margin: 0; background: var(--danger); border: none; color: #fff; font-weight: 600; cursor: pointer; border-radius: 8px;">
         💥 Reiniciar Caja General
@@ -776,7 +776,7 @@ export function renderSettings(container, options) {
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
       <div style="flex: 1; min-width: 250px;">
         <span style="font-weight: 600; color: var(--text-main); display: block;">Reiniciar Caja Frigorífico</span>
-        <span style="font-size: 0.8rem; color: var(--text-muted);">Vacía por completo la colección de la Caja Frigorífico en la nube.</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Vacía por completo la colección de la Caja Frigorífico en la nube y su caché local IndexedDB.</span>
       </div>
       <button id="reset-caja-frigorifico-btn" class="btn-primary" style="padding: 0.65rem 1.5rem; font-size: 0.82rem; margin: 0; background: var(--danger); border: none; color: #fff; font-weight: 600; cursor: pointer; border-radius: 8px;">
         💥 Reiniciar Caja Frigorífico
@@ -813,8 +813,8 @@ export function renderSettings(container, options) {
   };
 
   setupResetButton('reset-cajas-btn', 'Cajas (Retiros)', 'Esta acción borrará permanentemente todos los registros de Cajas (Retiros de carnicería) de forma irreversible en la base de datos de la nube y su caché local.', 'onResetCajasOnly');
-  setupResetButton('reset-caja-general-btn', 'Caja General', 'Esta acción borrará permanentemente todos los registros contables de la Caja General de forma irreversible en la base de datos de la nube.', 'onResetCajaGeneralOnly');
-  setupResetButton('reset-caja-frigorifico-btn', 'Caja Frigorífico', 'Esta acción borrará permanentemente todos los registros de la Caja Frigorífico de forma irreversible en la base de datos de la nube.', 'onResetCajaFrigorificoOnly');
+  setupResetButton('reset-caja-general-btn', 'Caja General', 'Esta acción borrará permanentemente todos los registros contables de la Caja General de forma irreversible en la base de datos de la nube y su caché local.', 'onResetCajaGeneralOnly');
+  setupResetButton('reset-caja-frigorifico-btn', 'Caja Frigorífico', 'Esta acción borrará permanentemente todos los registros de la Caja Frigorífico de forma irreversible en la base de datos de la nube y su caché local.', 'onResetCajaFrigorificoOnly');
 
   // Append the constructed settings wrapper to the view container
   container.appendChild(wrapper);
