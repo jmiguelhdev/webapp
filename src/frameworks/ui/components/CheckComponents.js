@@ -164,7 +164,13 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
               <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.4rem; border-radius: 4px; background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); letter-spacing: 0.5px;">FÍSICO</span>
             `}
           </div>
-          ${op.issuerName ? `<div style="font-size: 0.82rem; color: var(--primary); font-weight: 700; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.3rem;"><span style="font-size: 0.85rem;">👤</span> ${op.issuerName}</div>` : ''}
+          ${(op.issuerName || op.issuerCuit) ? `
+            <div style="font-size: 0.82rem; color: var(--primary); font-weight: 700; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+              <span style="font-size: 0.85rem;">👤</span>
+              <span>${op.issuerName || 'Sin nombre'}</span>
+              ${op.issuerCuit ? `<span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">(CUIT: ${op.issuerCuit})</span>` : ''}
+            </div>
+          ` : ''}
           <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 0.25rem;"><span style="font-size: 0.8rem;">🏛️</span> ${op.bank || 'SIN BANCO'}</div>
         </td>
         <td>
@@ -230,7 +236,7 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
             <button class="icon-btn edit-btn" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Editar Cheque">
               <span style="font-size: 0.85rem;">✏️</span>
             </button>
-            ${op.issuerCuit ? `<button class="icon-btn bcra-list-btn" title="Consultar BCRA: ${op.issuerCuit}" style="height: 32px; display: flex; align-items: center; gap: 0.25rem; background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.3); color: #60a5fa; border-radius: 8px; padding: 0 0.65rem; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.2px;">🔍 BCRA</button>` : ''}
+            ${(op.issuerCuit || op.issuerName) ? `<button class="icon-btn bcra-list-btn" title="${op.issuerCuit ? `Consultar BCRA: ${op.issuerCuit}` : 'Consultar BCRA'}" style="height: 32px; display: flex; align-items: center; gap: 0.25rem; background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.3); color: #60a5fa; border-radius: 8px; padding: 0 0.65rem; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.2px;">🔍 BCRA</button>` : ''}
             <button class="icon-btn delete-btn" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.18); color: var(--danger); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Eliminar Cheque">
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="pointer-events: none; vertical-align: middle;"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>
             </button>
@@ -269,12 +275,7 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
         if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, buyContacts && buyContacts.length > 0 ? buyContacts : contacts, onSave); return; }
         if (e.target.closest('.delete-btn')) { onDelete(op.id); return; }
         if (e.target.closest('.bcra-list-btn')) {
-          const cuit = (op.issuerCuit || '').replace(/\D/g, '');
-          if (!cuit || cuit.length < 11) { alert('CUIT no válido para consultar.'); return; }
-          navigator.clipboard.writeText(cuit).then(() => {
-            alert(`CUIT ${cuit} copiado al portapapeles.\n\nSe abrirá la web de consulta crediticia del BCRA. Pegá el CUIT allí para consultar.`);
-            window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
-          }).catch(() => window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank'));
+          copyToClipboardAndOpenBcra(op.issuerCuit);
           return;
         }
         if (e.target.closest('.portfolio-check-cb')) return; // handled by change
@@ -425,4 +426,39 @@ export function showStateConfirmationModal({ title, promptMsg, expectedValue, on
     }
   };
 }
+
+/**
+ * Copia de forma automática el CUIT al portapapeles del usuario, muestra una notificación
+ * de confirmación y abre la Central de Deudores del Banco Central (BCRA).
+ * @param {string} cuitRaw - El CUIT ingresado o registrado del librador.
+ */
+export function copyToClipboardAndOpenBcra(cuitRaw) {
+  const cuit = String(cuitRaw || '').replace(/\D/g, '');
+  if (!cuit || cuit.length < 11) {
+    alert('Por favor ingrese un CUIT válido (11 dígitos).');
+    return;
+  }
+
+  // 1. Intentar copiar con el API moderno y fallback sincrónico
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cuit).catch(() => {});
+  }
+  try {
+    const tempInput = document.createElement('textarea');
+    tempInput.value = cuit;
+    tempInput.style.position = 'fixed';
+    tempInput.style.opacity = '0';
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempInput);
+  } catch (e) {}
+
+  // 2. Abrir BCRA de forma sincrónica para evitar bloqueo por el navegador
+  window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
+
+  // 3. Notificar explícitamente al usuario que el CUIT fue copiado
+  alert(`CUIT ${cuit} copiado al portapapeles.\n\nSe abrió la Central de Deudores del BCRA. Pegá el CUIT allí para consultar.`);
+}
+
 

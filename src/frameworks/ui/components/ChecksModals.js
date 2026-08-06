@@ -9,6 +9,7 @@ import { el } from '../../../frameworks/utils/dom.js';
 import { formatCurrency, formatDateLocal } from '../../../frameworks/utils/formatters.js';
 import { Check } from '../../../domain/entities/Check.js';
 import { printSaleOperationReport, generateSaleOperationExcel } from '../reports/ReportService.js';
+import { copyToClipboardAndOpenBcra } from './CheckComponents.js';
 
 function getSelectStyle(accentColor) {
   const isDark = document.body.classList.contains('dark');
@@ -190,19 +191,7 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
 
   content.querySelector('#btn-bcra').onclick = () => {
     const cuitInput = content.querySelector('#issuer-cuit');
-    const cuit = cuitInput.value.replace(/\D/g, '');
-    if (!cuit || cuit.length < 11) {
-      alert('Por favor ingrese un CUIT válido (11 dígitos).');
-      return;
-    }
-    
-    navigator.clipboard.writeText(cuit).then(() => {
-      alert(`CUIT ${cuit} copiado al portapapeles.\n\nSe abrirá la web del BCRA. Pega el CUIT allí para consultar.`);
-      window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
-    }).catch(err => {
-      console.error('Error copying to clipboard:', err);
-      window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
-    });
+    copyToClipboardAndOpenBcra(cuitInput.value);
   };
 
   // Show/hide back-reason field when editing sell side status
@@ -506,12 +495,8 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
     row.querySelector('.row-remove-btn').onclick = () => { row.remove(); updateSummary(); };
     row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateSummary));
     row.querySelector('.row-bcra-btn').onclick = () => {
-      const cuit = row.querySelector('.row-issuer-cuit').value.replace(/\D/g, '');
-      if (!cuit || cuit.length < 11) { alert('Por favor ingrese un CUIT válido (11 dígitos).'); return; }
-      navigator.clipboard.writeText(cuit).then(() => {
-        alert(`CUIT ${cuit} copiado al portapapeles.\n\nSe abrirá la web del BCRA. Pega el CUIT allí para consultar.`);
-        window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank');
-      }).catch(() => window.open('https://www.bcra.gob.ar/situacion-crediticia/', '_blank'));
+      const cuitVal = row.querySelector('.row-issuer-cuit').value;
+      copyToClipboardAndOpenBcra(cuitVal);
     };
     rowsContainer.appendChild(row);
     updateSummary();

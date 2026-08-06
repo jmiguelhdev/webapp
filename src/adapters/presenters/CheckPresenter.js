@@ -382,6 +382,8 @@ export class CheckPresenter {
     return {
       ...op,
       isECheck: check.isECheck,
+      issuerName: check.issuerName,
+      issuerCuit: check.issuerCuit,
       days: check.days,
       expireAt: check.expireAt,
       buySide: check.buySide ? { ...check.buySide } : null,

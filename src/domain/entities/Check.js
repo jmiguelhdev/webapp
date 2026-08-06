@@ -12,8 +12,8 @@ export class Check {
     this.issueDate = data.issueDate || '';
     this.clearing = parseInt(data.clearing) || 0;
     this.notes = data.notes || '';
-    this.issuerName = data.issuerName || '';
-    this.issuerCuit = data.issuerCuit || '';
+    this.issuerName = data.issuerName || data.issuer || data.librador || data.issuer_name || data.nombreLibrador || '';
+    this.issuerCuit = data.issuerCuit || data.cuit || data.cuitLibrador || data.issuer_cuit || data.cuit_librador || '';
     this.isECheck = data.isECheck === true || data.isECheck === 'true';
 
     // Rejected state check tracking fields
