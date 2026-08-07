@@ -1,0 +1,111 @@
+================================================================================
+ESPECIFICACION TECNICA Y MODELO DE ARCHIVO CSV PARA INGESTA DE FAENA
+================================================================================
+Documento: MODELO_FAENA_CSV.txt
+Proyecto: webApp - Gestión de Viajes y Stock de Faena
+Fecha: 2026-08-06
+Opción elegida: Opción B (Estructura atómica por Media Res)
+
+1. OBJETIVO TECNICO
+--------------------------------------------------------------------------------
+Este documento define la estructura y especificación estándar de un archivo CSV 
+destinado a reemplazar o complementar la lectura de archivos PDF de romaneo/faena.
+
+El modelo incluye en cada fila los datos de encabezado (Titular, Productor, DTE, 
+Tropa, Totales) junto con el detalle individual por media res y un código único
+(`codigo`) de trazabilidad global.
+
+2. ESPECIFICACION DE CAMPOS DEL CSV
+--------------------------------------------------------------------------------
+Nombre Columna         Tipo Dato    Origen PDF               Ejemplo
+---------------------  -----------  -----------------------  ----------------------------------------
+codigo                 String(50)   Generado / Regla         TR161-G44-M1
+tropa                  String(20)   Encabezado (TROPA)       161
+faena_nro              String(20)   Encabezado (Faena Nº)    3951
+fecha                  String(10)   Encabezado (Fecha)       2026-03-31
+titular_nombre         String(100)  Encabezado (Titular)     Andres e Ivan Muhic S.A.S.
+titular_cuit           String(20)   Encabezado (Titular)     30-71688600-6
+vendedor_nombre        String(100)  Encabezado (Vendedor)    GERBAUDO FRANCISCO ANTONIO
+vendedor_cuit          String(20)   Encabezado (Vendedor)    30707950117
+dte                    String(30)   Encabezado (DTE)         314686373
+cabezas_total          Integer      Encabezado (CAB. FAENA)  14
+kg_vivos_total         Float/Int    Encabezado (KG. VIVOS)   7631
+kg_faena_total         Float/Int    Encabezado (TOTAL FAENA) 3913
+garron                 String(20)   Detalle (Corre. Faena)   44
+media                  Integer(1)   Detalle (Media Res 1/2)  1
+categoria_pdf          String(10)   Detalle (Clas.)          VQ
+categoria_estandar     String(20)   Regla de Negocio App     VAQUILLONA
+kg                     Float/Int    Detalle (Kg 1/2 Res)     110
+
+3. REGLA DE GENERACION DEL CAMPO `codigo`
+--------------------------------------------------------------------------------
+Para garantizar la unicidad de cada pieza colgada en cámara de frío y evitar
+duplicaciones en base de datos local y Firebase:
+
+Formato Estándar: TR<TROPA>-G<GARRON>-M<MEDIA>
+- TR161  : Representa la Tropa Nº 161
+- G44    : Representa el Garrón Nº 44
+- M1 / M2: Representa la Media Res 1 (Izquierda/Cuarto 1) o Media Res 2 (Derecha/Cuarto 2)
+
+Ejemplo Garrón 44:
+- Media Res 1 (110 kg): TR161-G44-M1
+- Media Res 2 (109 kg): TR161-G44-M2
+
+4. MAPEO CON LA ARQUITECTURA DE LA APP (DETAIL RECORDS)
+--------------------------------------------------------------------------------
+Cada fila del CSV mapea 1:1 con la entidad de detalle guardada en `TravelPresenter.js`:
+
+{
+  id: "TR161-G44-M1",
+  tropa: "161",
+  faenaNro: "3951",
+  pdfDate: "31/3/2026",
+  producerName: "GERBAUDO FRANCISCO ANTONIO",
+  producerCuit: "30707950117",
+  dte: "314686373",
+  totalHeadCount: 14,
+  totalKgVivos: 7631,
+  totalKgFaena: 3913,
+  garron: "44",
+  half: 1,
+  category: "VQ",
+  standardizedCategory: "VAQUILLONA",
+  kg: 110,
+  status: "AVAILABLE"
+}
+
+5. MODELO DE ARCHIVO CSV (DATOS EXTRADOS DE "T161 Varilla 31-3-26.pdf")
+--------------------------------------------------------------------------------
+A continuación se presenta el contenido íntegro en formato CSV listo para ser
+procesado o importado directamente:
+
+codigo,tropa,faena_nro,fecha,titular_nombre,titular_cuit,vendedor_nombre,vendedor_cuit,dte,cabezas_total,kg_vivos_total,kg_faena_total,garron,media,categoria_pdf,categoria_estandar,kg
+TR161-G44-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,44,1,VQ,VAQUILLONA,110
+TR161-G44-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,44,2,VQ,VAQUILLONA,109
+TR161-G50-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,50,1,VQ,VAQUILLONA,100
+TR161-G50-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,50,2,VQ,VAQUILLONA,99
+TR161-G55-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,55,1,VQ,VAQUILLONA,131
+TR161-G55-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,55,2,VQ,VAQUILLONA,130
+TR161-G66-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,66,1,VA,VACA,151
+TR161-G66-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,66,2,VA,VACA,153
+TR161-G67-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,67,1,VA,VACA,199
+TR161-G67-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,67,2,VA,VACA,201
+TR161-G68-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,68,1,VA,VACA,200
+TR161-G68-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,68,2,VA,VACA,196
+TR161-G69-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,69,1,VA,VACA,134
+TR161-G69-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,69,2,VA,VACA,131
+TR161-G70-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,70,1,VQ,VAQUILLONA,117
+TR161-G70-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,70,2,VQ,VAQUILLONA,118
+TR161-G71-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,71,1,VA,VACA,104
+TR161-G71-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,71,2,VA,VACA,106
+TR161-G72-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,72,1,VQ,VAQUILLONA,126
+TR161-G72-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,72,2,VQ,VAQUILLONA,128
+TR161-G74-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,74,1,VA,VACA,140
+TR161-G74-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,74,2,VA,VACA,141
+TR161-G75-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,75,1,TO,TORO,222
+TR161-G75-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,75,2,TO,TORO,226
+TR161-G76-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,76,1,VQ,VAQUILLONA,101
+TR161-G76-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,76,2,VQ,VAQUILLONA,101
+TR161-G77-M1,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,77,1,VA,VACA,121
+TR161-G77-M2,161,3951,2026-03-31,Andres e Ivan Muhic S.A.S.,30-71688600-6,GERBAUDO FRANCISCO ANTONIO,30707950117,314686373,14,7631,3913,77,2,VA,VACA,118
+================================================================================
