@@ -4,7 +4,7 @@ ESPECIFICACION TECNICA Y MODELO DE ARCHIVO CSV PARA INGESTA DE FAENA
 Documento: MODELO_FAENA_CSV.txt
 Proyecto: webApp - Gestión de Viajes y Stock de Faena
 Fecha: 2026-08-06
-Opción elegida: Opción B (Estructura atómica por Media Res)
+
 
 1. OBJETIVO TECNICO
 --------------------------------------------------------------------------------
