@@ -25,6 +25,7 @@ import { EstablishmentPresenter } from './adapters/presenters/EstablishmentPrese
 import { OperatorRepository } from './adapters/repositories/OperatorRepository.js';
 import { SHARED_DATA_SOURCE_UID } from './config.js';
 import { SyncService } from './frameworks/services/SyncService.js';
+import { FiscalInvoicesUI } from './frameworks/ui/screens/FiscalInvoicesUI.js';
 
 
 // Render Git commit version badge in header dynamically
@@ -313,9 +314,9 @@ function getAllowedViews(role, allowedViews = currentUserAllowedViews) {
   }
 
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices'];
   } else {
     // VISOR
     return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
@@ -378,6 +379,11 @@ const navigateTo = (view, role = currentUserRole) => {
     case 'frigorifico':
       frigorificoPresenter.loadData();
       break;
+    case 'fiscal-invoices': {
+      const fiscalUI = new FiscalInvoicesUI('content');
+      fiscalUI.render();
+      break;
+    }
     case 'establishments':
       establishmentPresenter.loadData();
       break;

@@ -142,6 +142,7 @@ export class KmpSidebar extends HTMLElement {
       {
         title: 'FINANZAS & CRÉDITO',
         items: [
+          { id: 'fiscal-invoices', label: '📄 Comprobantes ARCA', roles: ['ADMIN', 'OPERARIO'] },
           { id: 'checks', label: '💸 Gestión de Cheques', roles: ['ADMIN', 'OPERARIO'] },
           { id: 'accounting', label: '💰 Caja General', roles: ['ADMIN', 'OPERARIO'] },
           { id: 'frigorifico', label: '🏢 Caja Frigorífico', roles: ['ADMIN', 'OPERARIO'] }
