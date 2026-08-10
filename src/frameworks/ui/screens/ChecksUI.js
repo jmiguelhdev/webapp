@@ -502,7 +502,15 @@ export function renderChecks(container, options) {
     printHistoryBtn.onclick = () => {
       if (container._options && typeof container._options.onPrint === 'function') {
         const sortedH = container._sortedHistoryCached || [];
-        container._options.onPrint(sortedH);
+        if (sortedH.length === 0) {
+          alert('No hay operaciones realizadas para imprimir con los filtros actuales.');
+          return;
+        }
+        const isSelectedOnly = !!container._options.filters?.onlySelected;
+        const customTitle = isSelectedOnly 
+          ? 'Reporte de Operaciones Realizadas (Seleccionados)' 
+          : 'Reporte de Operaciones Realizadas';
+        container._options.onPrint(sortedH, customTitle);
       }
     };
     historyHeader.appendChild(printHistoryBtn);
@@ -747,6 +755,7 @@ export function renderChecks(container, options) {
 
   if (filters?.onlySelected) {
     currentPortfolio = currentPortfolio.filter(c => selectedIds.has(String(c.id)));
+    currentHistory = currentHistory.filter(c => selectedIds.has(String(c.id)));
   }
 
   // Filter history by SOLD / REJECTED status
@@ -817,7 +826,7 @@ export function renderChecks(container, options) {
   // Toggle History print button visibility
   const historyPrintBtn = container.querySelector('#history-print-btn');
   if (historyPrintBtn) {
-    historyPrintBtn.style.display = activeTab === 'list' ? 'block' : 'none';
+    historyPrintBtn.style.display = 'block';
   }
 
   // Update tabs styles
@@ -863,7 +872,7 @@ export function renderChecks(container, options) {
       const histStart = (histCurrentPage - 1) * (pagination?.itemsPerPage || 15);
       const histPaginated = sortedHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
 
-      const historyTable = renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false, false, null, null, filters?.onlyNominal, buyContacts);
+      const historyTable = renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts);
       historyTableWrapper.appendChild(historyTable);
 
       if (historyPaginationWrapper) {
@@ -1003,7 +1012,7 @@ export function renderChecks(container, options) {
             const expContainer = el('div', {
               style: 'display: none; margin-top: 0.5rem;'
             });
-            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, false, null, null, filters?.onlyNominal, buyContacts);
+            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts);
             expTable.style.marginBottom = '0';
             expTable.style.borderRadius = '12px';
             expContainer.appendChild(expTable);
@@ -1155,7 +1164,7 @@ export function renderChecks(container, options) {
             const expContainer = el('div', {
               style: 'display: none; margin-top: 0.5rem;'
             });
-            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, false, null, null, filters?.onlyNominal, buyContacts);
+            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts);
             expTable.style.marginBottom = '0';
             expTable.style.borderRadius = '12px';
             expContainer.appendChild(expTable);

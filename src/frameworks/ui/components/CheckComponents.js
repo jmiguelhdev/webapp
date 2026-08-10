@@ -103,12 +103,12 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
   
   const thead = el('thead', { html: `
     <tr style="background: rgba(255,255,255,0.03); border-bottom: 2px solid var(--border); text-align: left; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
-      ${selectable ? '<th style="padding: 1rem; width: 40px; text-align: center;"><input type="checkbox" id="check-all-cb" style="width: 16px; height: 16px; cursor: pointer;" title="Seleccionar todos"></th>' : ''}
+      ${selectable ? '<th style="padding: 1rem; width: 40px; text-align: center;"><input type="checkbox" class="check-all-cb" style="width: 16px; height: 16px; cursor: pointer;" title="Seleccionar todos"></th>' : ''}
       <th style="padding: 1rem 1.25rem;">Banco / Emisor</th>
       <th style="padding: 1rem 1.25rem;">Cobro / Vencimiento</th>
       <th style="padding: 1rem 1.25rem; text-align: right;">Valor Nominal</th>
       <th style="padding: 1rem 1.25rem; text-align: left;">Flujo Origen/Destino</th>
-      ${onlyNominal ? '' : `<th style="padding: 1rem 1.25rem; text-align: right;">${selectable ? 'Desc. Compra' : 'Ganancia'}</th>`}
+      ${onlyNominal ? '' : `<th style="padding: 1rem 1.25rem; text-align: right;">${checksList.some(c => c.sellSide?.status === 'SOLD') ? 'Ganancia' : (selectable ? 'Desc. Compra' : 'Ganancia')}</th>`}
       <th style="padding: 1rem 1.25rem; text-align: right;">Acciones</th>
     </tr>
   `});
@@ -317,8 +317,12 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
     });
 
     if (selectable) {
-      const allCb = table.querySelector('#check-all-cb');
+      const allCb = table.querySelector('.check-all-cb');
       if (allCb) {
+        if (selectedIds !== null && checksList.length > 0) {
+          const allSelected = checksList.every(c => selectedIds.has(String(c.id)));
+          allCb.checked = allSelected;
+        }
         allCb.addEventListener('change', () => {
           table.querySelectorAll('.portfolio-check-cb').forEach(cb => {
             cb.checked = allCb.checked;
