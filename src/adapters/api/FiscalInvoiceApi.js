@@ -1,21 +1,22 @@
 /**
  * @file FiscalInvoiceApi.js
- * @description Servicio API para consultar comprobantes fiscales de ARCA ('fiscal_invoices') y sintetizar transacciones de ventas ('transactions').
+ * @description Servicio API para consultar comprobantes fiscales de ARCA ('fiscal_invoices') y sintetizar ventas locales de 'transactions' (excluyendo operaciones financieras de cheques).
  * @module adapters/api/FiscalInvoiceApi
  */
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import * as clientApi from './ClientApi.js';
 
 /**
- * Obtiene comprobantes fiscales desde Firestore 'fiscal_invoices' y 'transactions'.
+ * Obtiene comprobantes fiscales y ventas exclusivas desde Firestore.
+ * Excluye operaciones de cartera de cheques o asientos financieros de pago.
  * @param {Object} db - Instancia de Firestore.
- * @returns {Promise<Array<Object>>} Lista unificada de comprobantes fiscales.
+ * @returns {Promise<Array<Object>>} Lista unificada de comprobantes de ventas.
  */
 export async function fetchFiscalInvoices(db) {
   const resultInvoices = [];
   const invoiceIds = new Set();
 
-  // 1. Intentar consultar colecciones 'fiscal_invoices' en Firestore
+  // 1. Intentar consultar colecciones 'fiscal_invoices' en Firestore (Solo Comprobantes ARCA)
   try {
     const invoicesRef = collection(db, 'fiscal_invoices');
     let q;
@@ -47,7 +48,7 @@ export async function fetchFiscalInvoices(db) {
     console.warn('[FiscalInvoiceApi] Error al obtener clientes:', e.message);
   }
 
-  // 3. Consultar transacciones de ventas ('transactions') para construir comprobantes si fiscal_invoices está vacío
+  // 3. Consultar transacciones de ventas ('transactions'), EXCLUYENDO operaciones de cheques y cobros
   try {
     const rawTxs = await clientApi.fetchAllTransactions(db);
     rawTxs.forEach((tx, idx) => {
@@ -55,7 +56,19 @@ export async function fetchFiscalInvoices(db) {
       const amount = Math.abs(Number(tx.amount || tx.total || 0));
       if (amount === 0) return;
 
-      // Identificar si la transacción representa una venta/comprobante
+      // EXCLUSIÓN ESTRICTA: Ignorar transacciones asociadas a Gestión de Cheques o Medios de Pago
+      if (
+        tx.checkId || 
+        tx.checkSide || 
+        concept.includes('CHEQUE') || 
+        concept.includes('COBRO CHEQUE') || 
+        concept.includes('ENTREGA CHEQUE') || 
+        tx.type === 'PAYMENT'
+      ) {
+        return;
+      }
+
+      // Identificar si la transacción representa una venta o nota de ajuste
       const isDebt = tx.type === 'DEBT' || concept.includes('VENTA') || concept.includes('DESPACHO') || concept.includes('FACTURA') || concept.includes('SALE_') || concept.includes('RETAIL_');
       const isNC = tx.type === 'CREDIT_NOTE' || concept.includes('NOTA DE CRÉDITO') || concept.includes('NC');
       const isND = tx.type === 'DEBIT_NOTE' || concept.includes('NOTA DE DÉBITO') || concept.includes('ND');
@@ -73,18 +86,23 @@ export async function fetchFiscalInvoices(db) {
       // Determinar tipo comprobante ARCA
       let cbteTipo = 6; // Factura B por defecto
       if (isNC) {
-        cbteTipo = (clientObj && clientObj.cuit) ? 3 : 8; // NC A o NC B
+        cbteTipo = (clientObj && clientObj.cuit) ? 3 : 8;
       } else if (isND) {
-        cbteTipo = (clientObj && clientObj.cuit) ? 2 : 7; // ND A o ND B
+        cbteTipo = (clientObj && clientObj.cuit) ? 2 : 7;
       } else if (clientObj && clientObj.cuit) {
-        cbteTipo = 1; // Factura A
+        cbteTipo = 1;
       }
 
-      // Extraer número correlativo del concepto si existe
-      let nro = idx + 1;
-      const matchNro = concept.match(/(?:N°|NRO|#)\s*([0-9]+)/i);
-      if (matchNro && matchNro[1]) {
-        nro = parseInt(matchNro[1], 10);
+      // Determinar si tiene un número correlativo o si es un ID timestamp (No Fiscal)
+      let nro = tx.numeroComprobante || tx.nro;
+      if (!nro) {
+        const matchNro = concept.match(/(?:N°|NRO|#)\s*([0-9]{1,8})\b/i);
+        if (matchNro && matchNro[1]) {
+          nro = parseInt(matchNro[1], 10);
+        } else {
+          const rawId = String(tx.id || '').replace(/[^0-9]/g, '');
+          nro = rawId.length >= 8 ? rawId : `${Date.now()}${idx}`;
+        }
       }
 
       const dateMs = tx.date || tx.createdAt || tx.timestamp || Date.now();
@@ -98,7 +116,7 @@ export async function fetchFiscalInvoices(db) {
         saleId: tx.saleId || (concept.includes('SALE_') ? 'SALE_' + concept.split('SALE_')[1].split(' ')[0] : `SALE_${tx.id}`),
         tipoComprobante: tx.tipoComprobante || cbteTipo,
         puntoVenta: tx.puntoVenta || 1,
-        numeroComprobante: tx.numeroComprobante || nro,
+        numeroComprobante: nro,
         fechaEmision: tx.fechaEmision || dateIso,
         concepto: 1,
         tipoDocReceptor: nroDocReceptor ? 80 : 99,
@@ -137,6 +155,5 @@ export async function fetchFiscalInvoices(db) {
     console.warn('[FiscalInvoiceApi] Error al sintetizar comprobantes desde transactions:', errTx.message);
   }
 
-  // Ordenar por fecha descendente
   return resultInvoices.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }

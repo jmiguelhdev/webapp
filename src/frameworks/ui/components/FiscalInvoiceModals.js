@@ -57,6 +57,17 @@ function formatDate(dateStr) {
   return str;
 }
 
+export function formatFullVoucherNumber(invoice) {
+  const ptoVtaPadded = String(invoice.puntoVenta || invoice.ptoVta || 1).padStart(5, '0');
+  const nroRaw = String(invoice.numeroComprobante || invoice.nro || 0);
+
+  const hasCae = Boolean(invoice && invoice.cae && String(invoice.cae).trim() !== '' && String(invoice.cae).trim() !== 'null');
+  if (hasCae) {
+    return `${ptoVtaPadded}-${nroRaw.padStart(8, '0')}`;
+  }
+  return `${ptoVtaPadded}-${nroRaw}`;
+}
+
 /**
  * Muestra el modal con el detalle completo del comprobante fiscal.
  * @param {Object} invoice - Comprobante a inspeccionar.
@@ -70,9 +81,7 @@ export function openFiscalInvoiceDetailModal(invoice) {
   modal.className = 'modal-backdrop open';
 
   const tipoName = VOUCHER_TYPE_NAMES[invoice.tipoComprobante || invoice.cbteTipo] || `Comprobante (${invoice.tipoComprobante})`;
-  const ptoVtaPadded = String(invoice.puntoVenta || invoice.ptoVta || 1).padStart(5, '0');
-  const nroPadded = String(invoice.numeroComprobante || invoice.nro || 0).padStart(8, '0');
-  const fullCbteNumber = `${ptoVtaPadded}-${nroPadded}`;
+  const fullCbteNumber = formatFullVoucherNumber(invoice);
 
   // Formato de ítems
   const items = invoice.items || [];
@@ -245,9 +254,7 @@ export function openPrintTicketModal(invoice) {
   modal.className = 'modal-backdrop open';
 
   const tipoName = VOUCHER_TYPE_NAMES[invoice.tipoComprobante || invoice.cbteTipo] || 'COMPROBANTE';
-  const ptoVtaPadded = String(invoice.puntoVenta || invoice.ptoVta || 1).padStart(5, '0');
-  const nroPadded = String(invoice.numeroComprobante || invoice.nro || 0).padStart(8, '0');
-  const fullCbteNumber = `${ptoVtaPadded}-${nroPadded}`;
+  const fullCbteNumber = formatFullVoucherNumber(invoice);
 
   const qrTargetUrl = buildArcaQrUrl(invoice);
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrTargetUrl)}`;
