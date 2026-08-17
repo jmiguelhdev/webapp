@@ -49,6 +49,17 @@ export class ClientPresenter {
         const blockStatus = account.getBlockingStatus();
         client.isBlocked = blockStatus.isBlocked;
         client.blockingReason = blockStatus.reason;
+
+        // Metadatos del último movimiento
+        const lastTx = account.getLastMovement();
+        client.lastMovement = lastTx;
+        client.lastMovementDate = account.getLastMovementDate();
+        client.lastMovementType = lastTx?.type || null;
+        client.lastMovementAmount = lastTx?.amount || 0;
+        client.lastMovementDescription = lastTx?.description || '';
+        client.totalDebts = account.getDebtTotal();
+        client.totalPayments = account.getPaymentsTotal();
+        client.movementsCount = txs.length;
       }
       
       if (this.operatorRepository) {
@@ -63,8 +74,20 @@ export class ClientPresenter {
           const blockStatus = account.getBlockingStatus();
           op.isBlocked = blockStatus.isBlocked;
           op.blockingReason = blockStatus.reason;
+
+          // Metadatos del último movimiento
+          const lastTx = account.getLastMovement();
+          op.lastMovement = lastTx;
+          op.lastMovementDate = account.getLastMovementDate();
+          op.lastMovementType = lastTx?.type || null;
+          op.lastMovementAmount = lastTx?.amount || 0;
+          op.lastMovementDescription = lastTx?.description || '';
+          op.totalDebts = account.getDebtTotal();
+          op.totalPayments = account.getPaymentsTotal();
+          op.movementsCount = txs.length;
         }
       }
+
 
       this.render();
     } catch (e) {
@@ -349,7 +372,7 @@ export class ClientPresenter {
     try {
       const sale = await this.clientRepository.getSaleById(saleId);
       if (!sale) {
-        alert("No se encontró la venta con ID: " + saleId);
+        alert(`No se encontró el detalle de los ítems para el comprobante "${saleId}".\n\nMotivos posibles:\n1. El comprobante fue emitido desde una terminal/sucursal externa y aún no se sincronizó su desglose de productos a la base de datos central.\n2. Se trata de un movimiento asentado únicamente como saldo financiero o contable.`);
         return;
       }
       const products = await this.clientRepository.getProducts();
@@ -364,5 +387,6 @@ export class ClientPresenter {
     } finally {
       document.body.style.cursor = 'default';
     }
+
   }
 }

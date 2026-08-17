@@ -151,22 +151,27 @@ export function renderClientAccounts(options) {
             const isDebt = t.type === 'DEBT';
             const receivedInfo = t.receivedBy ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">📥 Recibido: ${t.receivedBy}</div>` : '';
             
-            // Detect if description corresponds to a sale from other apps
+            // Detect if description corresponds to a sale or credit note from other apps
             const conceptText = t.description || '';
             const isRetail = conceptText.includes("Venta Mostrador");
             const isWholesale = conceptText.includes("Despacho Facturado");
+            const isCreditNote = conceptText.includes("Nota de Crédito") || conceptText.includes("Nota de Credito");
             let saleId = null;
-            if (isRetail || isWholesale) {
+            if (isRetail || isWholesale || isCreditNote) {
               const match = conceptText.match(/N°\s*([a-zA-Z0-9_-]+)/);
               if (match && match[1]) {
-                const num = match[1].trim();
-                saleId = isRetail ? `RETAIL_${num}` : `SALE_${num}`;
+                const rawNum = match[1].trim();
+                const cleanNum = rawNum.replace(/^(SALE_|RETAIL_|NC_|CREDIT_)/i, '');
+                if (isRetail) saleId = `RETAIL_${cleanNum}`;
+                else if (isCreditNote) saleId = `NC_${cleanNum}`;
+                else saleId = `SALE_${cleanNum}`;
               }
             }
 
             const conceptTextHtml = saleId 
               ? `<a href="#" class="sale-detail-link" data-sale-id="${saleId}" data-concept="${conceptText}" style="color: var(--primary); text-decoration: underline; font-weight: 500; cursor: pointer;">${conceptText}</a>`
               : `<div style="font-weight: 500;">${t.description || (isDebt ? 'Despacho' : 'Pago')}</div>`;
+
 
             return `
               <tr style="border-bottom: 1px solid var(--border);">
@@ -225,26 +230,43 @@ export function renderClientAccounts(options) {
 
   } else {
     const isOperatorsTab = activeTab === 'OPERATORS';
-    
-    const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;' });
+    const listData = isOperatorsTab ? (operators || []) : (clients || []);
+
+    // KPIs consolidados para la pestaña activa
+    const totalAccounts = listData.length;
+    const totalDebt = listData.reduce((sum, c) => sum + ((c.balance || 0) > 0 ? (c.balance || 0) : 0), 0);
+    const countWithDebt = listData.filter(c => (c.balance || 0) > 0).length;
+    const countSettled = listData.filter(c => (c.balance || 0) <= 0).length;
+    const countRecentMovements = listData.filter(c => c.lastMovementDate != null).length;
+    const countBlocked = listData.filter(c => c.isBlocked).length;
+
+    // Header principal
+    const header = el('div', { classes: ['dashboard-header'], style: 'display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;' });
     header.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
         <button id="back-to-dash" class="back-btn-m3" title="Volver al Dashboard">
           <svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>
         </button>
         <div>
-          <h2 style="margin: 0;">👥 Cuentas y Saldos</h2>
-          <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem;">Administración de cuentas corrientes.</p>
+          <h2 style="margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em;">👥 Cuentas y Saldos</h2>
+          <p style="margin: 0.2rem 0 0 0; color: var(--text-muted); font-size: 0.9rem;">Control de estados de cuenta, saldos pendientes y actividad comercial reciente.</p>
         </div>
       </div>
-      <button id="new-client-btn" class="btn-primary" style="margin: 0; width: auto; padding: 0.6rem 1.5rem;">➕ Nuevo ${isOperatorsTab ? 'Operador' : 'Cliente'}</button>
+      <button id="new-client-btn" class="btn-primary" style="margin: 0; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+        <span>➕</span> Nuevo ${isOperatorsTab ? 'Operador' : 'Cliente'}
+      </button>
     `;
     wrapper.appendChild(header);
 
-    const tabsContainer = el('div', { style: 'display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;' });
+    // Navegación de pestañas (Tabs)
+    const tabsContainer = el('div', { style: 'display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; overflow-x: auto;' });
     tabsContainer.innerHTML = `
-      <button id="tab-clients" style="background: none; border: none; font-size: 1.1rem; font-weight: 600; cursor: pointer; padding: 0.5rem 1rem; color: ${!isOperatorsTab ? 'var(--primary)' : 'var(--text-muted)'}; border-bottom: ${!isOperatorsTab ? '3px solid var(--primary)' : '3px solid transparent'};">Clientes y Deudores</button>
-      <button id="tab-operators" style="background: none; border: none; font-size: 1.1rem; font-weight: 600; cursor: pointer; padding: 0.5rem 1rem; color: ${isOperatorsTab ? 'var(--primary)' : 'var(--text-muted)'}; border-bottom: ${isOperatorsTab ? '3px solid var(--primary)' : '3px solid transparent'};">Operadores de Cheques</button>
+      <button id="tab-clients" style="background: none; border: none; font-size: 1.05rem; font-weight: 600; cursor: pointer; padding: 0.5rem 1rem; color: ${!isOperatorsTab ? 'var(--primary)' : 'var(--text-muted)'}; border-bottom: ${!isOperatorsTab ? '3px solid var(--primary)' : '3px solid transparent'}; transition: all 0.2s; white-space: nowrap;">
+        🏢 Clientes y Deudores (${(clients || []).length})
+      </button>
+      <button id="tab-operators" style="background: none; border: none; font-size: 1.05rem; font-weight: 600; cursor: pointer; padding: 0.5rem 1rem; color: ${isOperatorsTab ? 'var(--primary)' : 'var(--text-muted)'}; border-bottom: ${isOperatorsTab ? '3px solid var(--primary)' : '3px solid transparent'}; transition: all 0.2s; white-space: nowrap;">
+        💼 Operadores de Cheques (${(operators || []).length})
+      </button>
     `;
     wrapper.appendChild(tabsContainer);
 
@@ -253,54 +275,620 @@ export function renderClientAccounts(options) {
     tabsContainer.querySelector('#tab-clients').onclick = () => onTabChange('CLIENTS');
     tabsContainer.querySelector('#tab-operators').onclick = () => onTabChange('OPERATORS');
 
-    const listData = isOperatorsTab ? (operators || []) : clients;
+    // Tarjetas de Métricas Rápidas (KPIs)
+    const kpiGrid = el('div', { 
+      classes: ['stats-grid'], 
+      style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;' 
+    });
+    
+    kpiGrid.innerHTML = `
+      <div class="stat-card glass-card" style="padding: 1.15rem; border-radius: 14px; border: 1px solid var(--border); display: flex; align-items: center; gap: 1rem;">
+        <div style="font-size: 1.75rem; background: rgba(99,102,241,0.1); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #818cf8;">👥</div>
+        <div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Total Registrados</div>
+          <div style="font-size: 1.35rem; font-weight: 700; color: var(--text-main);">${totalAccounts}</div>
+        </div>
+      </div>
+      <div class="stat-card glass-card" style="padding: 1.15rem; border-radius: 14px; border: 1px solid var(--border); display: flex; align-items: center; gap: 1rem;">
+        <div style="font-size: 1.75rem; background: rgba(239,68,68,0.1); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #ef4444;">💸</div>
+        <div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Saldo Deudor Total</div>
+          <div style="font-size: 1.35rem; font-weight: 700; color: #ef4444;">$${totalDebt.toLocaleString('es-AR')}</div>
+        </div>
+      </div>
+      <div class="stat-card glass-card" style="padding: 1.15rem; border-radius: 14px; border: 1px solid var(--border); display: flex; align-items: center; gap: 1rem;">
+        <div style="font-size: 1.75rem; background: rgba(245,158,11,0.1); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #f59e0b;">⏳</div>
+        <div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Cuentas con Deuda</div>
+          <div style="font-size: 1.35rem; font-weight: 700; color: ${countWithDebt > 0 ? '#ef4444' : 'var(--text-main)'};">${countWithDebt}</div>
+        </div>
+      </div>
+      <div class="stat-card glass-card" style="padding: 1.15rem; border-radius: 14px; border: 1px solid var(--border); display: flex; align-items: center; gap: 1rem;">
+        <div style="font-size: 1.75rem; background: rgba(16,185,129,0.1); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; color: #10b981;">⚡</div>
+        <div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Con Actividad</div>
+          <div style="font-size: 1.35rem; font-weight: 700; color: #10b981;">${countRecentMovements}</div>
+        </div>
+      </div>
+    `;
+    wrapper.appendChild(kpiGrid);
 
-    const clientGrid = el('div', { classes: ['card-list'] });
+    // Contenedor interactivo de Búsqueda y Filtros
+    const controlsContainer = el('div', { 
+      classes: ['glass-card'], 
+      style: 'padding: 1.25rem; border-radius: 16px; margin-bottom: 1.75rem; border: 1px solid var(--border); background: var(--card-bg); box-shadow: var(--elevation-1);' 
+    });
 
-    if (listData.length === 0) {
-      const emptyMsg = el('div', { classes: ['glass-card'], style: 'padding: 3rem; text-align: center;' });
-      emptyMsg.innerHTML = `
-        <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
-        <p style="color: var(--text-muted); margin-bottom: 1rem;">No hay ${isOperatorsTab ? 'operadores' : 'clientes'} registrados.</p>
-      `;
-      clientGrid.appendChild(emptyMsg);
-    } else {
-      listData.forEach(c => {
-        const card = el('div', { classes: ['card', 'glass-card'], style: 'cursor: pointer; transition: transform 0.2s;' });
-        const balanceColor = (c.balance || 0) > 0 ? '#ef4444' : '#10b981';
+    controlsContainer.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Barra de búsqueda principal -->
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <div style="
+            flex: 1; 
+            min-width: 260px;
+            display: flex; 
+            align-items: center; 
+            gap: 0.75rem; 
+            background: var(--bg-main); 
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            padding: 0.65rem 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+          " class="search-input-box">
+            <span style="font-size: 1.2rem; color: var(--primary); user-select: none;">🔍</span>
+            <input 
+              type="text" 
+              id="client-search-input" 
+              placeholder="Buscar por Nombre, CUIT o Dirección..." 
+              autocomplete="off"
+              style="
+                flex: 1;
+                border: none;
+                background: transparent;
+                color: var(--text-main);
+                font-size: 0.95rem;
+                outline: none;
+                font-family: inherit;
+              "
+            />
+            <button id="clear-search-btn" title="Limpiar búsqueda" style="
+              background: transparent;
+              border: none;
+              color: var(--text-muted);
+              cursor: pointer;
+              font-size: 1.1rem;
+              display: none;
+              padding: 0.15rem;
+              line-height: 1;
+            ">✕</button>
+          </div>
+
+          <!-- Selector de Ordenamiento -->
+          <div style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+            <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Ordenar:</label>
+            <select id="sort-select" style="
+              background: var(--bg-main);
+              color: var(--text-main);
+              border: 1px solid var(--border);
+              padding: 0.65rem 1rem;
+              border-radius: 12px;
+              font-size: 0.85rem;
+              font-weight: 600;
+              outline: none;
+              cursor: pointer;
+            ">
+              <option value="RECENT">🕒 Más Recientes Primero</option>
+              <option value="DEBT_DESC">💰 Mayor Saldo Deudor</option>
+              <option value="NAME_ASC">🔤 Nombre (A - Z)</option>
+              <option value="OLDEST_MOV">⏳ Movimientos Más Antiguos</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Chips de Filtro Rápido -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.75rem;">
+          <div id="filter-chips-group" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+            <button class="filter-chip active" data-filter="ALL" style="
+              padding: 0.45rem 0.9rem;
+              border-radius: 20px;
+              font-size: 0.82rem;
+              font-weight: 600;
+              cursor: pointer;
+              border: 1px solid var(--primary);
+              background: var(--primary-container);
+              color: var(--on-primary-container);
+              transition: all 0.2s;
+            ">Todos (${totalAccounts})</button>
+
+            <button class="filter-chip" data-filter="RECENT" style="
+              padding: 0.45rem 0.9rem;
+              border-radius: 20px;
+              font-size: 0.82rem;
+              font-weight: 600;
+              cursor: pointer;
+              border: 1px solid var(--border);
+              background: rgba(255,255,255,0.04);
+              color: var(--text-muted);
+              transition: all 0.2s;
+            ">🔥 Con Movimientos Recientes (${countRecentMovements})</button>
+
+            <button class="filter-chip" data-filter="DEBT" style="
+              padding: 0.45rem 0.9rem;
+              border-radius: 20px;
+              font-size: 0.82rem;
+              font-weight: 600;
+              cursor: pointer;
+              border: 1px solid var(--border);
+              background: rgba(255,255,255,0.04);
+              color: var(--text-muted);
+              transition: all 0.2s;
+            ">⚠️ Con Deuda (${countWithDebt})</button>
+
+            <button class="filter-chip" data-filter="SETTLED" style="
+              padding: 0.45rem 0.9rem;
+              border-radius: 20px;
+              font-size: 0.82rem;
+              font-weight: 600;
+              cursor: pointer;
+              border: 1px solid var(--border);
+              background: rgba(255,255,255,0.04);
+              color: var(--text-muted);
+              transition: all 0.2s;
+            ">✅ Al Día (${countSettled})</button>
+
+            ${countBlocked > 0 ? `
+              <button class="filter-chip" data-filter="BLOCKED" style="
+                padding: 0.45rem 0.9rem;
+                border-radius: 20px;
+                font-size: 0.82rem;
+                font-weight: 600;
+                cursor: pointer;
+                border: 1px solid rgba(239,68,68,0.4);
+                background: rgba(239,68,68,0.1);
+                color: #fca5a5;
+                transition: all 0.2s;
+              ">🚫 Suspendidos (${countBlocked})</button>
+            ` : ''}
+          </div>
+
+          <div id="search-counter" style="font-size: 0.82rem; color: var(--text-muted); font-weight: 500;">
+            Mostrando ${totalAccounts} de ${totalAccounts} cuentas
+          </div>
+        </div>
+      </div>
+    `;
+    wrapper.appendChild(controlsContainer);
+
+    // Contenedor Grid de Tarjetas
+    const gridContainer = el('div', { 
+      id: 'clients-cards-grid', 
+      style: 'display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;' 
+    });
+    wrapper.appendChild(gridContainer);
+
+    // Estado local para búsqueda y filtros
+    let currentQuery = '';
+    let currentFilter = 'ALL';
+    let currentSort = 'RECENT';
+
+    /**
+     * Formatea marcas de tiempo en formato amigable y relativo
+     */
+    function formatRelativeDate(timestamp) {
+      if (!timestamp) return null;
+      const dateObj = new Date(timestamp);
+      if (isNaN(dateObj.getTime())) return null;
+
+      const now = new Date();
+      const d1 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const d2 = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+      const diffDays = Math.round((d1 - d2) / (1000 * 60 * 60 * 24));
+
+      const dateStr = dateObj.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      
+      let relative = '';
+      if (diffDays <= 0) relative = 'Hoy';
+      else if (diffDays === 1) relative = 'Ayer';
+      else if (diffDays < 30) relative = `hace ${diffDays} días`;
+      else if (diffDays < 365) {
+        const m = Math.floor(diffDays / 30);
+        relative = `hace ${m} ${m === 1 ? 'mes' : 'meses'}`;
+      } else {
+        const y = Math.floor(diffDays / 365);
+        relative = `hace ${y} ${y === 1 ? 'año' : 'años'}`;
+      }
+
+      return { dateStr, relative, label: `${dateStr} (${relative})` };
+    }
+
+    /**
+     * Filtra y ordena la lista de cuentas según los criterios actuales
+     */
+    function filterAndSortData() {
+      const q = currentQuery.trim().toLowerCase();
+      const qDigits = q.replace(/[^0-9]/g, '');
+
+      let result = listData.filter(item => {
+        // Búsqueda por texto (Nombre, CUIT, Dirección, Teléfono)
+        if (q) {
+          const name = (item.name || '').toLowerCase();
+          const cuit = (item.cuit || '').toLowerCase();
+          const cuitDigits = cuit.replace(/[^0-9]/g, '');
+          const address = (item.address || '').toLowerCase();
+          const phone = (item.phone || '').toLowerCase();
+
+          const matchesName = name.includes(q);
+          const matchesCuit = cuit.includes(q) || (qDigits && cuitDigits.includes(qDigits));
+          const matchesAddress = address.includes(q);
+          const matchesPhone = phone.includes(q);
+
+          if (!matchesName && !matchesCuit && !matchesAddress && !matchesPhone) {
+            return false;
+          }
+        }
+
+        // Filtro por Estado
+        const balance = item.balance || 0;
+        if (currentFilter === 'RECENT') {
+          return item.lastMovementDate != null;
+        } else if (currentFilter === 'DEBT') {
+          return balance > 0;
+        } else if (currentFilter === 'SETTLED') {
+          return balance <= 0;
+        } else if (currentFilter === 'BLOCKED') {
+          return !!item.isBlocked;
+        }
+
+        return true;
+      });
+
+      // Ordenamiento
+      result.sort((a, b) => {
+        if (currentSort === 'RECENT') {
+          const timeA = a.lastMovementDate ? new Date(a.lastMovementDate).getTime() : 0;
+          const timeB = b.lastMovementDate ? new Date(b.lastMovementDate).getTime() : 0;
+          if (timeB !== timeA) return timeB - timeA; // Más reciente primero
+          return (a.name || '').localeCompare(b.name || '');
+        } else if (currentSort === 'OLDEST_MOV') {
+          const timeA = a.lastMovementDate ? new Date(a.lastMovementDate).getTime() : Infinity;
+          const timeB = b.lastMovementDate ? new Date(b.lastMovementDate).getTime() : Infinity;
+          if (timeA !== timeB) return timeA - timeB;
+          return (a.name || '').localeCompare(b.name || '');
+        } else if (currentSort === 'DEBT_DESC') {
+          const balA = a.balance || 0;
+          const balB = b.balance || 0;
+          if (balB !== balA) return balB - balA;
+          return (a.name || '').localeCompare(b.name || '');
+        } else if (currentSort === 'NAME_ASC') {
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        return 0;
+      });
+
+      return result;
+    }
+
+    /**
+     * Renderiza las tarjetas de clientes en el DOM
+     */
+    function renderCards() {
+      const filtered = filterAndSortData();
+      gridContainer.innerHTML = '';
+
+      // Actualizar contador
+      const counterEl = controlsContainer.querySelector('#search-counter');
+      if (counterEl) {
+        counterEl.textContent = `Mostrando ${filtered.length} de ${totalAccounts} ${isOperatorsTab ? 'operadores' : 'clientes'}`;
+      }
+
+      if (filtered.length === 0) {
+        const isSearchingOrFiltering = currentQuery.trim().length > 0 || currentFilter !== 'ALL';
+        const emptyCard = el('div', { 
+          classes: ['glass-card'], 
+          style: 'grid-column: 1 / -1; padding: 3.5rem 2rem; text-align: center; border-radius: 16px; border: 1px dashed var(--border);' 
+        });
+
+        if (isSearchingOrFiltering) {
+          emptyCard.innerHTML = `
+            <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.7;">🔍</div>
+            <h3 style="margin: 0 0 0.5rem 0; color: var(--text-main);">No se encontraron coincidencias</h3>
+            <p style="color: var(--text-muted); margin: 0 0 1.5rem 0; font-size: 0.9rem;">
+              No hay ${isOperatorsTab ? 'operadores' : 'clientes'} que coincidan con "${currentQuery}" o el filtro seleccionado.
+            </p>
+            <button id="btn-reset-filters" class="btn-outline" style="padding: 0.6rem 1.5rem; border-radius: 10px;">
+              🔄 Restablecer Filtros
+            </button>
+          `;
+          gridContainer.appendChild(emptyCard);
+          emptyCard.querySelector('#btn-reset-filters').onclick = () => {
+            currentQuery = '';
+            currentFilter = 'ALL';
+            const searchInput = controlsContainer.querySelector('#client-search-input');
+            const clearBtn = controlsContainer.querySelector('#clear-search-btn');
+            if (searchInput) searchInput.value = '';
+            if (clearBtn) clearBtn.style.display = 'none';
+            updateChipStyles();
+            renderCards();
+          };
+        } else {
+          emptyCard.innerHTML = `
+            <div style="font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.7;">👥</div>
+            <h3 style="margin: 0 0 0.5rem 0; color: var(--text-main);">Sin registros</h3>
+            <p style="color: var(--text-muted); margin: 0 0 1.5rem 0; font-size: 0.9rem;">
+              Aún no hay ${isOperatorsTab ? 'operadores' : 'clientes'} cargados en el sistema.
+            </p>
+            <button id="btn-create-first" class="btn-primary" style="padding: 0.65rem 1.75rem; border-radius: 12px;">
+              ➕ Registrar Primer ${isOperatorsTab ? 'Operador' : 'Cliente'}
+            </button>
+          `;
+          gridContainer.appendChild(emptyCard);
+          emptyCard.querySelector('#btn-create-first').onclick = () => {
+            showClientModal(null, onSaveClient, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
+          };
+        }
+        return;
+      }
+
+      filtered.forEach(c => {
+        const card = el('div', { 
+          classes: ['card', 'glass-card'], 
+          style: `
+            cursor: pointer; 
+            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); 
+            border-radius: 16px; 
+            padding: 1.35rem; 
+            border: 1px solid var(--border); 
+            background: var(--card-bg);
+            box-shadow: var(--elevation-1);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 1rem;
+            ${c.isBlocked ? 'border-left: 5px solid #ef4444;' : ((c.balance || 0) > 0 ? 'border-left: 5px solid #f59e0b;' : 'border-left: 5px solid #10b981;')}
+          ` 
+        });
+
+        card.onmouseenter = () => {
+          card.style.transform = 'translateY(-3px)';
+          card.style.boxShadow = 'var(--elevation-2)';
+          card.style.borderColor = 'var(--primary)';
+        };
+        card.onmouseleave = () => {
+          card.style.transform = 'none';
+          card.style.boxShadow = 'var(--elevation-1)';
+          card.style.borderColor = 'var(--border)';
+        };
+
+        const balanceVal = c.balance || 0;
+        const balanceColor = balanceVal > 0 ? '#ef4444' : (balanceVal < 0 ? '#3b82f6' : '#10b981');
+        const balanceText = balanceVal > 0 
+          ? `$${balanceVal.toLocaleString('es-AR')}` 
+          : (balanceVal < 0 ? `-$${Math.abs(balanceVal).toLocaleString('es-AR')} (A favor)` : '$0 (Al día)');
+        
         const isBlocked = c.isBlocked;
+        const initial = (c.name || '?').trim().charAt(0).toUpperCase();
+
+        // Formato del último movimiento
+        const relMov = formatRelativeDate(c.lastMovementDate);
+        let movHtml = '';
+        if (relMov) {
+          const isDebt = c.lastMovementType === 'DEBT';
+          const movIcon = isDebt ? '📤' : '📥';
+          const movColor = isDebt ? '#f87171' : '#34d399';
+          const movLabel = isDebt ? 'Despacho/Venta' : 'Cobro/Pago';
+          const movAmount = c.lastMovementAmount ? `$${Number(c.lastMovementAmount).toLocaleString('es-AR')}` : '';
+          const movDesc = c.lastMovementDescription ? ` • "${c.lastMovementDescription.substring(0, 30)}${c.lastMovementDescription.length > 30 ? '...' : ''}"` : '';
+
+          movHtml = `
+            <div style="
+              background: rgba(255,255,255,0.03); 
+              border: 1px solid var(--border); 
+              border-radius: 10px; 
+              padding: 0.65rem 0.85rem;
+              font-size: 0.82rem;
+            ">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Último Movimiento</span>
+                <span style="color: #818cf8; font-weight: 600; font-size: 0.78rem;">🕒 ${relMov.label}</span>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; color: var(--text-main);">
+                <div style="display: flex; align-items: center; gap: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <span>${movIcon}</span>
+                  <span style="font-weight: 500;">${movLabel}</span>
+                  <span style="color: var(--text-muted); font-size: 0.75rem;">${movDesc}</span>
+                </div>
+                ${movAmount ? `<span style="font-weight: 700; color: ${movColor}; white-space: nowrap;">${movAmount}</span>` : ''}
+              </div>
+            </div>
+          `;
+        } else {
+          movHtml = `
+            <div style="
+              background: rgba(255,255,255,0.02); 
+              border: 1px dashed var(--border); 
+              border-radius: 10px; 
+              padding: 0.55rem 0.85rem;
+              font-size: 0.8rem;
+              color: var(--text-muted);
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+            ">
+              <span>⚪</span>
+              <span>Sin movimientos registrados</span>
+            </div>
+          `;
+        }
+
+        // Estado Badge
+        let statusBadgeHtml = '';
+        if (isBlocked) {
+          statusBadgeHtml = `<span style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.4); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 3px;" title="${c.blockingReason || ''}">⚠️ Suspendido</span>`;
+        } else if (balanceVal > 0) {
+          statusBadgeHtml = `<span style="background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;">🔴 Con Deuda</span>`;
+        } else {
+          statusBadgeHtml = `<span style="background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;">🟢 Al Día</span>`;
+        }
 
         card.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <!-- Header de Tarjeta -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.85rem;">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="
+                  width: 42px; 
+                  height: 42px; 
+                  border-radius: 12px; 
+                  background: linear-gradient(135deg, rgba(143, 0, 20, 0.8), rgba(99, 102, 241, 0.7)); 
+                  color: #ffffff; 
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: center; 
+                  font-weight: 700; 
+                  font-size: 1.15rem;
+                  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                  flex-shrink: 0;
+                ">
+                  ${initial}
+                </div>
+                <div>
+                  <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); line-height: 1.25;">
+                    ${c.name}
+                  </h3>
+                  <div style="margin-top: 3px;">
+                    ${statusBadgeHtml}
+                  </div>
+                </div>
+              </div>
+              <button class="btn-outline edit-client-btn" title="Editar Cliente" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: 8px; flex-shrink: 0;">
+                ✏️ Editar
+              </button>
+            </div>
+
+            <!-- Datos Secundarios -->
+            <div style="display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--text-muted);">
+              <div style="display: flex; align-items: center; gap: 0.4rem;">
+                <span style="opacity: 0.7;">🆔</span>
+                <span style="font-weight: 600; color: var(--text-main);">CUIT: ${c.cuit || 'Sin CUIT'}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span style="opacity: 0.7;">📍</span>
+                <span>${c.address || 'Sin dirección registrada'}</span>
+              </div>
+              ${c.phone ? `
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                  <span style="opacity: 0.7;">📞</span>
+                  <span>${c.phone}</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Sección de Último Movimiento -->
+            ${movHtml}
+          </div>
+
+          <!-- Footer con Saldo y Acción Principal -->
+          <div style="
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-top: 1px solid var(--border); 
+            padding-top: 0.85rem; 
+            margin-top: 0.25rem;
+          ">
             <div>
-              <h3 style="margin: 0 0 0.5rem 0; display: flex; align-items: center; gap: 0.35rem;">
-                ${c.name}
-                ${isBlocked ? `<span style="font-size: 0.95rem; color: #ef4444; cursor: help;" title="Ventas Suspendidas: ${c.blockingReason || ''}">⚠️</span>` : ''}
-              </h3>
-              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">${c.address || 'Sin dirección'}</p>
-              <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">CUIT: ${c.cuit || 'N/A'}</p>
-              ${isBlocked ? `<p style="color: #fca5a5; font-size: 0.78rem; margin: 0.25rem 0 0 0; font-weight: 600;">🚫 Cuenta Suspendida</p>` : ''}
+              <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Saldo Cuenta</div>
+              <div style="font-size: 1.35rem; font-weight: 800; color: ${balanceColor}; letter-spacing: -0.02em;">
+                ${balanceText}
+              </div>
             </div>
-            <div style="text-align: right;">
-              <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.2rem;">Saldo</div>
-              <div style="font-size: 1.25rem; font-weight: bold; color: ${balanceColor};">$${(c.balance || 0).toLocaleString()}</div>
-              <button class="btn-outline edit-client-btn" style="margin-top: 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.75rem;">Editar</button>
-            </div>
+            <button class="btn-primary view-account-btn" style="padding: 0.55rem 1.15rem; font-size: 0.85rem; border-radius: 10px; font-weight: 600;">
+              Ver Cuenta →
+            </button>
           </div>
         `;
-        
+
+        // Eventos
         card.querySelector('.edit-client-btn').onclick = (e) => {
           e.stopPropagation();
           showClientModal(c, onSaveClient, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
         };
 
+        card.querySelector('.view-account-btn').onclick = (e) => {
+          e.stopPropagation();
+          onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
+        };
+
         card.onclick = () => onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
-        clientGrid.appendChild(card);
+
+        gridContainer.appendChild(card);
       });
     }
 
-    wrapper.appendChild(clientGrid);
+    /**
+     * Actualiza el estilo activo de los chips de filtro
+     */
+    function updateChipStyles() {
+      controlsContainer.querySelectorAll('.filter-chip').forEach(btn => {
+        const f = btn.dataset.filter;
+        if (f === currentFilter) {
+          btn.style.background = 'var(--primary-container)';
+          btn.style.color = 'var(--on-primary-container)';
+          btn.style.borderColor = 'var(--primary)';
+        } else {
+          btn.style.background = 'rgba(255,255,255,0.04)';
+          btn.style.color = 'var(--text-muted)';
+          btn.style.borderColor = 'var(--border)';
+        }
+      });
+    }
+
+    // Configuración de Event Listeners de Búsqueda y Filtros
+    const searchInput = controlsContainer.querySelector('#client-search-input');
+    const clearBtn = controlsContainer.querySelector('#clear-search-btn');
+    const sortSelect = controlsContainer.querySelector('#sort-select');
+
+    searchInput.oninput = (e) => {
+      currentQuery = e.target.value;
+      if (currentQuery.length > 0) {
+        clearBtn.style.display = 'block';
+      } else {
+        clearBtn.style.display = 'none';
+      }
+      renderCards();
+    };
+
+    clearBtn.onclick = () => {
+      searchInput.value = '';
+      currentQuery = '';
+      clearBtn.style.display = 'none';
+      searchInput.focus();
+      renderCards();
+    };
+
+    sortSelect.onchange = (e) => {
+      currentSort = e.target.value;
+      renderCards();
+    };
+
+    controlsContainer.querySelectorAll('.filter-chip').forEach(btn => {
+      btn.onclick = () => {
+        currentFilter = btn.dataset.filter;
+        // Si el usuario hace click en el chip de Movimientos Recientes, sincronizar también el sort
+        if (currentFilter === 'RECENT') {
+          currentSort = 'RECENT';
+          if (sortSelect) sortSelect.value = 'RECENT';
+        }
+        updateChipStyles();
+        renderCards();
+      };
+    });
+
+    // Render inicial
+    renderCards();
   }
 
   container.appendChild(wrapper);
 }
+

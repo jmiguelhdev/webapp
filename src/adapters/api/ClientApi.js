@@ -172,12 +172,53 @@ export async function fetchPriceAnalyses(db, clientId) {
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
 
-/** Fetch a sale document by ID */
+/** Fetch a sale document by ID with fallback candidate ID formats and collections */
 export async function fetchSaleById(db, saleId) {
-  const docRef = doc(db, 'sales', saleId);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() };
+  if (!saleId) return null;
+
+  // Generar candidatos de ID (con y sin prefijos)
+  const rawId = String(saleId).trim().replace(/^(SALE_|RETAIL_|NC_|CREDIT_)/i, '');
+  const candidates = Array.from(new Set([
+    saleId,
+    rawId,
+    `SALE_${rawId}`,
+    `RETAIL_${rawId}`,
+    `NC_${rawId}`
+  ]));
+
+  const collections = ['sales', 'ventas', 'credit_notes'];
+
+  // 1. Búsqueda directa por ID de documento
+  for (const collName of collections) {
+    for (const cand of candidates) {
+      try {
+        const docRef = doc(db, collName, cand);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          return { id: docSnap.id, ...docSnap.data() };
+        }
+      } catch (e) {
+        // Continuar con el siguiente candidato
+      }
+    }
   }
+
+  // 2. Búsqueda por campos internos (id, saleNumber, number, ticketNumber)
+  for (const collName of collections) {
+    for (const field of ['id', 'saleNumber', 'number', 'ticketNumber']) {
+      try {
+        const q = query(collection(db, collName), where(field, 'in', candidates), limit(1));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const docSnap = snap.docs[0];
+          return { id: docSnap.id, ...docSnap.data() };
+        }
+      } catch (e) {
+        // Continuar
+      }
+    }
+  }
+
   return null;
 }
+

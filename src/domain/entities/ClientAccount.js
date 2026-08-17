@@ -169,4 +169,31 @@ export class ClientAccount {
 
     return { isBlocked: false, reason: '' };
   }
+
+  /**
+   * Obtiene la transacción más reciente registrada en la cuenta corriente.
+   * 
+   * @returns {Object|null} La última transacción ordenada por fecha/createdAt, o null si no hay movimientos.
+   */
+  getLastMovement() {
+    if (!this.transactions || this.transactions.length === 0) return null;
+    const sorted = [...this.transactions].sort((a, b) => {
+      const timeA = new Date(a.date || a.createdAt || 0).getTime();
+      const timeB = new Date(b.date || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+    return sorted[0] || null;
+  }
+
+  /**
+   * Obtiene la marca de tiempo (timestamp en ms) del movimiento más reciente.
+   * 
+   * @returns {number|null} Timestamp en milisegundos de la última transacción o null.
+   */
+  getLastMovementDate() {
+    const last = this.getLastMovement();
+    if (!last) return null;
+    return new Date(last.date || last.createdAt || 0).getTime() || null;
+  }
 }
+

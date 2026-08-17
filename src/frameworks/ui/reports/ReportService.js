@@ -798,3 +798,131 @@ export function generateSaleOperationExcel(operationId, buyerName, dateStr, chec
   XLSX.writeFile(workbook, `Venta_Cheques_${operationId || 'PROFORMA'}_${Date.now()}.xlsx`);
 }
 
+/**
+ * Export Detailed Travel-by-Travel Breakdown to Excel (XLSX)
+ */
+export function exportTravelBreakdownExcel(travels, categoryPrices = {}, filterInfo = {}) {
+  if (!travels || travels.length === 0) {
+    alert("No hay viajes para exportar con los filtros seleccionados.");
+    return;
+  }
+
+  const rows = travels.map(t => {
+    const buy = t.buy || {};
+    const yieldPct = (buy.generalYield || 0) * 100;
+    const priceVivo = buy.avgPrice || 0;
+    const priceVivoComm = buy.avgPriceWithCommission || 0;
+    const yieldRatio = yieldPct > 0 ? (yieldPct / 100) : 0;
+    const costoGancho = yieldRatio > 0 ? (priceVivoComm / yieldRatio) : 0;
+    const realCostGancho = costoGancho > 0 ? (costoGancho / (1 - 0.017)) : 0;
+
+    // Compute weighted sell reference price across categories
+    let weightedSellRef = 0;
+    let totalCatKg = 0;
+    (buy.listOfProducers || []).forEach(p => {
+      (p.listOfProducts || []).forEach(pr => {
+        const cat = pr.standardizedCategory || pr.name;
+        const ref = parseFloat(categoryPrices[cat]) || 0;
+        const kg = pr.kgClean || 0;
+        if (ref > 0 && kg > 0) {
+          weightedSellRef += ref * kg;
+          totalCatKg += kg;
+        }
+      });
+    });
+    const sellPriceRef = totalCatKg > 0 ? weightedSellRef / totalCatKg : 0;
+    const margin = (sellPriceRef > 0 && realCostGancho > 0) ? (sellPriceRef - realCostGancho) : 0;
+    const marginPct = (sellPriceRef > 0 && realCostGancho > 0) ? (margin / realCostGancho) * 100 : 0;
+
+    const producerNames = (buy.listOfProducers || []).map(p => {
+      const pName = p.producer?.name || p.name || 'Productor';
+      const pCuit = p.producer?.cuit || p.cuit ? ` (${p.producer?.cuit || p.cuit})` : '';
+      return `${pName}${pCuit}`;
+    }).join(', ') || 'Sin productores';
+
+    const origins = (buy.listOfProducers || []).map(p => p.origin || '').filter(Boolean).join(', ') || '-';
+    const categoriesStr = (buy.categories || []).join(', ') || '-';
+
+    return {
+      'ID Viaje': t.id || '',
+      'Fecha': t.date || '',
+      'Camión': t.truck?.name || '',
+      'Patente': t.truck?.licensePlate || '',
+      'Tropa #': t.tropa || t.buy?.tropa || '',
+      'Comisionista': buy.agent?.name || 'Sin comisionista',
+      'Comisión (%)': buy.agent?.percent ? `${buy.agent.percent}%` : '0%',
+      'Productores': producerNames,
+      'Orígenes': origins,
+      'Categorías': categoriesStr,
+      'Cabezas (Uds)': buy.totalQuantity || 0,
+      'Kilos Limpios (Vivo)': buy.totalKgClean || 0,
+      'Kilos Faena (Gancho)': buy.totalKgFaena || 0,
+      'Rendimiento Faena (%)': parseFloat(yieldPct.toFixed(2)),
+      'Precio Compra Vivo ($/kg)': parseFloat(priceVivo.toFixed(2)),
+      'Precio Compra c/Comis ($/kg)': parseFloat(priceVivoComm.toFixed(2)),
+      'Costo Gancho ($/kg)': costoGancho > 0 ? parseFloat(costoGancho.toFixed(2)) : 'Pendiente',
+      'Costo Real Gancho ($/kg)': realCostGancho > 0 ? parseFloat(realCostGancho.toFixed(2)) : 'Pendiente',
+      'Ref. Venta ($/kg)': sellPriceRef > 0 ? parseFloat(sellPriceRef.toFixed(2)) : 'N/A',
+      'Margen ($/kg)': (sellPriceRef > 0 && realCostGancho > 0) ? parseFloat(margin.toFixed(2)) : 'Pendiente',
+      'Margen (%)': (sellPriceRef > 0 && realCostGancho > 0) ? `${marginPct.toFixed(2)}%` : 'Pendiente',
+      'Total Operación ($)': buy.totalOperation || 0,
+      'Total Operación c/Comis ($)': buy.totalOperationWithCommission || 0
+    };
+  });
+
+  // Calculate Totals / Summary Row
+  const totalHeads = travels.reduce((sum, t) => sum + (t.buy?.totalQuantity || 0), 0);
+  const totalClean = travels.reduce((sum, t) => sum + (t.buy?.totalKgClean || 0), 0);
+  const totalFaena = travels.reduce((sum, t) => sum + (t.buy?.totalKgFaena || 0), 0);
+  const globalYield = totalClean > 0 ? (totalFaena / totalClean) * 100 : 0;
+  const totalOp = travels.reduce((sum, t) => sum + (t.buy?.totalOperation || 0), 0);
+  const totalOpComm = travels.reduce((sum, t) => sum + (t.buy?.totalOperationWithCommission || 0), 0);
+  const globalAvgPrice = totalClean > 0 ? totalOp / totalClean : 0;
+  const globalAvgPriceComm = totalClean > 0 ? totalOpComm / totalClean : 0;
+  const globalCostoGancho = globalYield > 0 ? (globalAvgPriceComm / (globalYield / 100)) : 0;
+  const globalRealCost = globalCostoGancho / (1 - 0.017);
+
+  rows.push({
+    'ID Viaje': 'TOTAL CONSOLIDADO',
+    'Fecha': `${travels.length} viajes`,
+    'Camión': '',
+    'Patente': '',
+    'Tropa #': '',
+    'Comisionista': '',
+    'Comisión (%)': '',
+    'Productores': '',
+    'Orígenes': '',
+    'Categorías': '',
+    'Cabezas (Uds)': totalHeads,
+    'Kilos Limpios (Vivo)': totalClean,
+    'Kilos Faena (Gancho)': totalFaena,
+    'Rendimiento Faena (%)': parseFloat(globalYield.toFixed(2)),
+    'Precio Compra Vivo ($/kg)': parseFloat(globalAvgPrice.toFixed(2)),
+    'Precio Compra c/Comis ($/kg)': parseFloat(globalAvgPriceComm.toFixed(2)),
+    'Costo Gancho ($/kg)': parseFloat(globalCostoGancho.toFixed(2)),
+    'Costo Real Gancho ($/kg)': parseFloat(globalRealCost.toFixed(2)),
+    'Ref. Venta ($/kg)': '',
+    'Margen ($/kg)': '',
+    'Margen (%)': '',
+    'Total Operación ($)': totalOp,
+    'Total Operación c/Comis ($)': totalOpComm
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Desglose Viajes");
+
+  const wscols = [
+    { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 10 },
+    { wch: 20 }, { wch: 12 }, { wch: 25 }, { wch: 16 }, { wch: 16 },
+    { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 20 },
+    { wch: 22 }, { wch: 24 }, { wch: 18 }, { wch: 20 },
+    { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 22 }
+  ];
+  worksheet['!cols'] = wscols;
+
+  const fileName = `Desglose_Viajes_Faena_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(workbook, fileName);
+}
+
+

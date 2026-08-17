@@ -51,6 +51,10 @@ export class TravelPresenter {
       itemsPerPage: 5,
       selectedCategories: [], // Array of strings
       includeCommission: false,
+      selectedAgents: [], // Multi-select array of agent names
+      selectedProducers: [], // Multi-select array of producer names
+      selectedAgent: '', // backward compatibility
+      selectedProducer: '', // backward compatibility
       currentView: 'dashboard', // Tracks active view for reactive updates
       timeFilterType: 'all',
       timeFilterValue: 'all',
@@ -176,6 +180,96 @@ export class TravelPresenter {
     this.debouncedSearch(query);
   }
 
+  setAgentsFilter(agents) {
+    this.state.selectedAgents = Array.isArray(agents) ? agents.filter(Boolean) : (agents ? [agents] : []);
+    this.state.selectedAgent = this.state.selectedAgents[0] || '';
+    this._validateAndCleanProducers();
+    this.state.page = 1;
+    this.refresh();
+  }
+
+  toggleAgentFilter(agent) {
+    if (!agent || agent === 'ALL') {
+      this.state.selectedAgents = [];
+    } else {
+      const idx = this.state.selectedAgents.indexOf(agent);
+      if (idx === -1) {
+        this.state.selectedAgents.push(agent);
+      } else {
+        this.state.selectedAgents.splice(idx, 1);
+      }
+    }
+    this.state.selectedAgent = this.state.selectedAgents[0] || '';
+    this._validateAndCleanProducers();
+    this.state.page = 1;
+    this.refresh();
+  }
+
+  setProducersFilter(producers) {
+    this.state.selectedProducers = Array.isArray(producers) ? producers.filter(Boolean) : (producers ? [producers] : []);
+    this.state.selectedProducer = this.state.selectedProducers[0] || '';
+    this.state.page = 1;
+    this.refresh();
+  }
+
+  toggleProducerFilter(producer) {
+    if (!producer || producer === 'ALL') {
+      this.state.selectedProducers = [];
+    } else {
+      const idx = this.state.selectedProducers.indexOf(producer);
+      if (idx === -1) {
+        this.state.selectedProducers.push(producer);
+      } else {
+        this.state.selectedProducers.splice(idx, 1);
+      }
+    }
+    this.state.selectedProducer = this.state.selectedProducers[0] || '';
+    this.state.page = 1;
+    this.refresh();
+  }
+
+  setAgentFilter(agent) {
+    if (!agent || agent === 'ALL') {
+      this.state.selectedAgents = [];
+    } else {
+      this.state.selectedAgents = [agent];
+    }
+    this.state.selectedAgent = agent || '';
+    this._validateAndCleanProducers();
+    this.state.page = 1;
+    this.refresh();
+  }
+
+  setProducerFilter(producer) {
+    if (!producer || producer === 'ALL') {
+      this.state.selectedProducers = [];
+    } else {
+      this.state.selectedProducers = [producer];
+    }
+    this.state.selectedProducer = producer || '';
+    this.state.page = 1;
+    this.refresh();
+  }
+
+  _validateAndCleanProducers() {
+    if (this.state.selectedAgents.length > 0 && this.state.selectedProducers.length > 0) {
+      const activeAgentsLower = this.state.selectedAgents.map(a => a.trim().toLowerCase());
+      this.state.selectedProducers = this.state.selectedProducers.filter(prodName => {
+        const prodLower = prodName.trim().toLowerCase();
+        return this.allTravels.some(t => {
+          const ag = (t.buy?.agent?.name || '').trim().toLowerCase();
+          if (!activeAgentsLower.includes(ag)) return false;
+          return (t.buy?.listOfProducers || []).some(p => {
+            const pName = (p.producer?.name || p.name || '').trim().toLowerCase();
+            const pCuit = String(p.producer?.cuit || p.cuit || '').trim().toLowerCase();
+            return pName === prodLower || pCuit === prodLower;
+          });
+        });
+      });
+      this.state.selectedProducer = this.state.selectedProducers[0] || '';
+    }
+  }
+
   toggleCategory(category) {
     if (category === 'TODOS') {
       this.state.selectedCategories = [];
@@ -207,6 +301,8 @@ export class TravelPresenter {
   showTravelDetail(travelId) {
     this.state.filter = 'TODOS';
     this.state.selectedCategories = [];
+    this.state.selectedAgent = '';
+    this.state.selectedProducer = '';
     this.state.searchQuery = String(travelId);
     this.state.page = 1;
     this.state.currentView = 'travels';
@@ -247,9 +343,41 @@ export class TravelPresenter {
       });
     }
 
-    // Smart Search Filter
+    // Filter by Comisionistas / Agentes (Multi-select)
+    if (this.state.selectedAgents && this.state.selectedAgents.length > 0) {
+      const activeAgentsLower = this.state.selectedAgents.map(a => a.trim().toLowerCase());
+      filtered = filtered.filter(t => activeAgentsLower.includes((t.buy?.agent?.name || '').trim().toLowerCase()));
+    } else if (this.state.selectedAgent && this.state.selectedAgent !== 'ALL') {
+      const targetAgent = this.state.selectedAgent.trim().toLowerCase();
+      filtered = filtered.filter(t => (t.buy?.agent?.name || '').trim().toLowerCase() === targetAgent);
+    }
+
+    // Filter by Productores (Multi-select)
+    if (this.state.selectedProducers && this.state.selectedProducers.length > 0) {
+      const activeProdsLower = this.state.selectedProducers.map(p => p.trim().toLowerCase());
+      const activeProdsDigits = activeProdsLower.map(p => p.replace(/\D/g, '')).filter(d => d.length > 3);
+      filtered = filtered.filter(t => (t.buy?.listOfProducers || []).some(p => {
+        const pName = (p.producer?.name || p.name || '').trim().toLowerCase();
+        const pCuit = String(p.producer?.cuit || p.cuit || '').trim().toLowerCase();
+        const pCuitDigits = pCuit.replace(/\D/g, '');
+        return activeProdsLower.includes(pName) || activeProdsLower.includes(pCuit) || 
+               activeProdsDigits.some(d => pCuitDigits.includes(d));
+      }));
+    } else if (this.state.selectedProducer && this.state.selectedProducer !== 'ALL') {
+      const targetProd = this.state.selectedProducer.trim().toLowerCase();
+      const targetProdDigits = targetProd.replace(/\D/g, '');
+      filtered = filtered.filter(t => (t.buy?.listOfProducers || []).some(p => {
+        const pName = (p.producer?.name || p.name || '').trim().toLowerCase();
+        const pCuit = String(p.producer?.cuit || p.cuit || '').trim().toLowerCase();
+        const pCuitDigits = pCuit.replace(/\D/g, '');
+        return pName === targetProd || (targetProdDigits.length > 3 && pCuitDigits.includes(targetProdDigits)) || pCuit === targetProd;
+      }));
+    }
+
+    // Smart Universal Search Filter
     if (this.state.searchQuery) {
-      const q = this.state.searchQuery.toLowerCase();
+      const q = this.state.searchQuery.trim().toLowerCase();
+      const qDigits = q.replace(/\D/g, '');
       filtered = filtered.filter(t => {
         const travelId = String(t.id).toLowerCase();
         if (travelId === q || travelId.includes(q)) return true;
@@ -259,14 +387,67 @@ export class TravelPresenter {
         const desc = (t.description || '').toLowerCase();
         const driverName = (t.truck?.driver?.name || t.driver?.name || '').toLowerCase();
         const agentName = (t.buy?.agent?.name || '').toLowerCase();
-        const producersMatch = (t.buy?.listOfProducers || []).some(p => 
-          (p.producer?.name || '').toLowerCase().includes(q) ||
-          (p.producer?.cuit || '').toLowerCase().includes(q)
-        );
+        const tropa = String(t.tropa || t.buy?.tropa || '').toLowerCase();
+        const producersMatch = (t.buy?.listOfProducers || []).some(p => {
+          const pName = (p.producer?.name || p.name || '').toLowerCase();
+          const pCuit = String(p.producer?.cuit || p.cuit || '').toLowerCase();
+          const pOrigin = (p.origin || '').toLowerCase();
+          return pName.includes(q) || pCuit.includes(q) || (qDigits.length > 3 && pCuit.replace(/\D/g, '').includes(qDigits)) || pOrigin.includes(q);
+        });
+
         return truckName.includes(q) || plate.includes(q) || desc.includes(q) || 
-               driverName.includes(q) || agentName.includes(q) || producersMatch;
+               driverName.includes(q) || agentName.includes(q) || tropa.includes(q) || producersMatch;
       });
     }
+
+    // Compilar listas únicas de comisionistas y productores (en cascada según los comisionistas seleccionados)
+    const agentsMap = new Map();
+    const producersMap = new Map();
+    const activeAgentsLower = (this.state.selectedAgents || []).map(a => a.trim().toLowerCase());
+    if (activeAgentsLower.length === 0 && this.state.selectedAgent && this.state.selectedAgent !== 'ALL') {
+      activeAgentsLower.push(this.state.selectedAgent.trim().toLowerCase());
+    }
+
+    this.allTravels.forEach(t => {
+      const agentName = (t.buy?.agent?.name || '').trim();
+      if (agentName) {
+        agentsMap.set(agentName, (agentsMap.get(agentName) || 0) + 1);
+      }
+
+      const matchesSelectedAgents = activeAgentsLower.length === 0 || 
+        activeAgentsLower.includes(agentName.toLowerCase());
+
+      if (matchesSelectedAgents) {
+        (t.buy?.listOfProducers || []).forEach(p => {
+          const pName = (p.producer?.name || p.name || '').trim();
+          const pCuit = String(p.producer?.cuit || p.cuit || '').trim();
+          if (pName) {
+            producersMap.set(pName, { name: pName, cuit: pCuit });
+          }
+        });
+      }
+    });
+
+    const uniqueAgents = Array.from(agentsMap.keys()).sort((a, b) => a.localeCompare(b));
+    const uniqueProducers = Array.from(producersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    // KPIs consolidados del conjunto de viajes filtrados
+    const totalHeads = filtered.reduce((sum, t) => sum + (t.buy?.totalQuantity || 0), 0);
+    const totalKgClean = filtered.reduce((sum, t) => sum + (t.buy?.totalKgClean || 0), 0);
+    const totalKgFaena = filtered.reduce((sum, t) => sum + (t.buy?.totalKgFaena || 0), 0);
+    const totalOperation = filtered.reduce((sum, t) => sum + (t.buy?.totalOperation || 0), 0);
+    const totalOperationWithComm = filtered.reduce((sum, t) => sum + (t.buy?.totalOperationWithCommission || 0), 0);
+    const avgYield = totalKgClean > 0 ? (totalKgFaena / totalKgClean) : 0;
+
+    const summaryStats = {
+      totalTravels: filtered.length,
+      totalHeads,
+      totalKgClean,
+      totalKgFaena,
+      totalOperation,
+      totalOperationWithComm,
+      avgYield
+    };
 
     // 2. Stats
     const categoryStats = this.calculateStatsUseCase.execute(
@@ -290,12 +471,23 @@ export class TravelPresenter {
       categories: allCategories,
       selectedCategories: this.state.selectedCategories,
       includeCommission: this.state.includeCommission,
+      
+      // Entity Filters & Handlers
+      agents: uniqueAgents,
+      producers: uniqueProducers,
+      selectedAgent: this.state.selectedAgent,
+      selectedProducer: this.state.selectedProducer,
+      selectedAgents: this.state.selectedAgents,
+      selectedProducers: this.state.selectedProducers,
+      summaryStats,
       categoryStats,
       onFilter: (f) => this.setFilter(f),
       onSort: (s) => this.setSort(s),
       onPage: (p) => this.setPage(p),
       onCategoryToggle: (cat) => this.toggleCategory(cat),
       onCommissionToggle: (val) => this.toggleCommission(val),
+      onAgentChange: (agent) => this.setAgentFilter(agent),
+      onProducerChange: (producer) => this.setProducerFilter(producer),
       timeFilterType: this.state.timeFilterType,
       timeFilterValue: this.state.timeFilterValue,
       onTimeFilter: (type, val) => this.setTimeFilter(type, val),
@@ -496,13 +688,101 @@ export class TravelPresenter {
     const clients = this.clientsCache || [];
     const categoryPrices = this.categoryPricesCache || {};
 
-    // 2. Filter travels data by time and categories
+    // 2. Filter travels data by time, categories, agents, producers, and search query
     let filtered = this._applyTimeFilter(completed);
+    
     if (this.state.selectedCategories.length > 0) {
       filtered = filtered.filter(t => 
         t.buy && t.buy.categories && t.buy.categories.some(cat => this.state.selectedCategories.includes(cat))
       );
     }
+
+    // Filter by Comisionistas / Agentes (Multi-select)
+    if (this.state.selectedAgents && this.state.selectedAgents.length > 0) {
+      const activeAgentsLower = this.state.selectedAgents.map(a => a.trim().toLowerCase());
+      filtered = filtered.filter(t => activeAgentsLower.includes((t.buy?.agent?.name || '').trim().toLowerCase()));
+    } else if (this.state.selectedAgent && this.state.selectedAgent !== 'ALL') {
+      const targetAgent = this.state.selectedAgent.trim().toLowerCase();
+      filtered = filtered.filter(t => (t.buy?.agent?.name || '').trim().toLowerCase() === targetAgent);
+    }
+
+    // Filter by Productores (Multi-select)
+    if (this.state.selectedProducers && this.state.selectedProducers.length > 0) {
+      const activeProdsLower = this.state.selectedProducers.map(p => p.trim().toLowerCase());
+      const activeProdsDigits = activeProdsLower.map(p => p.replace(/\D/g, '')).filter(d => d.length > 3);
+      filtered = filtered.filter(t => (t.buy?.listOfProducers || []).some(p => {
+        const pName = (p.producer?.name || p.name || '').trim().toLowerCase();
+        const pCuit = String(p.producer?.cuit || p.cuit || '').trim().toLowerCase();
+        const pCuitDigits = pCuit.replace(/\D/g, '');
+        return activeProdsLower.includes(pName) || activeProdsLower.includes(pCuit) || 
+               activeProdsDigits.some(d => pCuitDigits.includes(d));
+      }));
+    } else if (this.state.selectedProducer && this.state.selectedProducer !== 'ALL') {
+      const targetProd = this.state.selectedProducer.trim().toLowerCase();
+      const targetProdDigits = targetProd.replace(/\D/g, '');
+      filtered = filtered.filter(t => (t.buy?.listOfProducers || []).some(p => {
+        const pName = (p.producer?.name || p.name || '').trim().toLowerCase();
+        const pCuit = String(p.producer?.cuit || p.cuit || '').trim().toLowerCase();
+        const pCuitDigits = pCuit.replace(/\D/g, '');
+        return pName === targetProd || (targetProdDigits.length > 3 && pCuitDigits.includes(targetProdDigits)) || pCuit === targetProd;
+      }));
+    }
+
+    // Smart Search Query Filter
+    if (this.state.searchQuery) {
+      const q = this.state.searchQuery.trim().toLowerCase();
+      const qDigits = q.replace(/\D/g, '');
+      filtered = filtered.filter(t => {
+        const travelId = String(t.id).toLowerCase();
+        if (travelId === q || travelId.includes(q)) return true;
+
+        const truckName = (t.truck?.name || '').toLowerCase();
+        const plate = (t.truck?.licensePlate || '').toLowerCase();
+        const desc = (t.description || '').toLowerCase();
+        const driverName = (t.truck?.driver?.name || t.driver?.name || '').toLowerCase();
+        const agentName = (t.buy?.agent?.name || '').toLowerCase();
+        const tropa = String(t.tropa || t.buy?.tropa || '').toLowerCase();
+        const producersMatch = (t.buy?.listOfProducers || []).some(p => {
+          const pName = (p.producer?.name || p.name || '').toLowerCase();
+          const pCuit = String(p.producer?.cuit || p.cuit || '').toLowerCase();
+          const pOrigin = (p.origin || '').toLowerCase();
+          return pName.includes(q) || pCuit.includes(q) || (qDigits.length > 3 && pCuit.replace(/\D/g, '').includes(qDigits)) || pOrigin.includes(q);
+        });
+
+        return truckName.includes(q) || plate.includes(q) || desc.includes(q) || 
+               driverName.includes(q) || agentName.includes(q) || tropa.includes(q) || producersMatch;
+      });
+    }
+
+    // Compilar listas de agentes y productores (en cascada según comisionistas seleccionados)
+    const agentsMap = new Map();
+    const producersMap = new Map();
+    const activeAgentsLower = (this.state.selectedAgents || []).map(a => a.trim().toLowerCase());
+    if (activeAgentsLower.length === 0 && this.state.selectedAgent && this.state.selectedAgent !== 'ALL') {
+      activeAgentsLower.push(this.state.selectedAgent.trim().toLowerCase());
+    }
+
+    this.allTravels.forEach(t => {
+      const agentName = (t.buy?.agent?.name || '').trim();
+      if (agentName) {
+        agentsMap.set(agentName, (agentsMap.get(agentName) || 0) + 1);
+      }
+
+      const matchesSelectedAgents = activeAgentsLower.length === 0 || 
+        activeAgentsLower.includes(agentName.toLowerCase());
+
+      if (matchesSelectedAgents) {
+        (t.buy?.listOfProducers || []).forEach(p => {
+          const pName = (p.producer?.name || p.name || '').trim();
+          const pCuit = String(p.producer?.cuit || p.cuit || '').trim();
+          if (pName) {
+            producersMap.set(pName, { name: pName, cuit: pCuit });
+          }
+        });
+      }
+    });
+    const uniqueAgents = Array.from(agentsMap.keys()).sort((a, b) => a.localeCompare(b));
+    const uniqueProducers = Array.from(producersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
     // 3. Calculate KPI stats with categoryPrices
     const categoryStats = this.calculateStatsUseCase.execute(
@@ -535,6 +815,22 @@ export class TravelPresenter {
       clients,
       categoryPrices,
       dashHistoryFilters: this.state.dashHistoryFilters,
+
+      // Filter state & handlers
+      agents: uniqueAgents,
+      producers: uniqueProducers,
+      selectedAgent: this.state.selectedAgent,
+      selectedProducer: this.state.selectedProducer,
+      selectedAgents: this.state.selectedAgents,
+      selectedProducers: this.state.selectedProducers,
+      searchQuery: this.state.searchQuery,
+      onAgentChange: (agent) => this.setAgentFilter(agent),
+      onProducerChange: (producer) => this.setProducerFilter(producer),
+      onAgentToggle: (agent) => this.toggleAgentFilter(agent),
+      onProducerToggle: (producer) => this.toggleProducerFilter(producer),
+      onAgentsChange: (agents) => this.setAgentsFilter(agents),
+      onProducersChange: (producers) => this.setProducersFilter(producers),
+      onSearch: (q) => this.setSearchQuery(q),
 
       onCategoryToggle: (cat) => this.toggleCategory(cat),
       onCommissionToggle: (val) => this.toggleCommission(val),
