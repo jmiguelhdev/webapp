@@ -383,6 +383,54 @@ export function renderClientAccounts(options) {
               <option value="OLDEST_MOV">⏳ Movimientos Más Antiguos</option>
             </select>
           </div>
+
+          <!-- Selector de Disposición: Cuadrícula vs Filas -->
+          <div style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+            <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Vista:</label>
+            <div id="layout-toggle-group" style="
+              display: inline-flex; 
+              background: rgba(0,0,0,0.25); 
+              padding: 0.2rem; 
+              border-radius: 12px; 
+              border: 1px solid var(--border);
+              gap: 0.2rem;
+            ">
+              <button type="button" id="btn-layout-grid" class="layout-toggle-btn" title="Mostrar en cuadrícula de tarjetas" style="
+                background: var(--primary);
+                color: #ffffff;
+                border: none;
+                padding: 0.45rem 0.85rem;
+                border-radius: 8px;
+                font-size: 0.82rem;
+                font-weight: 700;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                transition: all 0.2s;
+              ">
+                <span>🔲</span>
+                <span>Tarjetas</span>
+              </button>
+              <button type="button" id="btn-layout-rows" class="layout-toggle-btn" title="Mostrar en lista por filas" style="
+                background: transparent;
+                color: var(--text-muted);
+                border: none;
+                padding: 0.45rem 0.85rem;
+                border-radius: 8px;
+                font-size: 0.82rem;
+                font-weight: 700;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                transition: all 0.2s;
+              ">
+                <span>☰</span>
+                <span>Por Filas</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Chips de Filtro Rápido -->
@@ -459,17 +507,23 @@ export function renderClientAccounts(options) {
     `;
     wrapper.appendChild(controlsContainer);
 
-    // Contenedor Grid de Tarjetas
+    // Contenedor de Tarjetas / Filas
     const gridContainer = el('div', { 
       id: 'clients-cards-grid', 
       style: 'display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;' 
     });
     wrapper.appendChild(gridContainer);
 
-    // Estado local para búsqueda y filtros
+    // Estado local para búsqueda, filtros y modo de disposición
     let currentQuery = '';
     let currentFilter = 'ALL';
     let currentSort = 'RECENT';
+    let currentLayout = 'GRID';
+    try {
+      currentLayout = localStorage.getItem('kmp_clients_layout_mode') || 'GRID';
+    } catch (_) {
+      currentLayout = 'GRID';
+    }
 
     /**
      * Formatea marcas de tiempo en formato amigable y relativo
@@ -569,11 +623,22 @@ export function renderClientAccounts(options) {
     }
 
     /**
-     * Renderiza las tarjetas de clientes en el DOM
+     * Renderiza las tarjetas o filas de clientes en el DOM
      */
     function renderCards() {
       const filtered = filterAndSortData();
       gridContainer.innerHTML = '';
+
+      // Configurar layout del contenedor
+      if (currentLayout === 'ROWS') {
+        gridContainer.style.display = 'flex';
+        gridContainer.style.flexDirection = 'column';
+        gridContainer.style.gap = '0.75rem';
+      } else {
+        gridContainer.style.display = 'grid';
+        gridContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(330px, 1fr))';
+        gridContainer.style.gap = '1.25rem';
+      }
 
       // Actualizar contador
       const counterEl = controlsContainer.querySelector('#search-counter');
@@ -630,36 +695,6 @@ export function renderClientAccounts(options) {
       }
 
       filtered.forEach(c => {
-        const card = el('div', { 
-          classes: ['card', 'glass-card'], 
-          style: `
-            cursor: pointer; 
-            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); 
-            border-radius: 16px; 
-            padding: 1.35rem; 
-            border: 1px solid var(--border); 
-            background: var(--card-bg);
-            box-shadow: var(--elevation-1);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            gap: 1rem;
-            ${c.isBlocked ? 'border-left: 5px solid #ef4444;' : ((c.balance || 0) > 0 ? 'border-left: 5px solid #f59e0b;' : 'border-left: 5px solid #10b981;')}
-          ` 
-        });
-
-        card.onmouseenter = () => {
-          card.style.transform = 'translateY(-3px)';
-          card.style.boxShadow = 'var(--elevation-2)';
-          card.style.borderColor = 'var(--primary)';
-        };
-        card.onmouseleave = () => {
-          card.style.transform = 'none';
-          card.style.boxShadow = 'var(--elevation-1)';
-          card.style.borderColor = 'var(--border)';
-        };
-
         const balanceVal = c.balance || 0;
         const balanceColor = balanceVal > 0 ? '#ef4444' : (balanceVal < 0 ? '#3b82f6' : '#10b981');
         const balanceText = balanceVal > 0 
@@ -671,55 +706,12 @@ export function renderClientAccounts(options) {
 
         // Formato del último movimiento
         const relMov = formatRelativeDate(c.lastMovementDate);
-        let movHtml = '';
-        if (relMov) {
-          const isDebt = c.lastMovementType === 'DEBT';
-          const movIcon = isDebt ? '📤' : '📥';
-          const movColor = isDebt ? '#f87171' : '#34d399';
-          const movLabel = isDebt ? 'Despacho/Venta' : 'Cobro/Pago';
-          const movAmount = c.lastMovementAmount ? `$${Number(c.lastMovementAmount).toLocaleString('es-AR')}` : '';
-          const movDesc = c.lastMovementDescription ? ` • "${c.lastMovementDescription.substring(0, 30)}${c.lastMovementDescription.length > 30 ? '...' : ''}"` : '';
-
-          movHtml = `
-            <div style="
-              background: rgba(255,255,255,0.03); 
-              border: 1px solid var(--border); 
-              border-radius: 10px; 
-              padding: 0.65rem 0.85rem;
-              font-size: 0.82rem;
-            ">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Último Movimiento</span>
-                <span style="color: #818cf8; font-weight: 600; font-size: 0.78rem;">🕒 ${relMov.label}</span>
-              </div>
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; color: var(--text-main);">
-                <div style="display: flex; align-items: center; gap: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  <span>${movIcon}</span>
-                  <span style="font-weight: 500;">${movLabel}</span>
-                  <span style="color: var(--text-muted); font-size: 0.75rem;">${movDesc}</span>
-                </div>
-                ${movAmount ? `<span style="font-weight: 700; color: ${movColor}; white-space: nowrap;">${movAmount}</span>` : ''}
-              </div>
-            </div>
-          `;
-        } else {
-          movHtml = `
-            <div style="
-              background: rgba(255,255,255,0.02); 
-              border: 1px dashed var(--border); 
-              border-radius: 10px; 
-              padding: 0.55rem 0.85rem;
-              font-size: 0.8rem;
-              color: var(--text-muted);
-              display: flex;
-              align-items: center;
-              gap: 0.5rem;
-            ">
-              <span>⚪</span>
-              <span>Sin movimientos registrados</span>
-            </div>
-          `;
-        }
+        const isDebt = c.lastMovementType === 'DEBT';
+        const movIcon = isDebt ? '📤' : '📥';
+        const movColor = isDebt ? '#f87171' : '#34d399';
+        const movLabel = isDebt ? 'Despacho/Venta' : 'Cobro/Pago';
+        const movAmount = c.lastMovementAmount ? `$${Number(c.lastMovementAmount).toLocaleString('es-AR')}` : '';
+        const movDesc = c.lastMovementDescription ? ` • "${c.lastMovementDescription.substring(0, 30)}${c.lastMovementDescription.length > 30 ? '...' : ''}"` : '';
 
         // Estado Badge
         let statusBadgeHtml = '';
@@ -731,98 +723,326 @@ export function renderClientAccounts(options) {
           statusBadgeHtml = `<span style="background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;">🟢 Al Día</span>`;
         }
 
-        card.innerHTML = `
-          <div>
-            <!-- Header de Tarjeta -->
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.85rem;">
-              <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <div style="
-                  width: 42px; 
-                  height: 42px; 
-                  border-radius: 12px; 
-                  background: linear-gradient(135deg, rgba(143, 0, 20, 0.8), rgba(99, 102, 241, 0.7)); 
-                  color: #ffffff; 
-                  display: flex; 
-                  align-items: center; 
-                  justify-content: center; 
-                  font-weight: 700; 
-                  font-size: 1.15rem;
-                  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-                  flex-shrink: 0;
-                ">
-                  ${initial}
+        if (currentLayout === 'ROWS') {
+          // --- RENDER MODO FILA (ROW VIEW) ---
+          let movRowHtml = '';
+          if (relMov) {
+            movRowHtml = `
+              <div style="
+                background: rgba(255,255,255,0.03); 
+                border: 1px solid var(--border); 
+                border-radius: 10px; 
+                padding: 0.5rem 0.85rem;
+                font-size: 0.8rem;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.6rem;
+              ">
+                <div style="display: flex; align-items: center; gap: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <span>${movIcon}</span>
+                  <span style="font-weight: 600; color: var(--text-main);">${movLabel}</span>
+                  <span style="color: var(--text-muted); font-size: 0.75rem;">${movDesc}</span>
                 </div>
-                <div>
-                  <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); line-height: 1.25;">
+                <div style="display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0;">
+                  ${movAmount ? `<span style="font-weight: 750; color: ${movColor}; font-family: monospace;">${movAmount}</span>` : ''}
+                  <span style="color: #818cf8; font-size: 0.74rem; font-weight: 600; background: rgba(99,102,241,0.1); padding: 0.15rem 0.45rem; border-radius: 6px;">🕒 ${relMov.relative || relMov.dateStr}</span>
+                </div>
+              </div>
+            `;
+          } else {
+            movRowHtml = `
+              <div style="
+                background: rgba(255,255,255,0.02); 
+                border: 1px dashed var(--border); 
+                border-radius: 10px; 
+                padding: 0.5rem 0.85rem;
+                font-size: 0.78rem;
+                color: var(--text-muted);
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+              ">
+                <span>⚪</span>
+                <span>Sin movimientos registrados</span>
+              </div>
+            `;
+          }
+
+          const rowCard = el('div', { 
+            classes: ['card', 'glass-card', 'client-row-item'], 
+            style: `
+              cursor: pointer; 
+              transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+              border-radius: 14px; 
+              padding: 0.95rem 1.35rem; 
+              border: 1px solid var(--border); 
+              background: var(--card-bg);
+              box-shadow: var(--elevation-1);
+              position: relative;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 1.25rem;
+              flex-wrap: wrap;
+              ${c.isBlocked ? 'border-left: 5px solid #ef4444;' : ((c.balance || 0) > 0 ? 'border-left: 5px solid #f59e0b;' : 'border-left: 5px solid #10b981;')}
+            ` 
+          });
+
+          rowCard.onmouseenter = () => {
+            rowCard.style.transform = 'translateX(4px)';
+            rowCard.style.boxShadow = 'var(--elevation-2)';
+            rowCard.style.borderColor = 'var(--primary)';
+            rowCard.style.background = 'rgba(255,255,255,0.025)';
+          };
+          rowCard.onmouseleave = () => {
+            rowCard.style.transform = 'none';
+            rowCard.style.boxShadow = 'var(--elevation-1)';
+            rowCard.style.borderColor = 'var(--border)';
+            rowCard.style.background = 'var(--card-bg)';
+          };
+
+          rowCard.innerHTML = `
+            <!-- Columna 1: Avatar + Datos Principales -->
+            <div style="display: flex; align-items: center; gap: 0.85rem; flex: 2; min-width: 250px;">
+              <div style="
+                width: 42px; 
+                height: 42px; 
+                border-radius: 12px; 
+                background: linear-gradient(135deg, rgba(143, 0, 20, 0.8), rgba(99, 102, 241, 0.7)); 
+                color: #ffffff; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                font-weight: 700; 
+                font-size: 1.15rem;
+                flex-shrink: 0;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+              ">
+                ${initial}
+              </div>
+              <div style="min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <h3 style="margin: 0; font-size: 1.05rem; font-weight: 750; color: var(--text-main); line-height: 1.25;">
                     ${c.name}
                   </h3>
-                  <div style="margin-top: 3px;">
-                    ${statusBadgeHtml}
+                  ${statusBadgeHtml}
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap;">
+                  <span>🆔 CUIT: <strong style="color:var(--text-main); font-weight:600;">${c.cuit || 'Sin CUIT'}</strong></span>
+                  ${c.address ? `<span>📍 ${c.address}</span>` : ''}
+                  ${c.phone ? `<span>📞 ${c.phone}</span>` : ''}
+                </div>
+              </div>
+            </div>
+
+            <!-- Columna 2: Último Movimiento -->
+            <div style="flex: 2; min-width: 240px;">
+              ${movRowHtml}
+            </div>
+
+            <!-- Columna 3: Saldo y Botones de Acción -->
+            <div style="display: flex; align-items: center; gap: 1.25rem; justify-content: flex-end; flex: 1.5; min-width: 220px;">
+              <div style="text-align: right;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Saldo Cuenta</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: ${balanceColor}; letter-spacing: -0.02em; font-family: monospace;">
+                  ${balanceText}
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <button class="btn-outline edit-client-btn" title="Editar Cliente" style="padding: 0.4rem 0.7rem; font-size: 0.8rem; border-radius: 8px;">
+                  ✏️
+                </button>
+                <button class="btn-primary view-account-btn" style="padding: 0.45rem 1rem; font-size: 0.82rem; border-radius: 10px; font-weight: 600; white-space: nowrap;">
+                  Ver Cuenta →
+                </button>
+              </div>
+            </div>
+          `;
+
+          // Eventos
+          rowCard.querySelector('.edit-client-btn').onclick = (e) => {
+            e.stopPropagation();
+            showClientModal(c, onSaveClient, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
+          };
+
+          rowCard.querySelector('.view-account-btn').onclick = (e) => {
+            e.stopPropagation();
+            onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
+          };
+
+          rowCard.onclick = () => onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
+
+          gridContainer.appendChild(rowCard);
+
+        } else {
+          // --- RENDER MODO TARJETA (GRID CARD VIEW) ---
+          let movHtml = '';
+          if (relMov) {
+            movHtml = `
+              <div style="
+                background: rgba(255,255,255,0.03); 
+                border: 1px solid var(--border); 
+                border-radius: 10px; 
+                padding: 0.65rem 0.85rem;
+                font-size: 0.82rem;
+              ">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                  <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Último Movimiento</span>
+                  <span style="color: #818cf8; font-weight: 600; font-size: 0.78rem;">🕒 ${relMov.label}</span>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; color: var(--text-main);">
+                  <div style="display: flex; align-items: center; gap: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <span>${movIcon}</span>
+                    <span style="font-weight: 500;">${movLabel}</span>
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">${movDesc}</span>
+                  </div>
+                  ${movAmount ? `<span style="font-weight: 700; color: ${movColor}; white-space: nowrap;">${movAmount}</span>` : ''}
+                </div>
+              </div>
+            `;
+          } else {
+            movHtml = `
+              <div style="
+                background: rgba(255,255,255,0.02); 
+                border: 1px dashed var(--border); 
+                border-radius: 10px; 
+                padding: 0.55rem 0.85rem;
+                font-size: 0.8rem;
+                color: var(--text-muted);
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+              ">
+                <span>⚪</span>
+                <span>Sin movimientos registrados</span>
+              </div>
+            `;
+          }
+
+          const card = el('div', { 
+            classes: ['card', 'glass-card'], 
+            style: `
+              cursor: pointer; 
+              transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); 
+              border-radius: 16px; 
+              padding: 1.35rem; 
+              border: 1px solid var(--border); 
+              background: var(--card-bg);
+              box-shadow: var(--elevation-1);
+              position: relative;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              gap: 1rem;
+              ${c.isBlocked ? 'border-left: 5px solid #ef4444;' : ((c.balance || 0) > 0 ? 'border-left: 5px solid #f59e0b;' : 'border-left: 5px solid #10b981;')}
+            ` 
+          });
+
+          card.onmouseenter = () => {
+            card.style.transform = 'translateY(-3px)';
+            card.style.boxShadow = 'var(--elevation-2)';
+            card.style.borderColor = 'var(--primary)';
+          };
+          card.onmouseleave = () => {
+            card.style.transform = 'none';
+            card.style.boxShadow = 'var(--elevation-1)';
+            card.style.borderColor = 'var(--border)';
+          };
+
+          card.innerHTML = `
+            <div>
+              <!-- Header de Tarjeta -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.85rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <div style="
+                    width: 42px; 
+                    height: 42px; 
+                    border-radius: 12px; 
+                    background: linear-gradient(135deg, rgba(143, 0, 20, 0.8), rgba(99, 102, 241, 0.7)); 
+                    color: #ffffff; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    font-weight: 700; 
+                    font-size: 1.15rem;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                    flex-shrink: 0;
+                  ">
+                    ${initial}
+                  </div>
+                  <div>
+                    <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); line-height: 1.25;">
+                      ${c.name}
+                    </h3>
+                    <div style="margin-top: 3px;">
+                      ${statusBadgeHtml}
+                    </div>
                   </div>
                 </div>
+                <button class="btn-outline edit-client-btn" title="Editar Cliente" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: 8px; flex-shrink: 0;">
+                  ✏️ Editar
+                </button>
               </div>
-              <button class="btn-outline edit-client-btn" title="Editar Cliente" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: 8px; flex-shrink: 0;">
-                ✏️ Editar
+
+              <!-- Datos Secundarios -->
+              <div style="display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--text-muted);">
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                  <span style="opacity: 0.7;">🆔</span>
+                  <span style="font-weight: 600; color: var(--text-main);">CUIT: ${c.cuit || 'Sin CUIT'}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <span style="opacity: 0.7;">📍</span>
+                  <span>${c.address || 'Sin dirección registrada'}</span>
+                </div>
+                ${c.phone ? `
+                  <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span style="opacity: 0.7;">📞</span>
+                    <span>${c.phone}</span>
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Sección de Último Movimiento -->
+              ${movHtml}
+            </div>
+
+            <!-- Footer con Saldo y Acción Principal -->
+            <div style="
+              display: flex; 
+              justify-content: space-between; 
+              align-items: center; 
+              border-top: 1px solid var(--border); 
+              padding-top: 0.85rem; 
+              margin-top: 0.25rem;
+            ">
+              <div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Saldo Cuenta</div>
+                <div style="font-size: 1.35rem; font-weight: 800; color: ${balanceColor}; letter-spacing: -0.02em;">
+                  ${balanceText}
+                </div>
+              </div>
+              <button class="btn-primary view-account-btn" style="padding: 0.55rem 1.15rem; font-size: 0.85rem; border-radius: 10px; font-weight: 600;">
+                Ver Cuenta →
               </button>
             </div>
+          `;
 
-            <!-- Datos Secundarios -->
-            <div style="display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--text-muted);">
-              <div style="display: flex; align-items: center; gap: 0.4rem;">
-                <span style="opacity: 0.7;">🆔</span>
-                <span style="font-weight: 600; color: var(--text-main);">CUIT: ${c.cuit || 'Sin CUIT'}</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 0.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                <span style="opacity: 0.7;">📍</span>
-                <span>${c.address || 'Sin dirección registrada'}</span>
-              </div>
-              ${c.phone ? `
-                <div style="display: flex; align-items: center; gap: 0.4rem;">
-                  <span style="opacity: 0.7;">📞</span>
-                  <span>${c.phone}</span>
-                </div>
-              ` : ''}
-            </div>
+          // Eventos
+          card.querySelector('.edit-client-btn').onclick = (e) => {
+            e.stopPropagation();
+            showClientModal(c, onSaveClient, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
+          };
 
-            <!-- Sección de Último Movimiento -->
-            ${movHtml}
-          </div>
+          card.querySelector('.view-account-btn').onclick = (e) => {
+            e.stopPropagation();
+            onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
+          };
 
-          <!-- Footer con Saldo y Acción Principal -->
-          <div style="
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border-top: 1px solid var(--border); 
-            padding-top: 0.85rem; 
-            margin-top: 0.25rem;
-          ">
-            <div>
-              <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Saldo Cuenta</div>
-              <div style="font-size: 1.35rem; font-weight: 800; color: ${balanceColor}; letter-spacing: -0.02em;">
-                ${balanceText}
-              </div>
-            </div>
-            <button class="btn-primary view-account-btn" style="padding: 0.55rem 1.15rem; font-size: 0.85rem; border-radius: 10px; font-weight: 600;">
-              Ver Cuenta →
-            </button>
-          </div>
-        `;
+          card.onclick = () => onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
 
-        // Eventos
-        card.querySelector('.edit-client-btn').onclick = (e) => {
-          e.stopPropagation();
-          showClientModal(c, onSaveClient, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
-        };
-
-        card.querySelector('.view-account-btn').onclick = (e) => {
-          e.stopPropagation();
-          onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
-        };
-
-        card.onclick = () => onSelectClient(c, isOperatorsTab ? 'OPERATOR' : 'CLIENT');
-
-        gridContainer.appendChild(card);
+          gridContainer.appendChild(card);
+        }
       });
     }
 
@@ -844,10 +1064,51 @@ export function renderClientAccounts(options) {
       });
     }
 
-    // Configuración de Event Listeners de Búsqueda y Filtros
+    /**
+     * Actualiza el estilo activo del conmutador de disposición (Cuadrícula / Filas)
+     */
+    function updateLayoutToggleStyles() {
+      const btnGrid = controlsContainer.querySelector('#btn-layout-grid');
+      const btnRows = controlsContainer.querySelector('#btn-layout-rows');
+      if (btnGrid && btnRows) {
+        if (currentLayout === 'GRID') {
+          btnGrid.style.background = 'var(--primary)';
+          btnGrid.style.color = '#ffffff';
+          btnRows.style.background = 'transparent';
+          btnRows.style.color = 'var(--text-muted)';
+        } else {
+          btnRows.style.background = 'var(--primary)';
+          btnRows.style.color = '#ffffff';
+          btnGrid.style.background = 'transparent';
+          btnGrid.style.color = 'var(--text-muted)';
+        }
+      }
+    }
+
+    // Configuración de Event Listeners de Búsqueda, Filtros y Layout
     const searchInput = controlsContainer.querySelector('#client-search-input');
     const clearBtn = controlsContainer.querySelector('#clear-search-btn');
     const sortSelect = controlsContainer.querySelector('#sort-select');
+    const btnLayoutGrid = controlsContainer.querySelector('#btn-layout-grid');
+    const btnLayoutRows = controlsContainer.querySelector('#btn-layout-rows');
+
+    if (btnLayoutGrid) {
+      btnLayoutGrid.onclick = () => {
+        currentLayout = 'GRID';
+        try { localStorage.setItem('kmp_clients_layout_mode', 'GRID'); } catch (_) {}
+        updateLayoutToggleStyles();
+        renderCards();
+      };
+    }
+
+    if (btnLayoutRows) {
+      btnLayoutRows.onclick = () => {
+        currentLayout = 'ROWS';
+        try { localStorage.setItem('kmp_clients_layout_mode', 'ROWS'); } catch (_) {}
+        updateLayoutToggleStyles();
+        renderCards();
+      };
+    }
 
     searchInput.oninput = (e) => {
       currentQuery = e.target.value;
@@ -886,6 +1147,7 @@ export function renderClientAccounts(options) {
     });
 
     // Render inicial
+    updateLayoutToggleStyles();
     renderCards();
   }
 

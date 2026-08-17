@@ -214,11 +214,11 @@ export function renderFaenaConsumption(container, options) {
     }
     
     select.innerHTML = `
-      <option value="" style="background: var(--bg-dark); color: var(--text-main); font-weight: normal;">
+      <option value="" style="background: var(--bg-main); color: var(--text-main); font-weight: normal;">
         ${isSelectedTropaFinished ? `Tr. ${state.tropaFilter} ✓` : '✓ Finalizadas...'}
       </option>
       ${finishedList.map(t => `
-        <option value="${t}" ${state.tropaFilter === t ? 'selected' : ''} style="background: var(--bg-dark); color: #10b981; font-weight: 600;">
+        <option value="${t}" ${state.tropaFilter === t ? 'selected' : ''} style="background: var(--bg-main); color: #10b981; font-weight: 600;">
           Tr. ${t} ✓
         </option>
       `).join('')}

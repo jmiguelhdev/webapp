@@ -55,8 +55,8 @@ const playSound = (type) => {
  * @param {Function} onFound - Callback disparado al obtener una coincidencia exacta de tropa y garrón.
  */
 export function openScannerModal(stockItems, onFound) {
-  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' });
-  const modal = el('div', { classes: ['glass-card'], style: 'background: var(--bg-dark); max-width: 450px; width: 100%; padding: 1.5rem; position: relative; display: flex; flex-direction: column; align-items: center;' });
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem;' });
+  const modal = el('div', { classes: ['modal'], style: 'background: var(--modal-bg, #16171d); max-width: 450px; width: 100%; padding: 1.75rem; position: relative; display: flex; flex-direction: column; align-items: center; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.6);' });
   
   modal.innerHTML = `
     <h3 style="margin-top: 0; margin-bottom: 1rem; text-align: center; color: white;">📷 Escáner Automático</h3>
@@ -187,11 +187,11 @@ export function openScannerModal(stockItems, onFound) {
 export function openEditCategoryModal(item, onSave) {
   const overlay = el('div', { 
     classes: ['modal-overlay'], 
-    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
   });
   const modal = el('div', { 
-    classes: ['glass-card'], 
-    style: 'background: var(--bg-dark); max-width: 450px; width: 100%; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 16px;' 
+    classes: ['modal'], 
+    style: 'background: var(--modal-bg, #16171d); max-width: 450px; width: 100%; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.6);' 
   });
 
   const currentCategory = item.standardizedCategory || item.category || 'OTRO';
@@ -249,11 +249,11 @@ export function openEditCategoryModal(item, onSave) {
 export function showMovementsHistoryModal(item) {
   const overlay = el('div', { 
     classes: ['modal-overlay'], 
-    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
   });
   const modal = el('div', { 
-    classes: ['glass-card'], 
-    style: 'background: var(--bg-dark); max-width: 550px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);' 
+    classes: ['modal'], 
+    style: 'background: var(--modal-bg, #16171d); max-width: 550px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);' 
   });
 
   const events = [];
@@ -311,7 +311,7 @@ export function showMovementsHistoryModal(item) {
     <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
       🕒 Historial de Movimientos - Garrón #${item.garron} <span style="font-size: 0.9rem; padding: 0.2rem 0.6rem; border-radius: 12px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; margin-left: 0.5rem;">${categoryDisplay}</span>
     </h3>
-    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.25rem; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 1.25rem; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
       <div><strong>Tropa:</strong> ${item.tropa}</div>
       <div><strong>Kilos:</strong> ${item.kg.toFixed(1)} kg</div>
       <div><strong>Estado:</strong> <span style="text-transform: capitalize; color: ${item.status === 'AVAILABLE' ? '#10b981' : '#ef4444'}; font-weight: bold;">${item.status === 'AVAILABLE' ? 'En Stock' : 'Despachado'}</span></div>
@@ -320,7 +320,7 @@ export function showMovementsHistoryModal(item) {
       <div class="timeline-container" style="position: relative; padding-left: 24px; border-left: 2px solid var(--border); margin-left: 8px;">
         ${events.map((e, index) => `
           <div class="timeline-item" style="position: relative; margin-bottom: 1.5rem;">
-            <div style="position: absolute; left: -31px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: ${index === events.length - 1 ? 'var(--primary)' : 'var(--border)'}; border: 3px solid var(--bg-dark);"></div>
+            <div style="position: absolute; left: -31px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: ${index === events.length - 1 ? 'var(--primary)' : 'var(--border)'}; border: 3px solid var(--modal-bg, #16171d);"></div>
             <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.25rem;">${e.dateStr}</div>
             <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.25rem;">${e.title}</div>
             <div style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.4;">${e.desc}</div>
@@ -347,11 +347,11 @@ export function showMovementsHistoryModal(item) {
 export function openChangeDestinationModal(item, clientsList, onConfirm) {
   const overlay = el('div', { 
     classes: ['modal-overlay'], 
-    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
   });
   const modal = el('div', { 
-    classes: ['glass-card'], 
-    style: 'background: var(--bg-dark); max-width: 450px; width: 100%; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 16px;' 
+    classes: ['modal'], 
+    style: 'background: var(--modal-bg, #16171d); max-width: 450px; width: 100%; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.6);' 
   });
 
   const oldDestination = item.destination || 'Sin Destino';

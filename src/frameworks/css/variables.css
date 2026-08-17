@@ -15,12 +15,15 @@
   /* M3 Light Surface */
   --bg-main: #fff8f7;
   --sidebar-bg: #fff8f7;
-  --card-bg: #f5eae9; /* Surface Container */
+  --card-bg: #ffffff; /* Surface Container */
+  --card-bg-solid: #ffffff;
+  --modal-bg: #ffffff;
+  --bg-dark: #1e1e24;
   --text-main: #231918;
   --text-muted: #554341;
   --border: #e7dbd9; 
   --outline: #887270;
-  --glass: #f5eae9; /* Fallback for glass to solid */
+  --glass: #ffffff; /* Fallback for glass to solid */
   --header-bg: #fff8f7;
   --input-bg: #fff8f7;
   --transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); /* M3 Standard */
@@ -44,12 +47,15 @@ body.dark {
   /* Steel & Midnight Surface */
   --bg-main: #080808;
   --sidebar-bg: #080808;
-  --card-bg: #121212; /* Elevation 1 Surface */
+  --card-bg: #181920; /* Elevation 1 Surface */
+  --card-bg-solid: #181920;
+  --modal-bg: #181920;
+  --bg-dark: #181920;
   --text-main: #ffffff;
   --text-muted: #a0a0a0;
   --border: #262626;
   --outline: #404040;
-  --glass: rgba(26, 26, 26, 0.8);
+  --glass: #181920;
   --header-bg: #080808;
   --input-bg: #080808;
   
