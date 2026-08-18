@@ -11,7 +11,7 @@ import { renderPaginationControls, getCheckStatusBadge, renderCheckTable, create
 import { renderDateModal } from '../components/Modals.js';
 import { showOperationModal, showBatchBuyModal, showBatchSellModal } from '../components/ChecksModals.js';
 import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../frameworks/utils/formatters.js';
-import { printSaleOperationReport, generateSaleOperationExcel } from '../reports/ReportService.js';
+import { printSaleOperationReport, generateSaleOperationExcel, printBuyOperationReport, generateBuyOperationExcel } from '../reports/ReportService.js';
 
 /**
  * Renderiza la interfaz principal del módulo de gestión de cheques.
@@ -33,6 +33,8 @@ import { printSaleOperationReport, generateSaleOperationExcel } from '../reports
  * @param {Function} options.onSave - Callback para guardar una operación nueva o editada.
  * @param {Function} options.onDelete - Callback para eliminar un cheque.
  * @param {Function} options.onPrint - Callback para imprimir un listado de cheques.
+ * @param {Function} options.onPrintBuy - Callback para imprimir una operación de compra.
+ * @param {Function} options.onExportBuy - Callback para exportar una operación de compra.
  * @param {Function} options.onExport - Callback para exportar los cheques a formato Excel.
  * @param {Function} options.onBatchBuy - Callback para procesar compras masivas de cheques.
  * @param {Function} options.onBatchSell - Callback para procesar ventas masivas de cheques.
@@ -44,7 +46,7 @@ export function renderChecks(container, options) {
   const { 
     checks = [], filteredChecks = [], globalSummary = {}, filteredSummary = {}, 
     filters = {}, contacts = [], buyContacts = [], pagination = {}, 
-    onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onBatchBuy, onBatchSell, 
+    onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onPrintBuy, onExportBuy, onBatchBuy, onBatchSell, 
     onPortfolioPageChange, onHistoryPageChange, onUndoSale
   } = options;
 
@@ -154,14 +156,14 @@ export function renderChecks(container, options) {
     // --- 3. SEARCH & DATE FILTER BAR ---
     const filtersBar = el('div', { 
       classes: ['glass-card'], 
-      style: 'margin-bottom: 2rem; padding: 1.5rem; border-radius: 20px; display: flex; flex-direction: column; gap: 1.25rem;' 
+      style: 'margin-bottom: 2rem; padding: 1.35rem; border-radius: 20px; display: flex; flex-direction: column; gap: 1rem;' 
     });
 
-    const filtersGrid = el('div', {
-      style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; align-items: end;'
+    const filtersMainRow = el('div', {
+      style: 'display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;'
     });
 
-    const searchGroup = el('div', { classes: ['form-group'], style: 'margin-bottom: 0;' });
+    const searchGroup = el('div', { classes: ['form-group'], style: 'flex: 2; min-width: 260px; margin-bottom: 0;' });
     searchGroup.appendChild(el('label', { 
       text: '🔍 Buscar Banco, Número, Librador o Contacto',
       style: 'font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; display: block;'
@@ -179,7 +181,7 @@ export function renderChecks(container, options) {
         value: filters?.searchTerm || '', 
         autocomplete: 'off' 
       },
-      style: 'width: 100%; padding: 0.55rem 0.85rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.15); color: var(--text-main); font-weight: 600;'
+      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.15); color: var(--text-main); font-weight: 600;'
     });
     
     let _searchDebounce = null;
@@ -194,7 +196,7 @@ export function renderChecks(container, options) {
     searchGroup.appendChild(searchInput);
 
     function makeDateField(labelText, isoValue, inputId) {
-      const group = el('div', { classes: ['form-group'], style: 'margin-bottom: 0;' });
+      const group = el('div', { classes: ['form-group'], style: 'flex: 1; min-width: 145px; margin-bottom: 0;' });
       group.appendChild(el('label', { 
         text: labelText,
         style: 'font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; display: block;'
@@ -204,7 +206,7 @@ export function renderChecks(container, options) {
 
       const dateInput = el('input', {
         attrs: { id: inputId, type: 'date', value: isoValue || '' },
-        style: 'flex: 1; min-width: 0; padding: 0.55rem 0.85rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.15); color: var(--text-main); font-weight: 600;'
+        style: 'flex: 1; min-width: 0; height: 38px; padding: 0 0.75rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.15); color: var(--text-main); font-weight: 600;'
       });
 
       const calBtn = el('button', {
@@ -222,22 +224,7 @@ export function renderChecks(container, options) {
       return { group, input: dateInput };
     }
 
-    const dateTypeGroup = el('div', { classes: ['form-group'], style: 'margin-bottom: 0;' });
-    dateTypeGroup.appendChild(el('label', { 
-      text: 'Tipo de Fecha',
-      style: 'font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; display: block;'
-    }));
-    const dateTypeSelect = el('select', { 
-      attrs: { id: 'checks-date-type' },
-      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); color: var(--text-main); outline: none; font-family: inherit; font-weight: 600;' 
-    });
-    dateTypeSelect.innerHTML = `
-      <option value="DUE" ${filters?.dateFilterType === 'DUE' ? 'selected' : ''}>Fecha de Pago</option>
-      <option value="RECEPTION" ${filters?.dateFilterType === 'RECEPTION' ? 'selected' : ''}>Fecha de Recepción</option>
-    `;
-    dateTypeGroup.appendChild(dateTypeSelect);
-
-    const checkTypeGroup = el('div', { classes: ['form-group'], style: 'margin-bottom: 0;' });
+    const checkTypeGroup = el('div', { classes: ['form-group'], style: 'flex: 1; min-width: 150px; margin-bottom: 0;' });
     checkTypeGroup.appendChild(el('label', { 
       text: 'Tipo de Cheque',
       style: 'font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; display: block;'
@@ -258,10 +245,25 @@ export function renderChecks(container, options) {
     });
     checkTypeGroup.appendChild(checkTypeSelect);
 
+    const dateTypeGroup = el('div', { classes: ['form-group'], style: 'flex: 1; min-width: 150px; margin-bottom: 0;' });
+    dateTypeGroup.appendChild(el('label', { 
+      text: 'Tipo de Fecha',
+      style: 'font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; display: block;'
+    }));
+    const dateTypeSelect = el('select', { 
+      attrs: { id: 'checks-date-type' },
+      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); color: var(--text-main); outline: none; font-family: inherit; font-weight: 600;' 
+    });
+    dateTypeSelect.innerHTML = `
+      <option value="DUE" ${filters?.dateFilterType === 'DUE' ? 'selected' : ''}>Fecha de Pago</option>
+      <option value="RECEPTION" ${filters?.dateFilterType === 'RECEPTION' ? 'selected' : ''}>Fecha de Recepción</option>
+    `;
+    dateTypeGroup.appendChild(dateTypeSelect);
+
     const startField = makeDateField('Desde', filters?.startDate || '', 'checks-start-date');
     const endField   = makeDateField('Hasta',  filters?.endDate  || '', 'checks-end-date');
 
-    const applyBtnGroup = el('div', { style: 'display: flex; gap: 0.5rem; align-items: flex-end; padding-bottom: 2px;' });
+    const applyBtnGroup = el('div', { style: 'display: flex; gap: 0.5rem; align-items: flex-end; flex-shrink: 0; margin-bottom: 0;' });
     
     const applyBtn = el('button', {
       style: 'height: 38px; border-radius: 10px; padding: 0 1.25rem; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; background: var(--primary); color: var(--on-primary); border: none; flex-shrink: 0; cursor: pointer; transition: all 0.2s ease;',
@@ -294,18 +296,34 @@ export function renderChecks(container, options) {
     applyBtnGroup.appendChild(applyBtn);
     applyBtnGroup.appendChild(clearBtn);
 
-    const nominalToggleGroup = el('div', { 
-      classes: ['form-group'], 
-      style: 'margin-bottom: 0; display: flex; align-items: center; gap: 0.6rem; height: 38px; cursor: pointer; user-select: none;' 
+    filtersMainRow.appendChild(searchGroup);
+    filtersMainRow.appendChild(checkTypeGroup);
+    filtersMainRow.appendChild(dateTypeGroup);
+    filtersMainRow.appendChild(startField.group);
+    filtersMainRow.appendChild(endField.group);
+    filtersMainRow.appendChild(applyBtnGroup);
+    filtersBar.appendChild(filtersMainRow);
+
+    // --- 3.B OPTIONS & CONFIGURATION SUB-BAR ---
+    const optionsBar = el('div', {
+      style: 'display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.65rem 1.15rem; background: rgba(0, 0, 0, 0.18); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 12px;'
+    });
+
+    const leftToggles = el('div', {
+      style: 'display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem;'
+    });
+
+    const nominalToggleGroup = el('label', { 
+      attrs: { for: 'filter-only-nominal' },
+      style: 'display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; margin: 0;' 
     });
     const nominalCb = el('input', {
       attrs: { type: 'checkbox', id: 'filter-only-nominal' },
-      style: 'width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);'
+      style: 'width: 17px; height: 17px; cursor: pointer; accent-color: var(--primary); margin: 0;'
     });
-    const nominalLabel = el('label', {
-      attrs: { for: 'filter-only-nominal' },
-      text: '🔍 Solo Total Nominal',
-      style: 'font-size: 0.8rem; font-weight: 700; color: var(--text-muted); cursor: pointer; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;'
+    const nominalLabel = el('span', {
+      html: '🔍 <strong style="color: var(--text-muted);">Solo Total Nominal</strong>',
+      style: 'font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;'
     });
     
     nominalToggleGroup.appendChild(nominalCb);
@@ -317,18 +335,17 @@ export function renderChecks(container, options) {
       }
     });
 
-    const selectedToggleGroup = el('div', { 
-      classes: ['form-group'], 
-      style: 'margin-bottom: 0; display: flex; align-items: center; gap: 0.6rem; height: 38px; cursor: pointer; user-select: none;' 
+    const selectedToggleGroup = el('label', { 
+      attrs: { for: 'filter-only-selected' },
+      style: 'display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; margin: 0;' 
     });
     const selectedCb = el('input', {
       attrs: { type: 'checkbox', id: 'filter-only-selected' },
-      style: 'width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;'
+      style: 'width: 17px; height: 17px; cursor: pointer; accent-color: #10b981; margin: 0;'
     });
-    const selectedLabel = el('label', {
-      attrs: { for: 'filter-only-selected' },
-      text: '☑️ Solo Seleccionados',
-      style: 'font-size: 0.8rem; font-weight: 700; color: #34d399; cursor: pointer; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;'
+    const selectedLabel = el('span', {
+      html: '☑️ <strong style="color: #34d399;">Solo Seleccionados</strong>',
+      style: 'font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;'
     });
     
     selectedToggleGroup.appendChild(selectedCb);
@@ -340,19 +357,41 @@ export function renderChecks(container, options) {
       }
     });
 
-    filtersGrid.appendChild(searchGroup);
-    filtersGrid.appendChild(checkTypeGroup);
-    filtersGrid.appendChild(dateTypeGroup);
-    filtersGrid.appendChild(startField.group);
-    filtersGrid.appendChild(endField.group);
-    filtersGrid.appendChild(nominalToggleGroup);
-    filtersGrid.appendChild(selectedToggleGroup);
-    filtersGrid.appendChild(applyBtnGroup);
-    filtersBar.appendChild(filtersGrid);
+    leftToggles.appendChild(nominalToggleGroup);
+    leftToggles.appendChild(selectedToggleGroup);
+    optionsBar.appendChild(leftToggles);
+
+    const printContactsToggleGroup = el('label', { 
+      attrs: { 
+        for: 'config-print-contacts', 
+        title: 'Por defecto desactivado (impresión con solo el vendedor, sin logo ni mención a Frigorífico Pampa ni comprador). Si se activa, se imprime con membrete completo, logo y datos institucionales.' 
+      },
+      style: 'display: inline-flex; align-items: center; gap: 0.55rem; cursor: pointer; user-select: none; margin: 0; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.3); padding: 0.35rem 0.85rem; border-radius: 8px; transition: all 0.2s ease;' 
+    });
+    const printContactsCb = el('input', {
+      attrs: { type: 'checkbox', id: 'config-print-contacts' },
+      style: 'width: 17px; height: 17px; cursor: pointer; accent-color: #8b5cf6; margin: 0;'
+    });
+    printContactsCb.checked = localStorage.getItem('checks_print_include_contacts') === 'true';
+
+    const printContactsLabel = el('span', {
+      html: '🏛️ <strong style="color: #c4b5fd; text-decoration: underline dotted;">Membrete Institucional (Logo/Empresa)</strong>',
+      style: 'font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;'
+    });
+    
+    printContactsToggleGroup.appendChild(printContactsCb);
+    printContactsToggleGroup.appendChild(printContactsLabel);
+
+    printContactsCb.addEventListener('change', () => {
+      localStorage.setItem('checks_print_include_contacts', printContactsCb.checked ? 'true' : 'false');
+    });
+
+    optionsBar.appendChild(printContactsToggleGroup);
+    filtersBar.appendChild(optionsBar);
 
     const filterCountBarWrapper = el('div', {
       attrs: { id: 'filter-count-bar-wrapper' },
-      style: 'padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between;'
+      style: 'padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between;'
     });
     filtersBar.appendChild(filterCountBarWrapper);
     container.appendChild(filtersBar);
@@ -742,6 +781,11 @@ export function renderChecks(container, options) {
     selectedCb.checked = !!filters?.onlySelected;
   }
 
+  const printContactsCb = container.querySelector('#config-print-contacts');
+  if (printContactsCb) {
+    printContactsCb.checked = localStorage.getItem('checks_print_include_contacts') === 'true';
+  }
+
   const toggleOnlySelBtn = container.querySelector('#btn-toggle-only-selected');
   if (toggleOnlySelBtn) {
     toggleOnlySelBtn.innerHTML = filters?.onlySelected ? '👁️ Ver Todos los Cheques' : '👁️ Ver Solo Seleccionados';
@@ -809,7 +853,7 @@ export function renderChecks(container, options) {
     const portStart = (portCurrentPage - 1) * (pagination?.itemsPerPage || 15);
     const portPaginated = sortedPortfolio.slice(portStart, portStart + (pagination?.itemsPerPage || 15));
 
-    const portfolioTable = renderCheckTable(portPaginated, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts);
+    const portfolioTable = renderCheckTable(portPaginated, contacts, onSave, onDelete, 'dueDate', isAsc, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts, onPrintBuy, true);
     portfolioTableWrapper.appendChild(portfolioTable);
     
     if (portfolioPaginationWrapper) {
@@ -872,7 +916,7 @@ export function renderChecks(container, options) {
       const histStart = (histCurrentPage - 1) * (pagination?.itemsPerPage || 15);
       const histPaginated = sortedHistory.slice(histStart, histStart + (pagination?.itemsPerPage || 15));
 
-      const historyTable = renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts);
+      const historyTable = renderCheckTable(histPaginated, contacts, onSave, onDelete, 'dueDate', false, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts, onPrintBuy, false);
       historyTableWrapper.appendChild(historyTable);
 
       if (historyPaginationWrapper) {
@@ -1164,7 +1208,7 @@ export function renderChecks(container, options) {
             const expContainer = el('div', {
               style: 'display: none; margin-top: 0.5rem;'
             });
-            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts);
+            const expTable = renderCheckTable(op.checks, contacts, onSave, onDelete, 'dueDate', true, true, selectedIds, updateBatchBar, filters?.onlyNominal, buyContacts, onPrintBuy, false);
             expTable.style.marginBottom = '0';
             expTable.style.borderRadius = '12px';
             expContainer.appendChild(expTable);
@@ -1184,6 +1228,43 @@ export function renderChecks(container, options) {
               toggleListBtn.textContent = isHidden ? `🙈 Ocultar Detalles` : `👁️ Ver Detalles (${op.checks.length})`;
             };
             actionsRow.appendChild(toggleListBtn);
+
+            const printGroup = el('div', { style: 'display: flex; gap: 0.5rem; align-items: center;' });
+
+            const printPdfBtn = el('button', {
+              classes: ['btn-secondary'],
+              style: 'padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 8px; display: flex; align-items: center; gap: 0.35rem; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35); color: #818cf8;',
+              html: '<span>🖨️</span> Imprimir PDF'
+            });
+            printPdfBtn.onclick = () => {
+              if (onPrintBuy) onPrintBuy(op.id, 'standard');
+              else printBuyOperationReport(op.id, op.contactName, op.date, op.checks, contacts, 'standard');
+            };
+            printGroup.appendChild(printPdfBtn);
+
+            const printThermalBtn = el('button', {
+              classes: ['btn-secondary'],
+              style: 'padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 8px; display: flex; align-items: center; gap: 0.35rem; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35); color: #60a5fa;',
+              html: '<span>🧾</span> Térmico'
+            });
+            printThermalBtn.onclick = () => {
+              if (onPrintBuy) onPrintBuy(op.id, 'thermal');
+              else printBuyOperationReport(op.id, op.contactName, op.date, op.checks, contacts, 'thermal');
+            };
+            printGroup.appendChild(printThermalBtn);
+
+            const exportExcelBtn = el('button', {
+              classes: ['btn-secondary'],
+              style: 'padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 700; border-radius: 8px; display: flex; align-items: center; gap: 0.35rem; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #34d399;',
+              html: '<span>📥</span> Excel'
+            });
+            exportExcelBtn.onclick = () => {
+              if (onExportBuy) onExportBuy(op.id);
+              else generateBuyOperationExcel(op.id, op.contactName, op.date, op.checks, contacts);
+            };
+            printGroup.appendChild(exportExcelBtn);
+
+            actionsRow.appendChild(printGroup);
 
             card.appendChild(headerRow);
             card.appendChild(kpisRow);

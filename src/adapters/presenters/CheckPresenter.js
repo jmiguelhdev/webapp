@@ -1,6 +1,7 @@
 // src/adapters/presenters/CheckPresenter.js
 import { Check } from '../../domain/entities/Check.js';
 import { GetChecksSummary } from '../../domain/usecases/GetChecksSummary.js';
+import { printBuyOperationReport, generateBuyOperationExcel } from '../../frameworks/ui/reports/ReportService.js';
 
 /**
  * Presenter para la gestión del portfolio de cheques diferidos.
@@ -278,6 +279,15 @@ export class CheckPresenter {
   async saveOperation(operationData) {
     this.ui.showLoading();
     try {
+      if (!operationData.buySide) {
+        operationData.buySide = {};
+      }
+      if (!operationData.buySide.operationId) {
+        operationData.buySide.operationId = 'CMP-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+      }
+      if (!operationData.buySide.date) {
+        operationData.buySide.date = new Date().toISOString();
+      }
       const processed = this.calculateOperation(operationData);
       const checkId = await this.checkRepository.saveCheck(this.currentUserUid, processed);
       processed.id = processed.id || checkId;
@@ -501,6 +511,39 @@ export class CheckPresenter {
   }
 
   /**
+   * Envía una operación de compra al servicio de impresión de reportes en PDF o Térmico.
+   * @param {string} operationId - ID de la operación de compra.
+   * @param {'standard'|'thermal'} [format='standard'] - Formato de salida.
+   */
+  printBuyOperation(operationId, format = 'standard') {
+    const checksInOp = this.checks.filter(c => c.buySide?.operationId === operationId);
+    if (checksInOp.length === 0) {
+      this.ui.showError("No se encontraron cheques para esta operación de compra.");
+      return;
+    }
+    const sellerId = checksInOp[0].buySide?.contactId;
+    const sellerName = this.contacts.find(c => c.id === sellerId)?.name || sellerId || 'Desconocido';
+    const dateStr = checksInOp[0].buySide?.date || checksInOp[0].receptionDate;
+    printBuyOperationReport(operationId, sellerName, dateStr, checksInOp, this.contacts, format);
+  }
+
+  /**
+   * Exporta a Excel una operación de compra específica.
+   * @param {string} operationId - ID de la operación de compra.
+   */
+  exportBuyOperation(operationId) {
+    const checksInOp = this.checks.filter(c => c.buySide?.operationId === operationId);
+    if (checksInOp.length === 0) {
+      this.ui.showError("No se encontraron cheques para esta operación de compra.");
+      return;
+    }
+    const sellerId = checksInOp[0].buySide?.contactId;
+    const sellerName = this.contacts.find(c => c.id === sellerId)?.name || sellerId || 'Desconocido';
+    const dateStr = checksInOp[0].buySide?.date || checksInOp[0].receptionDate;
+    generateBuyOperationExcel(operationId, sellerName, dateStr, checksInOp, this.contacts);
+  }
+
+  /**
    * Orquesta la ejecución del resumen de cartera e historial, y actualiza el renderizado.
    */
   render() {
@@ -523,6 +566,8 @@ export class CheckPresenter {
       onRefresh: this.loadData.bind(this),
       onExport: this.exportData.bind(this),
       onPrint: this.printList.bind(this),
+      onPrintBuy: this.printBuyOperation.bind(this),
+      onExportBuy: this.exportBuyOperation.bind(this),
       onBatchBuy: this.saveBatchBuy.bind(this),
       onBatchSell: this.saveBatchSell.bind(this),
       onUndoSale: this.undoSaleOperation.bind(this),

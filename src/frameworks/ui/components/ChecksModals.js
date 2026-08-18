@@ -8,7 +8,7 @@
 import { el } from '../../../frameworks/utils/dom.js';
 import { formatCurrency, formatDateLocal } from '../../../frameworks/utils/formatters.js';
 import { Check } from '../../../domain/entities/Check.js';
-import { printSaleOperationReport, generateSaleOperationExcel } from '../reports/ReportService.js';
+import { printSaleOperationReport, generateSaleOperationExcel, printBuyOperationReport, generateBuyOperationExcel } from '../reports/ReportService.js';
 import { copyToClipboardAndOpenBcra } from './CheckComponents.js';
 
 function getSelectStyle(accentColor) {
@@ -177,9 +177,15 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
         <textarea name="notes" rows="2" placeholder="Observaciones adicionales..." style="resize: vertical;">${existingOp?.notes || ''}</textarea>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
-        <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.06); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer; min-width: 120px;">Cancelar</button>
-        <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(99,102,241,0.4); letter-spacing: 0.03em; min-width: 180px;">Guardar Operación</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap;">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="button" id="single-print-pdf-btn" style="padding: 0.75rem 1.25rem; border-radius: 12px; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35); color: #818cf8; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.2s;">🖨️ Imprimir PDF</button>
+          <button type="button" id="single-print-thermal-btn" style="padding: 0.75rem 1.25rem; border-radius: 12px; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35); color: #60a5fa; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.2s;">🧾 Térmico</button>
+        </div>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+          <button type="button" class="btn-cancel" style="padding: 0.85rem 2rem; border-radius: 12px; background: rgba(255,255,255,0.06); color: var(--text-main); font-size: 1rem; font-weight: 600; border: 1px solid var(--outline); cursor: pointer; min-width: 120px;">Cancelar</button>
+          <button type="submit" style="padding: 0.85rem 2.5rem; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(99,102,241,0.4); letter-spacing: 0.03em; min-width: 180px;">Guardar Operación</button>
+        </div>
       </div>
 
     </form>
@@ -255,6 +261,61 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
   form.querySelectorAll('input').forEach(inp => inp.addEventListener('input', updateSingleNetPreview));
   form.querySelectorAll('select').forEach(sel => sel.addEventListener('change', updateSingleNetPreview));
   updateSingleNetPreview();
+
+  const getSingleOperationForPrint = () => {
+    const formData = new FormData(form);
+    const buySideNameInput = content.querySelector('#buyside-contact-input').value.trim();
+    const matchedBuySide = buyContacts.find(c => c.name.toLowerCase().trim() === buySideNameInput.toLowerCase());
+    const buySideContactId = matchedBuySide ? matchedBuySide.id : buySideNameInput;
+
+    const opData = {
+      id: existingOp?.id || '',
+      bank: formData.get('bank'),
+      checkNumber: formData.get('checkNumber'),
+      nominalValue: formData.get('nominalValue'),
+      clearing: formData.get('clearing'),
+      issueDate: formData.get('issueDate'),
+      receptionDate: formData.get('receptionDate'),
+      dueDate: formData.get('dueDate'),
+      issuerName: formData.get('issuerName'),
+      issuerCuit: formData.get('issuerCuit'),
+      notes: formData.get('notes'),
+      isECheck: formData.get('isECheck') === 'true',
+      buySide: {
+        contactId: buySideContactId,
+        pesificacionRate: formData.get('buySide_pesificacionRate'),
+        monthlyInterest: formData.get('buySide_monthlyInterest'),
+        operationId: existingOp?.buySide?.operationId || ''
+      }
+    };
+    const chk = new Check(opData);
+    chk.calculate();
+    return { chk, sellerName: buySideNameInput || 'Vendedor', recDate: opData.receptionDate };
+  };
+
+  const singlePrintPdfBtn = content.querySelector('#single-print-pdf-btn');
+  if (singlePrintPdfBtn) {
+    singlePrintPdfBtn.onclick = () => {
+      const { chk, sellerName, recDate } = getSingleOperationForPrint();
+      if (!chk.nominalValue || !chk.dueDate) {
+        alert('Complete al menos el valor nominal y la fecha de pago para generar el comprobante.');
+        return;
+      }
+      printBuyOperationReport(chk.buySide?.operationId || 'PROFORMA', sellerName, recDate, [chk], contacts, 'standard');
+    };
+  }
+
+  const singlePrintThermalBtn = content.querySelector('#single-print-thermal-btn');
+  if (singlePrintThermalBtn) {
+    singlePrintThermalBtn.onclick = () => {
+      const { chk, sellerName, recDate } = getSingleOperationForPrint();
+      if (!chk.nominalValue || !chk.dueDate) {
+        alert('Complete al menos el valor nominal y la fecha de pago para generar el comprobante térmico.');
+        return;
+      }
+      printBuyOperationReport(chk.buySide?.operationId || 'PROFORMA', sellerName, recDate, [chk], contacts, 'thermal');
+    };
+  }
 
   form.onsubmit = (e) => {
     e.preventDefault();
@@ -391,9 +452,16 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
         </div>
       </div>
 
-      <div style="display:flex;justify-content:flex-end;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;">
-        <button type="button" class="btn-cancel" style="padding:0.85rem 2rem;border-radius:12px;background:rgba(255,255,255,0.06);color:var(--text-main);font-size:1rem;font-weight:600;border:1px solid var(--outline);cursor:pointer;">Cancelar</button>
-        <button type="button" id="batch-save-btn" style="padding:0.85rem 2.5rem;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:1rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 15px rgba(99,102,241,0.4);">Guardar Lote</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;flex-wrap:wrap;gap:1rem;">
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button type="button" id="batch-print-pdf-btn" style="padding:0.85rem 1.35rem;border-radius:12px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.35);color:#818cf8;font-size:0.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;">🖨️ Imprimir PDF</button>
+          <button type="button" id="batch-print-thermal-btn" style="padding:0.85rem 1.35rem;border-radius:12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.35);color:#60a5fa;font-size:0.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;">🧾 Térmico</button>
+          <button type="button" id="batch-excel-btn" style="padding:0.85rem 1.35rem;border-radius:12px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);color:#34d399;font-size:0.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:all 0.2s;">📥 Excel</button>
+        </div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+          <button type="button" class="btn-cancel" style="padding:0.85rem 2rem;border-radius:12px;background:rgba(255,255,255,0.06);color:var(--text-main);font-size:1rem;font-weight:600;border:1px solid var(--outline);cursor:pointer;">Cancelar</button>
+          <button type="button" id="batch-save-btn" style="padding:0.85rem 2.5rem;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:1rem;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 15px rgba(99,102,241,0.4);">Guardar Lote</button>
+        </div>
       </div>
     </div>
   `;
@@ -509,7 +577,7 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
   content.querySelectorAll('#batch-buy-pesif, #batch-buy-interest, #batch-reception-date, #batch-clearing')
     .forEach(inp => inp.addEventListener('input', updateSummary));
 
-  content.querySelector('#batch-save-btn').onclick = () => {
+  const extractBatchOperations = () => {
     const sellerName = content.querySelector('#batch-seller-input').value.trim();
     const matchedSeller = buyContacts.find(c => c.name.toLowerCase() === sellerName.toLowerCase());
     const sellerId = matchedSeller ? matchedSeller.id : (sellerName || null);
@@ -530,7 +598,7 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
       const issuerCuit = row.querySelector('.row-issuer-cuit').value.trim();
       const isECheck = row.querySelector('.row-isecheck').value === 'true';
       if (!nv || !dueDate) return; // skip empty rows
-      ops.push({
+      const chk = new Check({
         bank,
         checkNumber: num,
         nominalValue: nv,
@@ -545,8 +613,41 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
         buySide: { contactId: sellerId, pesificacionRate: pesif, monthlyInterest: interest },
         sellSide: { status: 'PENDING', contactId: null, pesificacionRate: '', monthlyInterest: '', backReason: '' }
       });
+      chk.calculate();
+      ops.push(chk);
     });
+    return { ops, sellerName, recDate };
+  };
 
+  content.querySelector('#batch-print-pdf-btn').onclick = () => {
+    const { ops, sellerName, recDate } = extractBatchOperations();
+    if (ops.length === 0) {
+      alert('Agregue al menos un cheque con valor nominal y fecha de pago para imprimir.');
+      return;
+    }
+    printBuyOperationReport('PROFORMA', sellerName || 'PROFORMA', recDate, ops, buyContacts, 'standard');
+  };
+
+  content.querySelector('#batch-print-thermal-btn').onclick = () => {
+    const { ops, sellerName, recDate } = extractBatchOperations();
+    if (ops.length === 0) {
+      alert('Agregue al menos un cheque con valor nominal y fecha de pago para imprimir ticket térmico.');
+      return;
+    }
+    printBuyOperationReport('PROFORMA', sellerName || 'PROFORMA', recDate, ops, buyContacts, 'thermal');
+  };
+
+  content.querySelector('#batch-excel-btn').onclick = () => {
+    const { ops, sellerName, recDate } = extractBatchOperations();
+    if (ops.length === 0) {
+      alert('Agregue al menos un cheque con valor nominal y fecha de pago para exportar a Excel.');
+      return;
+    }
+    generateBuyOperationExcel('PROFORMA', sellerName || 'PROFORMA', recDate, ops, buyContacts);
+  };
+
+  content.querySelector('#batch-save-btn').onclick = () => {
+    const { ops } = extractBatchOperations();
     if (ops.length === 0) { alert('Agregue al menos un cheque con valor nominal y fecha de pago.'); return; }
     onBatchBuy(ops);
     modal.remove();

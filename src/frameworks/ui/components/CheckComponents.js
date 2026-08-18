@@ -1,6 +1,7 @@
 import { el } from '../../../frameworks/utils/dom.js';
 import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../frameworks/utils/formatters.js';
 import { showOperationModal } from './ChecksModals.js';
+import { printBuyOperationReport } from '../reports/ReportService.js';
 
 export function renderPaginationControls(currentPage, totalPages, totalItems, onPageChange) {
   const pagContainer = el('div', { 
@@ -90,7 +91,7 @@ export function getCheckStatusBadge(op) {
  * @param {Function} [onSelectionChange=null] - Callback ejecutado al seleccionar o deseleccionar algún checkbox.
  * @returns {HTMLElement} El elemento contenedor div ('glass-card table-responsive') con la tabla renderizada.
  */
-export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false, selectable = false, selectedIds = null, onSelectionChange = null, onlyNominal = false, buyContacts = []) {
+export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy = 'receptionDate', sortAsc = false, selectable = false, selectedIds = null, onSelectionChange = null, onlyNominal = false, buyContacts = [], onPrintBuy = null, groupByBuyOperation = true) {
   const tableWrapper = el('div', { 
     classes: ['glass-card', 'table-responsive'], 
     style: 'padding: 0; margin-bottom: 2rem; border-radius: 18px; overflow: hidden; border: 1px solid var(--border);' 
@@ -118,14 +119,133 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
   if (checksList.length === 0) {
     tbody.innerHTML = '<tr><td colspan="7" style="padding: 2.5rem; text-align: center; color: var(--text-muted); font-weight: 600;">Sin registros en esta sección.</td></tr>';
   } else {
-    checksList.sort((a,b) => {
+    // Sort all checks according to criteria
+    const sorted = [...checksList].sort((a,b) => {
       const tA = getSortDate(a[sortBy]);
       const tB = getSortDate(b[sortBy]);
       return sortAsc ? tA - tB : tB - tA;
-    }).forEach(op => {
+    });
+
+    // Detect multi-check buy operations
+    const buyOpCounts = new Map();
+    if (groupByBuyOperation) {
+      sorted.forEach(c => {
+        const opId = c.buySide?.operationId;
+        if (opId) {
+          buyOpCounts.set(opId, (buyOpCounts.get(opId) || 0) + 1);
+        }
+      });
+    }
+
+    const structuredItems = [];
+    const handledLots = new Set();
+
+    sorted.forEach(c => {
+      const opId = c.buySide?.operationId;
+      if (groupByBuyOperation && opId && buyOpCounts.get(opId) > 1) {
+        if (!handledLots.has(opId)) {
+          handledLots.add(opId);
+          const lotChecks = sorted.filter(chk => chk.buySide?.operationId === opId);
+          structuredItems.push({ isLot: true, opId, checks: lotChecks });
+        }
+      } else {
+        structuredItems.push({ isLot: false, check: c });
+      }
+    });
+
+    window._checksCollapsedLots = window._checksCollapsedLots || new Set();
+
+    structuredItems.forEach(item => {
+      if (item.isLot) {
+        // --- LOT HEADER ROW ---
+        const opId = item.opId;
+        const lotChecks = item.checks;
+        const totalNominal = lotChecks.reduce((s, c) => s + (parseFloat(c.nominalValue) || 0), 0);
+        const totalNet = lotChecks.reduce((s, c) => s + (parseFloat(c.buySide?.netAmount) || 0), 0);
+        const totalDiscount = totalNominal - totalNet;
+        const seller = contacts.find(c => c.id === lotChecks[0].buySide?.contactId)?.name || lotChecks[0].buySide?.contactId || 'Desconocido';
+        const lotDate = lotChecks[0].buySide?.date || lotChecks[0].receptionDate;
+        const isCollapsed = window._checksCollapsedLots.has(opId);
+        const allLotSelected = selectable && selectedIds !== null && lotChecks.every(c => selectedIds.has(String(c.id)));
+
+        const lotTr = el('tr', {
+          classes: ['check-lot-header-row'],
+          style: 'background: rgba(99, 102, 241, 0.08); border-top: 2px solid rgba(99, 102, 241, 0.3); border-bottom: 1px solid rgba(99, 102, 241, 0.2); box-shadow: var(--elevation-1); cursor: pointer;'
+        });
+
+        const cbLotCell = selectable ? `
+          <td style="padding: 0.85rem 1rem; width: 40px; text-align: center; border-radius: 14px 0 0 14px;">
+            <input type="checkbox" class="lot-check-cb" data-opid="${opId}" ${allLotSelected ? 'checked' : ''} style="width: 17px; height: 17px; cursor: pointer;" title="Seleccionar todos los cheques del lote">
+          </td>` : '';
+
+        lotTr.innerHTML = `
+          ${cbLotCell}
+          <td style="${selectable ? '' : 'border-radius: 14px 0 0 14px;'} padding: 0.85rem 1.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+              <button type="button" class="lot-toggle-btn" data-opid="${opId}" style="background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.4); color: #818cf8; border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.78rem; cursor: pointer; font-weight: 800; transition: transform 0.2s;">
+                ${isCollapsed ? '▶' : '▼'}
+              </button>
+              <div>
+                <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 0.45rem;">
+                  <span>📦 LOTE COMPRA</span>
+                  <span style="font-size: 0.68rem; font-weight: 800; padding: 0.12rem 0.45rem; border-radius: 6px; background: rgba(99,102,241,0.22); color: #818cf8; border: 1px solid rgba(99,102,241,0.45); letter-spacing: 0.5px;">${lotChecks.length} CHEQUES</span>
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace; margin-top: 0.15rem; font-weight: 600;">ID: ${opId}</div>
+              </div>
+            </div>
+          </td>
+          <td style="padding: 0.85rem 1.25rem;">
+            <div style="font-weight: 750; color: #ffffff; display: flex; align-items: center; gap: 0.35rem; font-size: 0.88rem;">
+              <span style="color: var(--primary);">📅</span> Compra: ${formatDateLocal(lotDate)}
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-weight: 600;">${lotChecks.length} vencimientos incluidos</div>
+          </td>
+          <td style="font-weight: 900; text-align: right; font-family: monospace; font-size: 1.1rem; color: #ffffff; padding: 0.85rem 1.25rem;">
+            ${formatCurrency(totalNominal)}
+          </td>
+          <td style="padding: 0.85rem 1.25rem;">
+            <div style="font-size: 0.85rem; font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 0.4rem;">
+              <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.35rem; border-radius: 4px; background: rgba(59,130,246,0.18); color: #60a5fa; border: 1px solid rgba(59,130,246,0.35);">VENDEDOR</span>
+              <span style="color: #ffffff; font-weight: 800;">${seller}</span>
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; font-weight: 600;">
+              Neto Pagado: <strong style="color: #60a5fa; font-family: monospace;">${formatCurrency(totalNet)}</strong>
+            </div>
+          </td>
+          ${onlyNominal ? '' : `
+          <td style="font-weight: 800; text-align: right; font-family: monospace; font-size: 1rem; color: #10b981; padding: 0.85rem 1.25rem;">
+            +${formatCurrency(totalDiscount)}
+            <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600;">Desc. total lote</div>
+          </td>
+          `}
+          <td style="text-align: right; white-space: nowrap; border-radius: 0 14px 14px 0; padding: 0.85rem 1.25rem;">
+            <div style="display: flex; gap: 0.45rem; justify-content: flex-end; align-items: center;">
+              <button type="button" class="icon-btn print-lot-pdf-btn" data-opid="${opId}" title="Imprimir Liquidación de Compra A4 (PDF)" style="height: 30px; display: flex; align-items: center; gap: 0.25rem; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.35); color: #818cf8; border-radius: 8px; padding: 0 0.6rem; font-size: 0.74rem; font-weight: 800; cursor: pointer; transition: all 0.2s;">🖨️ PDF</button>
+              <button type="button" class="icon-btn print-lot-thermal-btn" data-opid="${opId}" title="Imprimir Ticket Térmico de Compra" style="height: 30px; display: flex; align-items: center; gap: 0.25rem; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.35); color: #60a5fa; border-radius: 8px; padding: 0 0.6rem; font-size: 0.74rem; font-weight: 800; cursor: pointer; transition: all 0.2s;">🧾 Térmico</button>
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(lotTr);
+
+        // --- LOT CHILD CHECKS ROWS ---
+        lotChecks.forEach(op => {
+          renderSingleCheckRow(op, true, opId, isCollapsed);
+        });
+
+      } else {
+        // --- SINGLE CHECK ROW ---
+        renderSingleCheckRow(item.check, false, null, false);
+      }
+    });
+
+    function renderSingleCheckRow(op, isChild = false, parentOpId = null, isHidden = false) {
       const tr = el('tr', { 
-        classes: op.isECheck ? ['check-card-row', 'echeck-row'] : ['check-card-row'],
-        style: 'box-shadow: var(--elevation-1);' 
+        classes: [
+          ...(op.isECheck ? ['check-card-row', 'echeck-row'] : ['check-card-row']),
+          ...(isChild ? [`lot-child-${parentOpId}`, 'lot-child-row'] : [])
+        ],
+        style: `box-shadow: var(--elevation-1); ${isChild ? `display: ${isHidden ? 'none' : 'table-row'}; background: rgba(99, 102, 241, 0.025); border-left: 4px solid #6366f1;` : ''}`
       });
       
       const isSold = op.sellSide && op.sellSide.status === 'SOLD';
@@ -139,7 +259,7 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
       const _daysLabel = _daysToVenc < 0 ? `Vencido hace ${Math.abs(_daysToVenc)}d`
         : `${_daysToVenc}d restantes`;
 
-      const cbCell = selectable ? `<td style="padding: 1rem; width: 40px; text-align: center; border-radius: 14px 0 0 14px;"><input type="checkbox" class="portfolio-check-cb" data-id="${op.id}" style="width: 17px; height: 17px; cursor: pointer;"></td>` : '';
+      const cbCell = selectable ? `<td style="padding: 1rem; width: 40px; text-align: center; border-radius: ${isChild ? '0' : '14px 0 0 14px'};"><input type="checkbox" class="portfolio-check-cb" data-id="${op.id}" data-parent-opid="${parentOpId || ''}" style="width: 17px; height: 17px; cursor: pointer;"></td>` : '';
       
       const _badgeBg = _daysToVenc < 0 ? 'rgba(239, 68, 68, 0.15)'
         : _daysToVenc <= 10 ? 'rgba(249, 115, 22, 0.15)'
@@ -155,9 +275,9 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
 
       tr.innerHTML = `
         ${cbCell}
-        <td style="${selectable ? '' : 'border-radius: 14px 0 0 14px;'}">
+        <td style="${selectable ? '' : (isChild ? '' : 'border-radius: 14px 0 0 14px;')} ${isChild ? 'padding-left: 1.75rem;' : ''}">
           <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; letter-spacing: 0.3px; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-            Nº ${op.checkNumber || 'S/N'}
+            ${isChild ? '<span style="color: #818cf8; font-size: 0.8rem;">↳</span>' : ''} Nº ${op.checkNumber || 'S/N'}
             ${op.isECheck ? `
               <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.4rem; border-radius: 4px; background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); letter-spacing: 0.5px;">E-CHEQ</span>
             ` : `
@@ -184,8 +304,8 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
         <td>
           <div style="display: flex; flex-direction: column; gap: 0.35rem;">
             <div style="font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-              <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.35rem; border-radius: 4px; background: rgba(143,0,20,0.12); color: var(--primary); border: 1px solid rgba(143,0,20,0.25);">DE</span>
-              <span style="color: var(--text-main); font-weight: 700;">${seller}</span>
+              <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.35rem; border-radius: 4px; background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3);">VENDEDOR</span>
+              <span style="color: var(--text-main); font-weight: 750;">${seller}</span>
             </div>
             <div style="font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
               <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.35rem; border-radius: 4px; background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.25);">A</span>
@@ -232,12 +352,18 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
         </td>
         `}
         <td style="text-align: right; white-space: nowrap; border-radius: 0 14px 14px 0;">
-          <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
-            <button class="icon-btn edit-btn" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Editar Cheque">
-              <span style="font-size: 0.85rem;">✏️</span>
+          <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
+            <button class="icon-btn print-single-buy-pdf-btn" data-id="${op.id}" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25); color: #818cf8; border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Imprimir Comprobante de Compra PDF">
+              <span style="font-size: 0.8rem;">🖨️</span>
             </button>
-            ${(op.issuerCuit || op.issuerName) ? `<button class="icon-btn bcra-list-btn" title="${op.issuerCuit ? `Consultar BCRA: ${op.issuerCuit}` : 'Consultar BCRA'}" style="height: 32px; display: flex; align-items: center; gap: 0.25rem; background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.3); color: #60a5fa; border-radius: 8px; padding: 0 0.65rem; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.2px;">🔍 BCRA</button>` : ''}
-            <button class="icon-btn delete-btn" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.18); color: var(--danger); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Eliminar Cheque">
+            <button class="icon-btn print-single-buy-thermal-btn" data-id="${op.id}" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); color: #60a5fa; border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Imprimir Ticket Térmico">
+              <span style="font-size: 0.8rem;">🧾</span>
+            </button>
+            <button class="icon-btn edit-btn" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Editar Cheque">
+              <span style="font-size: 0.8rem;">✏️</span>
+            </button>
+            ${(op.issuerCuit || op.issuerName) ? `<button class="icon-btn bcra-list-btn" title="${op.issuerCuit ? `Consultar BCRA: ${op.issuerCuit}` : 'Consultar BCRA'}" style="height: 30px; display: flex; align-items: center; gap: 0.25rem; background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.3); color: #60a5fa; border-radius: 8px; padding: 0 0.55rem; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.2px;">🔍 BCRA</button>` : ''}
+            <button class="icon-btn delete-btn" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.18); color: var(--danger); border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Eliminar Cheque">
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="pointer-events: none; vertical-align: middle;"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>
             </button>
           </div>
@@ -278,10 +404,21 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
           copyToClipboardAndOpenBcra(op.issuerCuit);
           return;
         }
+        if (e.target.closest('.print-single-buy-pdf-btn')) {
+          const sellerName = contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Desconocido';
+          const dateStr = op.buySide?.date || op.receptionDate;
+          printBuyOperationReport(op.buySide?.operationId || 'PROFORMA', sellerName, dateStr, [op], contacts, 'standard');
+          return;
+        }
+        if (e.target.closest('.print-single-buy-thermal-btn')) {
+          const sellerName = contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Desconocido';
+          const dateStr = op.buySide?.date || op.receptionDate;
+          printBuyOperationReport(op.buySide?.operationId || 'PROFORMA', sellerName, dateStr, [op], contacts, 'thermal');
+          return;
+        }
         if (e.target.closest('.portfolio-check-cb')) return; // handled by change
         if (e.target.closest('.state-volvio') || e.target.closest('.state-levantado-empresa') || e.target.closest('.state-levantado-vendedor')) return; // handled by change
       });
-
 
       // Add hover scales to tables action buttons
       tr.querySelectorAll('.icon-btn').forEach(btn => {
@@ -295,6 +432,14 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
           if (selectedIds.has(String(op.id))) cb.checked = true;
           cb.addEventListener('change', () => {
             if (cb.checked) selectedIds.add(String(op.id)); else selectedIds.delete(String(op.id));
+            if (parentOpId) {
+              const lotCb = tbody.querySelector(`.lot-check-cb[data-opid="${parentOpId}"]`);
+              if (lotCb) {
+                const childCbs = tbody.querySelectorAll(`.lot-child-${parentOpId} .portfolio-check-cb`);
+                const allChecked = Array.from(childCbs).every(c => c.checked);
+                lotCb.checked = allChecked;
+              }
+            }
             if (onSelectionChange) onSelectionChange();
           });
         }
@@ -314,6 +459,66 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
       }
       
       tbody.appendChild(tr);
+    }
+
+    // Attach Lot Row event delegations
+    tbody.addEventListener('click', (e) => {
+      // Toggle Lot Accordion
+      const toggleBtn = e.target.closest('.lot-toggle-btn');
+      const lotHeaderRow = e.target.closest('.check-lot-header-row');
+      if (toggleBtn || (lotHeaderRow && !e.target.closest('input') && !e.target.closest('button'))) {
+        const opId = (toggleBtn || lotHeaderRow.querySelector('.lot-toggle-btn')).dataset.opid;
+        const btn = lotHeaderRow ? lotHeaderRow.querySelector('.lot-toggle-btn') : toggleBtn;
+        const childRows = tbody.querySelectorAll(`.lot-child-${opId}`);
+        const isCollapsed = window._checksCollapsedLots.has(opId);
+
+        if (isCollapsed) {
+          window._checksCollapsedLots.delete(opId);
+          childRows.forEach(r => r.style.display = 'table-row');
+          if (btn) btn.textContent = '▼';
+        } else {
+          window._checksCollapsedLots.add(opId);
+          childRows.forEach(r => r.style.display = 'none');
+          if (btn) btn.textContent = '▶';
+        }
+        return;
+      }
+
+      // Print Lot PDF
+      const lotPdfBtn = e.target.closest('.print-lot-pdf-btn');
+      if (lotPdfBtn) {
+        const opId = lotPdfBtn.dataset.opid;
+        const lotChecks = sorted.filter(chk => chk.buySide?.operationId === opId);
+        const sellerName = contacts.find(c => c.id === lotChecks[0]?.buySide?.contactId)?.name || lotChecks[0]?.buySide?.contactId || 'Desconocido';
+        const dateStr = lotChecks[0]?.buySide?.date || lotChecks[0]?.receptionDate;
+        printBuyOperationReport(opId, sellerName, dateStr, lotChecks, contacts, 'standard');
+        return;
+      }
+
+      // Print Lot Thermal
+      const lotThermalBtn = e.target.closest('.print-lot-thermal-btn');
+      if (lotThermalBtn) {
+        const opId = lotThermalBtn.dataset.opid;
+        const lotChecks = sorted.filter(chk => chk.buySide?.operationId === opId);
+        const sellerName = contacts.find(c => c.id === lotChecks[0]?.buySide?.contactId)?.name || lotChecks[0]?.buySide?.contactId || 'Desconocido';
+        const dateStr = lotChecks[0]?.buySide?.date || lotChecks[0]?.receptionDate;
+        printBuyOperationReport(opId, sellerName, dateStr, lotChecks, contacts, 'thermal');
+        return;
+      }
+    });
+
+    // Lot checkboxes handler
+    tbody.querySelectorAll('.lot-check-cb').forEach(lotCb => {
+      lotCb.addEventListener('change', () => {
+        const opId = lotCb.dataset.opid;
+        const childCbs = tbody.querySelectorAll(`.lot-child-${opId} .portfolio-check-cb`);
+        childCbs.forEach(childCb => {
+          childCb.checked = lotCb.checked;
+          const id = String(childCb.dataset.id);
+          if (lotCb.checked) selectedIds.add(id); else selectedIds.delete(id);
+        });
+        if (onSelectionChange) onSelectionChange();
+      });
     });
 
     if (selectable) {
@@ -328,6 +533,9 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
             cb.checked = allCb.checked;
             const id = String(cb.dataset.id);
             if (allCb.checked) selectedIds.add(id); else selectedIds.delete(id);
+          });
+          table.querySelectorAll('.lot-check-cb').forEach(cb => {
+            cb.checked = allCb.checked;
           });
           if (onSelectionChange) onSelectionChange();
         });
