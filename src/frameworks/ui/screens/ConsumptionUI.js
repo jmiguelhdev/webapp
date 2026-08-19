@@ -10,6 +10,8 @@ import { el } from '../../../frameworks/utils/dom.js';
 import { printDispatchPreparation } from '../reports/ReportService.js';
 
 import { openScannerModal, openEditCategoryModal, showMovementsHistoryModal, openChangeDestinationModal } from '../components/ConsumptionModals.js';
+import { renderManualStockEntryUI } from '../components/ManualStockEntryUI.js';
+
 export function renderFaenaConsumption(container, options) {
   const { 
     state, 
@@ -59,7 +61,7 @@ export function renderFaenaConsumption(container, options) {
   header.appendChild(titleContainer);
   
   const tabs = el('div', { 
-    style: 'display: flex; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 0.35rem; gap: 0.25rem;' 
+    style: 'display: flex; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 0.35rem; gap: 0.25rem; flex-wrap: wrap;' 
   });
 
   const getTabStyle = (isActive) => `
@@ -79,19 +81,37 @@ export function renderFaenaConsumption(container, options) {
   const btnDrafts = el('button', { style: getTabStyle(state.activeTab === 'DRAFTS'), text: '📝 Preparaciones' });
   const btnHistory = el('button', { style: getTabStyle(state.activeTab === 'HISTORY'), text: '📜 Historial' });
   const btnAchuras = el('button', { style: getTabStyle(state.activeTab === 'ACHURAS'), text: '🥩 Achuras' });
+  const btnManual = el('button', { style: getTabStyle(state.activeTab === 'MANUAL_ENTRY'), text: '📥 Ingreso Manual' });
 
   btnStock.onclick = () => onTabSwitch('STOCK');
   btnDrafts.onclick = () => onTabSwitch('DRAFTS');
   btnHistory.onclick = () => onTabSwitch('HISTORY');
   btnAchuras.onclick = () => onTabSwitch('ACHURAS');
+  btnManual.onclick = () => onTabSwitch('MANUAL_ENTRY');
 
   tabs.appendChild(btnStock);
   tabs.appendChild(btnDrafts);
   tabs.appendChild(btnHistory);
   tabs.appendChild(btnAchuras);
+  tabs.appendChild(btnManual);
   
   header.appendChild(tabs);
   wrapper.appendChild(header);
+
+  // Si la pestaña activa es Ingreso Manual, renderizar formulario dedicado
+  if (state.activeTab === 'MANUAL_ENTRY') {
+    const manualWrap = el('div', { style: 'width: 100%;' });
+    renderManualStockEntryUI(manualWrap, {
+      categoryPrices: options.categoryPrices,
+      camarasList: options.camarasList,
+      travels: options.travels,
+      onSaveBatch: options.onSaveManualBatch,
+      onCancel: () => onTabSwitch('STOCK')
+    });
+    wrapper.appendChild(manualWrap);
+    container.appendChild(wrapper);
+    return;
+  }
 
   const toolbarContainer = el('div', { 
     style: 'display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; background: rgba(255,255,255,0.02); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border);'

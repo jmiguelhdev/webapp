@@ -11,10 +11,14 @@ import { showBillCalculator } from './AccountingModals.js';
 /**
  * Renderiza la pantalla dedicada de Pago de Sueldos.
  * @param {HTMLElement} container - Contenedor principal del DOM.
- * @param {Object} options - Parámetros { establishments, initialData, onSave, onBack }
+ * @param {Object} options - Parámetros { establishments, initialData, boxTitle, onSave, onBack }
  */
-export function renderSalaryPaymentScreen(container, { establishments = [], initialData = null, onSave, onBack }) {
+export function renderSalaryPaymentScreen(container, { establishments = [], initialData = null, boxTitle = 'Caja General', onSave, onBack }) {
   container.innerHTML = '';
+
+  const resolvedBoxTitle = initialData?.targetCaja === 'frigorifico' 
+    ? 'Caja Frigorífico' 
+    : (boxTitle || 'Caja General');
 
   let currentBillCounts = null;
   let selectedLogIds = initialData?.selectedLogIds || [];
@@ -34,7 +38,7 @@ export function renderSalaryPaymentScreen(container, { establishments = [], init
   const backBtn = el('button', {
     classes: ['back-btn-m3'],
     html: '<svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"></path></svg>',
-    attrs: { title: 'Volver a Caja General' }
+    attrs: { title: `Volver a ${resolvedBoxTitle}` }
   });
   backBtn.onclick = () => {
     if (typeof onBack === 'function') onBack();
@@ -43,12 +47,12 @@ export function renderSalaryPaymentScreen(container, { establishments = [], init
   titleGroup.appendChild(backBtn);
   titleGroup.appendChild(el('div', {
     html: `<h1 style="margin:0; font-size: 1.5rem;">💳 Registro y Pago de Haberes / Sueldo</h1>
-           <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">Caja General • Salida de Efectivo para Pago de Personal</div>`
+           <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">${resolvedBoxTitle} • Salida de Efectivo para Pago de Personal</div>`
   }));
   header.appendChild(titleGroup);
 
   const statusBadge = el('div', {
-    html: `<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.85rem;">🔴 Egreso de Caja General</span>`
+    html: `<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.85rem;">🔴 Egreso de ${resolvedBoxTitle}</span>`
   });
   header.appendChild(statusBadge);
 

@@ -146,8 +146,8 @@ export const SyncService = {
         const accSnap = await getDocs(accQuery);
         const accToPut = accSnap.docs.map(docSnap => ({
           id: docSnap.id,
-          collectionName: 'accounting_entries',
-          ...docSnap.data()
+          ...docSnap.data(),
+          collectionName: 'accounting_entries'
         }));
         if (accToPut.length > 0) {
           await localDb.accounting_entries.bulkPut(accToPut);
@@ -169,8 +169,8 @@ export const SyncService = {
         const frigSnap = await getDocs(frigQuery);
         const frigToPut = frigSnap.docs.map(docSnap => ({
           id: docSnap.id,
-          collectionName: 'frigorifico_entries',
-          ...docSnap.data()
+          ...docSnap.data(),
+          collectionName: 'frigorifico_entries'
         }));
         if (frigToPut.length > 0) {
           await localDb.accounting_entries.bulkPut(frigToPut);

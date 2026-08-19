@@ -79,6 +79,7 @@ export function renderAccounting(container, options) {
     renderSalaryPaymentScreen(container, {
       establishments,
       initialData: salaryPaymentPayload,
+      boxTitle: title,
       onSave: (data) => {
         onSave(data);
         if (typeof onCloseSalaryPaymentScreen === 'function') onCloseSalaryPaymentScreen();

@@ -54,9 +54,9 @@ export async function saveAccountingEntry(db, uid, entry, collectionName = 'acco
   try {
     await localDb.accounting_entries.put({
       id: finalId,
+      ...dataToSave,
       collectionName: collectionName,
-      createdAt: dataToSave.createdAt || now,
-      ...dataToSave
+      createdAt: dataToSave.createdAt || now
     });
   } catch (errDb) {
     console.warn("[AccountingApi] Error escribiendo asiento contable local:", errDb);

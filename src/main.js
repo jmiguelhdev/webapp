@@ -177,8 +177,13 @@ const logisticsPresenter = new LogisticsPresenter(logisticsRepository, uiInterfa
 const establishmentPresenter = new EstablishmentPresenter(establishmentRepository, uiInterface, {
   db,
   onNavigateToSalaryPayment: (payload) => {
-    navigateTo('accounting');
-    accountingPresenter.openSalaryPaymentScreen(payload);
+    if (payload?.targetCaja === 'frigorifico') {
+      navigateTo('frigorifico');
+      frigorificoPresenter.openSalaryPaymentScreen(payload);
+    } else {
+      navigateTo('accounting');
+      accountingPresenter.openSalaryPaymentScreen(payload);
+    }
   }
 });
 
@@ -262,9 +267,12 @@ window.addEventListener('app:sync-completed', (e) => {
   } else if (activeView === 'travels') {
     console.log("[SyncEvent] Auto-refreshing Travels UI (silent)...");
     travelPresenter.loadTravels(SHARED_DATA_SOURCE_UID);
-  } else if (activeView === 'accounting' || activeView === 'frigorifico') {
+  } else if (activeView === 'accounting') {
     console.log("[SyncEvent] Auto-refreshing Accounting UI (silent)...");
     accountingPresenter.loadData();
+  } else if (activeView === 'frigorifico') {
+    console.log("[SyncEvent] Auto-refreshing Frigorifico UI (silent)...");
+    frigorificoPresenter.loadData();
   } else if (activeView === 'checks') {
     console.log("[SyncEvent] Auto-refreshing Checks UI (silent)...");
     checkPresenter.loadData();

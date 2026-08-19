@@ -68,6 +68,7 @@ export class ConsumptionPresenter {
       this.categoryPrices = await this.clientRepository.getCategoryPrices();
       this.camarasList = await this.clientRepository.getCamaras() || [];
       this.achurasItems = await this.travelRepository.fetchAchurasStock(uid);
+      this.travels = await this.travelRepository.fetchTravels(uid).catch(() => []);
       
       // Sort desc by creation/faena date
       this.allFaenas.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -705,14 +706,75 @@ export class ConsumptionPresenter {
       camarasList: this.camarasList,
       camaraOccupancy,
       unassignedCount,
+      categoryPrices: this.categoryPrices,
+      travels: this.travels || [],
       onCamaraChange: this.setCamaraFilter.bind(this),
       onMoveToCamara: (camaraId) => this.moveSelectedToCamara(this.currentUid, camaraId),
       onConfirmDraft: (groupItems, dest, prices) => this.confirmDraftGroup(groupItems, dest, prices),
       onRevertDraft: (id) => this.revertDraft(this.currentUid, id),
       onEditCategory: (id, newCategory, comment) => this.editCarcassCategory(id, newCategory, comment),
-      onUpdateDestination: (carcassId, newDestination, newPrice) => this.changeCarcassDestination(carcassId, newDestination, newPrice)
+      onUpdateDestination: (carcassId, newDestination, newPrice) => this.changeCarcassDestination(carcassId, newDestination, newPrice),
+      onSaveManualBatch: (payload) => this.saveManualStockBatch(payload)
     };
 
     this.ui.renderFaenaConsumption(options);
+  }
+
+  /**
+   * Guarda un lote completo de medias reses ingresadas manualmente al stock.
+   * @param {{ headerData: Object, items: Array<Object> }} payload 
+   */
+  async saveManualStockBatch(payload) {
+    const { headerData, items } = payload;
+    this.ui.showLoading();
+    try {
+      // 1. Validar si la tropa ya existe para prevenir sobreescrituras accidentales
+      if (headerData.tropa) {
+        const tropaExists = await this.travelRepository.checkIfTropaExists(this.currentUid, headerData.tropa);
+        if (tropaExists) {
+          const proceed = confirm(`⚠️ La tropa "${headerData.tropa}" ya tiene registros en el sistema. ¿Deseas continuar agregando estas medias reses?`);
+          if (!proceed) {
+            this.ui.hideLoading();
+            return;
+          }
+        }
+      }
+
+      // 2. Preparar registros individuales para faenas_detalle
+      const travelIdToSave = headerData.travelId || 'UNMATCHED';
+      const detailRecords = items.map(item => ({
+        travelId: travelIdToSave,
+        isOrphan: travelIdToSave === 'UNMATCHED',
+        fileName: 'MANUAL_ENTRY',
+        tropa: headerData.tropa,
+        garron: item.garron,
+        half: item.half,
+        category: item.category,
+        standardizedCategory: item.category,
+        kg: item.kg,
+        status: 'AVAILABLE',
+        camaraId: item.camaraId || null,
+        producerCuit: headerData.producerCuit || '',
+        producerName: headerData.producerName || 'Productor Directo',
+        pdfDate: headerData.dateStr
+      }));
+
+      await this.travelRepository.saveFaenaDetalle(this.currentUid, detailRecords);
+
+      // 3. Generar lote de achuras automáticamente si fue solicitado
+      if (headerData.createAchuras && headerData.headsCount > 0) {
+        await this.travelRepository.addAchurasBatch(this.currentUid, headerData.tropa, Date.now(), headerData.headsCount);
+      }
+
+      // 4. Cambiar a la pestaña de Stock Disponible y refrescar
+      this.state.activeTab = 'STOCK';
+      await this.loadFaenas(this.currentUid, true);
+      alert(`✅ Lote de ${detailRecords.length} medias reses (Tropa ${headerData.tropa}) ingresado exitosamente a stock.`);
+    } catch (e) {
+      console.error("Error guardando ingreso manual:", e);
+      alert("❌ Error al guardar ingreso manual de medias reses: " + e.message);
+    } finally {
+      this.ui.hideLoading();
+    }
   }
 }
