@@ -13,6 +13,7 @@ import { renderSaleDetailModal } from './frameworks/ui/components/ClientModals.j
 import { renderSettings } from './frameworks/ui/screens/SettingsUI.js';
 import { renderPriceShare } from './frameworks/ui/screens/PriceShareUI.js';
 import { renderChecks } from './frameworks/ui/screens/ChecksUI.js';
+import { renderBatchBuyScreen } from './frameworks/ui/screens/BatchBuyChecksUI.js';
 import { renderAccounting } from './frameworks/ui/screens/AccountingUI.js';
 import { renderPriceAnalysis } from './frameworks/ui/screens/PriceAnalysisUI.js';
 import { renderSidebar } from './frameworks/ui/components/Sidebar.js';
@@ -39,6 +40,7 @@ export {
   renderSettings,
   renderPriceShare,
   renderChecks,
+  renderBatchBuyScreen,
   renderAccounting,
   renderPriceAnalysis,
   renderSidebar,

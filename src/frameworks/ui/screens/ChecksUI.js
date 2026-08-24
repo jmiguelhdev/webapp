@@ -10,6 +10,7 @@ import { el } from '../../../frameworks/utils/dom.js';
 import { renderPaginationControls, getCheckStatusBadge, renderCheckTable, createStatCard, showStateConfirmationModal } from '../components/CheckComponents.js';
 import { renderDateModal } from '../components/Modals.js';
 import { showOperationModal, showBatchBuyModal, showBatchSellModal } from '../components/ChecksModals.js';
+import { renderBatchBuyScreen } from './BatchBuyChecksUI.js';
 import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../frameworks/utils/formatters.js';
 import { printSaleOperationReport, generateSaleOperationExcel, printBuyOperationReport, generateBuyOperationExcel } from '../reports/ReportService.js';
 
@@ -108,7 +109,11 @@ export function renderChecks(container, options) {
     });
     batchBuyBtn.onclick = () => {
       if (container._options) {
-        showBatchBuyModal(container._options.buyContacts, container._options.onBatchBuy);
+        renderBatchBuyScreen(container, {
+          buyContacts: container._options.buyContacts || [],
+          onBatchBuy: container._options.onBatchBuy,
+          onBack: () => renderChecks(container, container._options)
+        });
       }
     };
     batchBuyBtn.addEventListener('mouseenter', () => {
