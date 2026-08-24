@@ -275,7 +275,7 @@ window.addEventListener('app:sync-completed', (e) => {
     frigorificoPresenter.loadData();
   } else if (activeView === 'checks') {
     console.log("[SyncEvent] Auto-refreshing Checks UI (silent)...");
-    checkPresenter.loadData();
+    checkPresenter.loadData(true);
   }
 });
 

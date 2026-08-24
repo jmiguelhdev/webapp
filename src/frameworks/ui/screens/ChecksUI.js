@@ -47,11 +47,31 @@ export function renderChecks(container, options) {
   const { 
     checks = [], filteredChecks = [], globalSummary = {}, filteredSummary = {}, 
     filters = {}, contacts = [], buyContacts = [], pagination = {}, 
+    isBatchBuyActive = false,
     onFilterChange, onSave, onDelete, onRefresh, onExport, onPrint, onPrintBuy, onExportBuy, onBatchBuy, onBatchSell, 
-    onPortfolioPageChange, onHistoryPageChange, onUndoSale
+    onPortfolioPageChange, onHistoryPageChange, onUndoSale,
+    onOpenBatchBuy, onCloseBatchBuy
   } = options;
 
   container._options = options;
+
+  // Si la pantalla dedicada de Compra Masiva está activa
+  if (isBatchBuyActive) {
+    const existingScreen = container.querySelector('.batch-buy-screen-wrapper');
+    if (!existingScreen) {
+      renderBatchBuyScreen(container, {
+        buyContacts: buyContacts || [],
+        onBatchBuy,
+        onBack: onCloseBatchBuy || (() => {
+          if (container._options) {
+            container._options.isBatchBuyActive = false;
+            renderChecks(container, { ...container._options, isBatchBuyActive: false });
+          }
+        })
+      });
+    }
+    return;
+  }
 
   // Retain cursor focus position for smooth real-time filter searches
   const activeId = document.activeElement ? document.activeElement.id : null;
@@ -108,7 +128,11 @@ export function renderChecks(container, options) {
       html: '<svg viewBox="0 0 24 24" width="16" height="16" style="fill:currentColor;flex-shrink:0;"><path d="M17,12H14V8H10V12H7L12,17L17,12M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg> Compra Masiva'
     });
     batchBuyBtn.onclick = () => {
-      if (container._options) {
+      if (typeof onOpenBatchBuy === 'function') {
+        onOpenBatchBuy();
+      } else if (container._options && typeof container._options.onOpenBatchBuy === 'function') {
+        container._options.onOpenBatchBuy();
+      } else if (container._options) {
         renderBatchBuyScreen(container, {
           buyContacts: container._options.buyContacts || [],
           onBatchBuy: container._options.onBatchBuy,

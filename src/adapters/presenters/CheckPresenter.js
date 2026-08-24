@@ -36,6 +36,7 @@ export class CheckPresenter {
       historyStatusFilter: 'ALL',
       checkType: 'ALL'
     };
+    this.isBatchBuyActive = false;
     this.pagination = {
       portfolioPage: 1,
       historyPage: 1,
@@ -53,10 +54,13 @@ export class CheckPresenter {
 
   /**
    * Carga de forma asíncrona la lista unificada de contactos, operadores y cheques en tiempo real.
+   * @param {boolean} [silent=false] - Si es true, no muestra el spinner global de carga para evitar parpadeos.
    * @returns {Promise<void>}
    */
-  async loadData() {
-    this.ui.showLoading();
+  async loadData(silent = false) {
+    if (!silent && !this.isBatchBuyActive) {
+      this.ui.showLoading();
+    }
     // Migrate old contacts cache key (if any) to the shared 'client_clients' key
     if (localStorage.getItem('checks_contacts')) {
       localStorage.removeItem('checks_contacts');
@@ -115,6 +119,22 @@ export class CheckPresenter {
       this.ui.showError("Error al cargar cheques: " + e.message);
       this.ui.hideLoading();
     }
+  }
+
+  /**
+   * Abre la pantalla dedicada de Compra Masiva de Cheques.
+   */
+  openBatchBuyScreen() {
+    this.isBatchBuyActive = true;
+    this.render();
+  }
+
+  /**
+   * Cierra la pantalla de Compra Masiva y retorna a la cartera de cheques.
+   */
+  closeBatchBuyScreen() {
+    this.isBatchBuyActive = false;
+    this.render();
   }
 
   /**
@@ -423,6 +443,7 @@ export class CheckPresenter {
         processed.id = processed.id || checkId;
         await this.syncTransactions(processed);
       }
+      this.isBatchBuyActive = false;
       await this.loadData();
     } catch (e) {
       this.ui.showError('Error al guardar lote de cheques: ' + e.message);
@@ -560,6 +581,9 @@ export class CheckPresenter {
       pagination: this.pagination,
       contacts: this.contacts,
       buyContacts: this.buyContacts,
+      isBatchBuyActive: this.isBatchBuyActive,
+      onOpenBatchBuy: this.openBatchBuyScreen.bind(this),
+      onCloseBatchBuy: this.closeBatchBuyScreen.bind(this),
       onFilterChange: this.applyFilters.bind(this),
       onSave: this.saveOperation.bind(this),
       onDelete: this.deleteOperation.bind(this),
