@@ -566,6 +566,9 @@ function showMasterModal(type, item, dependencies, presenter = null) {
       justify-content: center;
       z-index: 1100;
       animation: fadeIn 0.25s ease-out;
+      overflow-y: auto;
+      padding: 1rem;
+      box-sizing: border-box;
     ">
       <div class="modal active glass-card" id="master-modal" style="
         width: 100%;
@@ -576,8 +579,10 @@ function showMasterModal(type, item, dependencies, presenter = null) {
         border: 1px solid var(--border);
         box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        max-height: 90vh;
+        max-height: calc(100vh - 3rem);
         overflow-y: auto;
+        margin: auto;
+        box-sizing: border-box;
       ">
         <h3 style="margin-top:0; color: var(--primary); font-size:1.4rem; margin-bottom:1.5rem; font-weight:700;">${title}</h3>
         <form id="master-form">

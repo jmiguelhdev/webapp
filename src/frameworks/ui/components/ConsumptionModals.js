@@ -55,8 +55,8 @@ const playSound = (type) => {
  * @param {Function} onFound - Callback disparado al obtener una coincidencia exacta de tropa y garrón.
  */
 export function openScannerModal(stockItems, onFound) {
-  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem;' });
-  const modal = el('div', { classes: ['modal'], style: 'background: var(--modal-bg, #16171d); max-width: 450px; width: 100%; padding: 1.75rem; position: relative; display: flex; flex-direction: column; align-items: center; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.6);' });
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto;' });
+  const modal = el('div', { classes: ['modal'], style: 'background: var(--modal-bg, #16171d); max-width: 450px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 1.75rem; position: relative; display: flex; flex-direction: column; align-items: center; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin: auto;' });
   
   modal.innerHTML = `
     <h3 style="margin-top: 0; margin-bottom: 1rem; text-align: center; color: white;">📷 Escáner Automático</h3>
@@ -187,11 +187,11 @@ export function openScannerModal(stockItems, onFound) {
 export function openEditCategoryModal(item, onSave) {
   const overlay = el('div', { 
     classes: ['modal-overlay'], 
-    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto;' 
   });
   const modal = el('div', { 
     classes: ['modal'], 
-    style: 'background: var(--modal-bg, #16171d); max-width: 450px; width: 100%; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.6);' 
+    style: 'background: var(--modal-bg, #16171d); max-width: 450px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin: auto;' 
   });
 
   const currentCategory = item.standardizedCategory || item.category || 'OTRO';
@@ -249,11 +249,11 @@ export function openEditCategoryModal(item, onSave) {
 export function showMovementsHistoryModal(item) {
   const overlay = el('div', { 
     classes: ['modal-overlay'], 
-    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem;' 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto;' 
   });
   const modal = el('div', { 
     classes: ['modal'], 
-    style: 'background: var(--modal-bg, #16171d); max-width: 550px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);' 
+    style: 'background: var(--modal-bg, #16171d); max-width: 550px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; display: flex; flex-direction: column; padding: 2rem; position: relative; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7); margin: auto;' 
   });
 
   const events = [];

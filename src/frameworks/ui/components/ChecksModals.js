@@ -22,21 +22,21 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
   const isEditing = !!existingOp;
   const modal = el('div', { 
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: flex-start; justify-content: center; z-index: 2000; padding: clamp(0.5rem, 3vw, 2rem); overflow-y: auto;'
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: clamp(0.5rem, 3vw, 2rem); overflow-y: auto;'
   });
 
   const content = el('div', { 
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 1100px; margin: auto; padding: 0; overflow: hidden; border-radius: 20px;'
+    style: 'width: 100%; max-width: 1100px; margin: auto; padding: 0; display: flex; flex-direction: column; max-height: calc(100vh - 3rem); border-radius: 20px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.7);'
   });
 
   content.innerHTML = `
-    <div style="position: sticky; top: 0; z-index: 10; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; border-radius: 20px 20px 0 0;">
+    <div style="flex-shrink: 0; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; border-radius: 20px 20px 0 0; z-index: 10;">
       <h2 style="margin: 0; font-size: clamp(1.1rem, 3vw, 1.4rem); font-weight: 700;">${isEditing ? '✏️ Editar' : '💸 Nueva'} Operación de Cheque</h2>
       <button type="button" class="btn-close-modal" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--text-main); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s;">✕</button>
     </div>
 
-    <div style="padding: clamp(1rem, 3vw, 2rem);">
+    <div class="modal-scrollable-body" style="padding: clamp(1rem, 3vw, 2rem); overflow-y: auto; flex: 1; overscroll-behavior: contain;">
     <form id="check-form">
 
       <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
@@ -387,20 +387,20 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
 
   const modal = el('div', {
     classes: ['modal-overlay'],
-    style: 'position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:flex-start;justify-content:center;z-index:2000;padding:clamp(0.5rem,3vw,2rem);overflow-y:auto;'
+    style: 'position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:2000;padding:clamp(0.5rem,3vw,2rem);overflow-y:auto;'
   });
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width:100%;max-width:1400px;margin:auto;padding:0;overflow:hidden;border-radius:20px;'
+    style: 'width:100%;max-width:1400px;margin:auto;padding:0;display:flex;flex-direction:column;max-height:calc(100vh - 3rem);border-radius:20px;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,0.7);'
   });
 
   content.innerHTML = `
-    <div style="position:sticky;top:0;z-index:10;background:var(--card-bg);border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0;">
+    <div style="flex-shrink:0;background:var(--card-bg);border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0;z-index:10;">
       <h2 style="margin:0;font-size:clamp(1.1rem,3vw,1.35rem);font-weight:700;">📥 Compra Masiva de Cheques</h2>
       <button type="button" class="btn-close-modal" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-main);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
-    <div style="padding:clamp(1rem,3vw,1.75rem);">
+    <div class="modal-scrollable-body" style="padding:clamp(1rem,3vw,1.75rem);overflow-y:auto;flex:1;overscroll-behavior:contain;">
 
       <div style="background:rgba(99,102,241,0.06);border:2px solid var(--primary);border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
         <h3 style="margin:0 0 1rem;font-size:0.875rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--primary);font-weight:600;">🔗 Datos Comunes del Lote</h3>
@@ -664,20 +664,20 @@ export function showBatchBuyModal(buyContacts, onBatchBuy) {
 export function showBatchSellModal(contacts, selectedChecks, onBatchSell, onDone, isNominalOnly = false) {
   const modal = el('div', {
     classes: ['modal-overlay'],
-    style: 'position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:2000;padding:clamp(0.5rem,3vw,2rem);'
+    style: 'position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:2000;padding:clamp(0.5rem,3vw,2rem);overflow-y:auto;'
   });
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width:100%;max-width:1150px;padding:0;overflow:hidden;border-radius:20px;display:flex;flex-direction:column;max-height:90vh;'
+    style: 'width:100%;max-width:1150px;margin:auto;padding:0;overflow:hidden;border-radius:20px;display:flex;flex-direction:column;max-height:calc(100vh - 3rem);box-shadow:0 25px 60px rgba(0,0,0,0.7);'
   });
 
   content.innerHTML = `
-    <div style="background:var(--card-bg);border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0;flex-shrink:0;">
+    <div style="background:var(--card-bg);border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;border-radius:20px 20px 0 0;flex-shrink:0;z-index:10;">
       <h2 style="margin:0;font-size:1.2rem;font-weight:700;">📤 Venta de ${selectedChecks.length} Cheque${selectedChecks.length > 1 ? 's' : ''}</h2>
       <button type="button" class="btn-close-modal" style="background:rgba(255,255,255,0.08);border:1px solid var(--border);color:var(--text-main);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
-    <div style="padding:1.5rem 2rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:1.25rem;">
+    <div class="modal-scrollable-body" style="padding:1.5rem 2rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:1.25rem;overscroll-behavior:contain;">
       <p style="margin:0;color:var(--text-muted);font-size:0.9rem;">Los datos de venta se aplicarán a los <strong>${selectedChecks.length}</strong> cheque(s) seleccionados.</p>
 
       <!-- Resumen de Cheques Seleccionados -->

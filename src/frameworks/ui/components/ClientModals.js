@@ -11,8 +11,8 @@ import { el } from '../../../frameworks/utils/dom.js';
  * @param {ClientAccount} account - Instancia de la entidad de dominio para resolver detalles financieros y textos para compartir.
  */
 export function renderTransactionDetailModal(tx, account) {
-  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
-  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 500px; width: 100%; padding: 2rem;' });
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; overflow-y: auto;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 500px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; margin: auto;' });
   
   const header = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;' });
   header.innerHTML = `
@@ -187,8 +187,8 @@ export function renderTransactionDetailModal(tx, account) {
  * @param {ClientAccount} account - Entidad de dominio para procesar filtrado temporal y saldos acumulados.
  */
 export function showPrintOptionsModal(client, transactions, account) {
-  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
-  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; padding: 2rem;' });
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; overflow-y: auto;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; margin: auto;' });
   
   const today = new Date().toISOString().split('T')[0];
   const lastMonth = new Date();
@@ -390,10 +390,10 @@ export function printAccountStatement(client, txs, saldoAnterior, options) {
  * @param {string} [type='CLIENT'] - Identificador del rol de la entidad ('CLIENT' o 'OPERATOR').
  */
 export function showClientModal(client, onSave, type = 'CLIENT') {
-  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; overflow-y: auto;' });
   const modal = el('div', { 
     classes: ['modal', 'glass-card'], 
-    style: 'max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 2rem; border-radius: 16px; box-sizing: border-box;' 
+    style: 'max-width: 500px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; border-radius: 16px; box-sizing: border-box; margin: auto;' 
   });
   
   const isEdit = !!client;
@@ -475,8 +475,8 @@ export function showClientModal(client, onSave, type = 'CLIENT') {
  * @param {Object} productsMap - Dictionary of products index by id.
  */
 export function renderSaleDetailModal(sale, productsMap, concept) {
-  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
-  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 550px; width: 100%; padding: 2rem; border-radius: 16px;' });
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; overflow-y: auto;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 550px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; border-radius: 16px; margin: auto; box-sizing: border-box;' });
   
   const header = el('div', { style: 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;' });
   

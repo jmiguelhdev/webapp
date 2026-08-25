@@ -829,12 +829,12 @@ export function renderSettings(container, options) {
 function showConfirmResetCajasModal(title, description, onConfirm) {
   const overlay = el('div', {
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; animation: fadeIn 0.2s ease;'
+    style: 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; animation: fadeIn 0.2s ease; overflow-y: auto;'
   });
 
   const modal = el('div', {
     classes: ['modal', 'glass-card'],
-    style: 'max-width: 420px; padding: 2rem; border-radius: 24px; border: 1px solid rgba(239, 68, 68, 0.3); background: var(--card-bg); box-shadow: var(--elevation-3); text-align: center;'
+    style: 'max-width: 420px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; border-radius: 24px; border: 1px solid rgba(239, 68, 68, 0.3); background: var(--card-bg); box-shadow: var(--elevation-3); text-align: center; margin: auto; box-sizing: border-box;'
   });
 
   modal.innerHTML = `
@@ -887,12 +887,12 @@ function showConfirmResetCajasModal(title, description, onConfirm) {
 function showConfirmDeleteUserModal(email, onConfirm) {
   const overlay = el('div', {
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; animation: fadeIn 0.2s ease;'
+    style: 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; animation: fadeIn 0.2s ease; overflow-y: auto;'
   });
 
   const modal = el('div', {
     classes: ['modal', 'glass-card'],
-    style: 'max-width: 420px; padding: 2rem; border-radius: 24px; border: 1px solid rgba(239, 68, 68, 0.2); background: var(--card-bg); box-shadow: var(--elevation-3); text-align: center;'
+    style: 'max-width: 420px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; border-radius: 24px; border: 1px solid rgba(239, 68, 68, 0.2); background: var(--card-bg); box-shadow: var(--elevation-3); text-align: center; margin: auto; box-sizing: border-box;'
   });
 
   modal.innerHTML = `

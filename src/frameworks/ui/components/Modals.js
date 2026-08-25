@@ -131,8 +131,8 @@ export function renderScanResultsModal({ newCount, matchedCount, unmatchedCount,
 /** Render Date Range or Single Date Modal (Reusable) */
 export function renderDateModal(options) {
   const { title = 'Seleccionar Fechas', description = '', submitText = 'Aceptar', onSubmit, single = false, value = '' } = options;
-  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;' });
-  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; padding: 2rem;' });
+  const overlay = el('div', { classes: ['modal-overlay'], style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; overflow-y: auto;' });
+  const modal = el('div', { classes: ['modal', 'glass-card'], style: 'max-width: 400px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; margin: auto;' });
   
   const today = new Date().toISOString().split('T')[0];
   const firstDayOfMonth = new Date();
@@ -199,12 +199,12 @@ export function renderDateModal(options) {
 export function showAuxiliaryCalculator(moduleTitle = 'Caja General') {
   const overlay = el('div', { 
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;'
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; overflow-y: auto;'
   });
 
   const content = el('div', { 
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 600px; padding: 1.5rem 1.25rem; display: flex; flex-direction: column; max-height: 95vh; box-sizing: border-box;'
+    style: 'width: 100%; max-width: 600px; padding: 1.5rem 1.25rem; display: flex; flex-direction: column; max-height: calc(100vh - 3rem); margin: auto; box-sizing: border-box;'
   });
 
   content.innerHTML = `

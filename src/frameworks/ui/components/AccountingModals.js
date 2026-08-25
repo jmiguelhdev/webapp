@@ -62,12 +62,12 @@ export function showEntryModal(existingEntry, { clients, producers, onSave, titl
 
   const modal = el('div', {
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem; overflow-y: auto;'
   });
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 2rem;'
+    style: 'width: 100%; max-width: 600px; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; margin: auto;'
   });
 
   content.innerHTML = `
@@ -208,12 +208,12 @@ export function showSalaryPaymentModal({ establishments, onSave, title }) {
 
   const modal = el('div', {
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem; overflow-y: auto;'
   });
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; padding: 2rem;'
+    style: 'width: 100%; max-width: 600px; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; margin: auto;'
   });
 
   content.innerHTML = `
@@ -353,12 +353,12 @@ export function showSalaryPaymentModal({ establishments, onSave, title }) {
 export function showBillCalculator(expectedAmount, onApply, initialBreakdown = null) {
   const modal = el('div', {
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem;'
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 1rem; overflow-y: auto;'
   });
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 600px; padding: 1.5rem 1.25rem; display: flex; flex-direction: column; max-height: 95vh; box-sizing: border-box;'
+    style: 'width: 100%; max-width: 600px; padding: 1.5rem 1.25rem; display: flex; flex-direction: column; max-height: calc(100vh - 3rem); margin: auto; box-sizing: border-box;'
   });
 
   content.innerHTML = `
@@ -654,12 +654,12 @@ export function showBillCalculator(expectedAmount, onApply, initialBreakdown = n
 export function showArcaImportModal({ invoices = [], onConfirm }) {
   const modal = el('div', {
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem; overflow-y: auto;'
   });
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 850px; max-height: 90vh; overflow-y: auto; padding: 2rem;'
+    style: 'width: 100%; max-width: 850px; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; margin: auto;'
   });
 
   if (!invoices || invoices.length === 0) {
@@ -786,12 +786,12 @@ export function showArcaImportModal({ invoices = [], onConfirm }) {
 export function showIssuedArcaModal({ invoices = [], clients = [], onLinkToClient }) {
   const modal = el('div', {
     classes: ['modal-overlay'],
-    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;'
+    style: 'position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem; overflow-y: auto;'
   });
 
   const content = el('div', {
     classes: ['glass-card'],
-    style: 'width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; padding: 2rem;'
+    style: 'width: 100%; max-width: 900px; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; margin: auto;'
   });
 
   if (!invoices || invoices.length === 0) {

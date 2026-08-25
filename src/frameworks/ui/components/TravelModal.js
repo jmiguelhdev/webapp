@@ -109,8 +109,8 @@ export function showTravelModal(travel, options) {
     const producersOpts = `<option value="" disabled selected>-- Agregar Productor --</option>` + producers.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
     container.innerHTML = `
-      <div class="modal-overlay" style="position: fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1.5rem;">
-        <div class="glass-card fade-in" id="travel-modal" style="max-width: 900px; width: 100%; max-height: 92vh; overflow-y: auto; border-radius: 24px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); padding: 0; display: flex; flex-direction: column;">
+      <div class="modal-overlay" style="position: fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1.5rem; overflow-y: auto;">
+        <div class="glass-card fade-in" id="travel-modal" style="max-width: 900px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; border-radius: 24px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); padding: 0; display: flex; flex-direction: column; margin: auto; box-sizing: border-box;">
           
           <!-- Header Bar -->
           <div style="padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.01); border-top-left-radius: 24px; border-top-right-radius: 24px;">

@@ -574,12 +574,12 @@ export function createStatCard(label, value, color, emoji) {
 export function showStateConfirmationModal({ title, promptMsg, expectedValue, onConfirm }) {
   const overlay = el('div', {
     classes: ['modal-overlay', 'fade-in'],
-    style: 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 1100; padding: 1.5rem;'
+    style: 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 1100; padding: 1.5rem; overflow-y: auto;'
   });
   
   const modal = el('div', {
     classes: ['glass-card'],
-    style: 'max-width: 480px; width: 100%; padding: 2rem; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 1.25rem;'
+    style: 'max-width: 480px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; padding: 2rem; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 1.25rem; margin: auto; box-sizing: border-box;'
   });
   
   modal.innerHTML = `
