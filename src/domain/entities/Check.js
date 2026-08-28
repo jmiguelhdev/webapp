@@ -48,6 +48,9 @@ export class Check {
     this.profit = parseFloat(data.profit) || 0;
     this.days = parseInt(data.days) || 0;
     this.expireAt = data.expireAt || null;
+
+    // Movement history log
+    this.movements = Array.isArray(data.movements) ? [...data.movements] : [];
   }
 
   /**
@@ -166,4 +169,162 @@ export class Check {
     }
     return { status, code: 'IN_PORTFOLIO', label: 'EN CARTERA', colorClass: 'badge-pending' };
   }
+
+  /**
+   * Agrega un nuevo movimiento al historial cronológico del cheque.
+   * @param {Object} movement - Datos del evento { type, title, description, details, date, extra }
+   */
+  addMovement(movement = {}) {
+    const now = Date.now();
+    const event = {
+      id: movement.id || 'MOV-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase(),
+      type: movement.type || 'GENERAL',
+      title: movement.title || 'Movimiento',
+      description: movement.description || '',
+      details: movement.details || null,
+      date: movement.date ? (typeof movement.date === 'string' && !isNaN(Date.parse(movement.date)) ? new Date(movement.date).getTime() : Number(movement.date)) : now,
+      createdAt: now
+    };
+    if (!this.movements) this.movements = [];
+    this.movements.push(event);
+    return event;
+  }
+
+  /**
+   * Reconstruye o retorna la línea de tiempo completa del cheque.
+   * Si no hay movimientos guardados (retrocompatibilidad), infiere la secuencia de eventos.
+   * @param {Array<Object>} contacts - Catálogo de contactos para resolver nombres.
+   * @returns {Array<Object>} Lista cronológica de eventos de la línea de tiempo.
+   */
+  getFullTimeline(contacts = []) {
+    const events = [];
+    const getContactName = (id) => {
+      if (!id) return 'Desconocido';
+      const c = contacts.find(con => con.id === id || con.name === id);
+      return c ? c.name : id;
+    };
+
+    const hasBuyEvent = (this.movements || []).some(m => m.type === 'BUY' || (m.title && m.title.includes('Compra')));
+    const hasSellEvent = (this.movements || []).some(m => m.type === 'SELL' || (m.title && m.title.includes('Venta')));
+
+    const receptionTime = this.receptionDate ? new Date(this.receptionDate + 'T00:00:00').getTime() : Date.now();
+
+    // 1. Siempre asegurar que exista el evento de Compra / Ingreso inicial
+    if (!hasBuyEvent && this.buySide) {
+      const sellerName = getContactName(this.buySide?.contactId);
+      events.push({
+        id: 'INIT-BUY',
+        type: 'BUY',
+        title: '🟢 Ingreso / Compra en Cartera',
+        description: `Ingresó a cartera desde <strong>${sellerName}</strong> por valor nominal de $${this.nominalValue.toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
+        details: {
+          seller: sellerName,
+          nominalValue: this.nominalValue,
+          netAmount: this.buySide?.netAmount || 0,
+          pesificacionRate: this.buySide?.pesificacionRate || 0,
+          monthlyInterest: this.buySide?.monthlyInterest || 0,
+          operationId: this.buySide?.operationId || 'S/N'
+        },
+        date: receptionTime,
+        dateStr: this.receptionDate ? new Date(this.receptionDate + 'T12:00:00').toLocaleDateString('es-AR') : 'N/A'
+      });
+    }
+
+    // 2. Si existió venta previa y no está registrada en movements, asegurar evento de venta inicial
+    if (!hasSellEvent && this.sellSide && (this.sellSide.status === 'SOLD' || this.sellSide.status === 'REJECTED' || this.sellSide.contactId || this.sellSide.operationId)) {
+      const buyerName = getContactName(this.sellSide.contactId);
+      const sellTime = this.sellSide.date ? new Date(this.sellSide.date).getTime() : receptionTime + 1000;
+      events.push({
+        id: 'INIT-SELL',
+        type: 'SELL',
+        title: '🔵 Venta / Salida de Cheque',
+        description: `Vendido a <strong>${buyerName}</strong> por neto de $${(this.sellSide.netAmount || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
+        details: {
+          buyer: buyerName,
+          netAmount: this.sellSide.netAmount || 0,
+          pesificacionRate: this.sellSide.pesificacionRate || 0,
+          monthlyInterest: this.sellSide.monthlyInterest || 0,
+          operationId: this.sellSide.operationId || 'S/N'
+        },
+        date: sellTime,
+        dateStr: this.sellSide.date ? new Date(this.sellSide.date).toLocaleString('es-AR') : 'N/A'
+      });
+    }
+
+    if (this.movements && this.movements.length > 0) {
+      this.movements.forEach(m => {
+        events.push({
+          id: m.id,
+          type: m.type || 'GENERAL',
+          title: m.title || 'Movimiento',
+          description: m.description || '',
+          details: m.details || null,
+          date: m.date || m.createdAt || 0,
+          dateStr: m.date ? new Date(m.date).toLocaleString('es-AR') : 'N/A'
+        });
+      });
+    } else {
+      // 3. Evento de Rechazo / Retorno si es cheque legado sin movements
+      if (this.sellSide?.status === 'REJECTED') {
+        const buyerName = getContactName(this.sellSide.contactId);
+        events.push({
+          id: 'INIT-REJECTED',
+          type: 'REJECTED',
+          title: '🔴 Cheque Rechazado',
+          description: `El cheque entregado a <strong>${buyerName}</strong> fue marcado como Rechazado.`,
+          details: {
+            reason: this.sellSide?.backReason || this.notes || 'Sin motivo especificado'
+          },
+          date: (this.sellSide?.date ? new Date(this.sellSide.date).getTime() : receptionTime) + 2000,
+          dateStr: 'Registrado'
+        });
+      } else if (this.sellSide?.status === 'BACK' || this.sellSide?.status === 'RETURNED') {
+        events.push({
+          id: 'INIT-BACK',
+          type: 'RETURNED',
+          title: '🔄 Cheque Retornado a Cartera',
+          description: `El cheque volvió a cartera.${this.sellSide?.backReason ? ` Motivo: ${this.sellSide.backReason}` : ''}`,
+          date: (this.sellSide?.date ? new Date(this.sellSide.date).getTime() : receptionTime) + 2000,
+          dateStr: 'Registrado'
+        });
+      }
+
+      // 4. Estados de Seguimiento de Rechazo para cheque legado
+      if (this.returned) {
+        events.push({
+          id: 'INIT-VOLVIO',
+          type: 'CONFIRMATION_VOLVIO',
+          title: '🔄 Hoja de Cheque Recuperada',
+          description: 'Se confirmó que la hoja física o soporte del cheque volvió.',
+          date: this.returnedAt || Date.now(),
+          dateStr: this.returnedAt ? new Date(this.returnedAt).toLocaleString('es-AR') : 'N/A'
+        });
+      }
+      if (this.settledByCompany) {
+        events.push({
+          id: 'INIT-SETTLED-COMPANY',
+          type: 'CONFIRMATION_COMPANY',
+          title: '🏢 Levantado por la Empresa',
+          description: 'El cheque fue levantado / saldado por la empresa.',
+          date: this.settledByCompanyAt || Date.now(),
+          dateStr: this.settledByCompanyAt ? new Date(this.settledByCompanyAt).toLocaleString('es-AR') : 'N/A'
+        });
+      }
+      if (this.settledBySeller) {
+        const sellerName = getContactName(this.buySide?.contactId);
+        events.push({
+          id: 'INIT-SETTLED-SELLER',
+          type: 'CONFIRMATION_SELLER',
+          title: `👤 Levantado por Vendedor (${sellerName})`,
+          description: `El cheque fue levantado / saldado por el vendedor original (${sellerName}).`,
+          date: this.settledBySellerAt || Date.now(),
+          dateStr: this.settledBySellerAt ? new Date(this.settledBySellerAt).toLocaleString('es-AR') : 'N/A'
+        });
+      }
+    }
+
+    events.sort((a, b) => (a.date || 0) - (b.date || 0));
+    return events;
+  }
 }
+

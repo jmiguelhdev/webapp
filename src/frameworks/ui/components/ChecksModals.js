@@ -32,7 +32,14 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
 
   content.innerHTML = `
     <div style="flex-shrink: 0; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; border-radius: 20px 20px 0 0; z-index: 10;">
-      <h2 style="margin: 0; font-size: clamp(1.1rem, 3vw, 1.4rem); font-weight: 700;">${isEditing ? '✏️ Editar' : '💸 Nueva'} Operación de Cheque</h2>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <h2 style="margin: 0; font-size: clamp(1.1rem, 3vw, 1.4rem); font-weight: 700;">${isEditing ? '✏️ Editar' : '💸 Nueva'} Operación de Cheque</h2>
+        ${isEditing ? `
+          <button type="button" id="btn-modal-check-history" title="Ver Historial de Movimientos del Cheque" style="padding: 0.35rem 0.75rem; border-radius: 8px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.35); color: #818cf8; font-size: 0.8rem; font-weight: 750; cursor: pointer; display: flex; align-items: center; gap: 0.35rem; transition: all 0.2s;">
+            🕒 Historial
+          </button>
+        ` : ''}
+      </div>
       <button type="button" class="btn-close-modal" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--text-main); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.2s;">✕</button>
     </div>
 
@@ -194,6 +201,13 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
 
   modal.appendChild(content);
   document.body.appendChild(modal);
+
+  const modalHistoryBtn = content.querySelector('#btn-modal-check-history');
+  if (modalHistoryBtn && existingOp) {
+    modalHistoryBtn.onclick = () => {
+      showCheckMovementsModal(existingOp, contacts);
+    };
+  }
 
   content.querySelector('#btn-bcra').onclick = () => {
     const cuitInput = content.querySelector('#issuer-cuit');
@@ -371,6 +385,77 @@ export function showOperationModal(existingOp, contacts, buyContacts, onSave) {
           monthlyInterest: '',
           backReason: ''
         };
+      })(),
+      movements: (() => {
+        const chkInstance = existingOp instanceof Check ? existingOp : new Check(existingOp || {});
+        let currentMovements = chkInstance.movements ? [...chkInstance.movements] : [];
+        if (isEditing && currentMovements.length === 0) {
+          currentMovements = chkInstance.getFullTimeline(contacts).map(m => ({
+            id: m.id,
+            type: m.type,
+            title: m.title,
+            description: m.description,
+            details: m.details,
+            date: m.date,
+            createdAt: m.date
+          }));
+        }
+
+        if (isEditing) {
+          const prevStatus = existingOp?.sellSide?.status || 'PENDING';
+          const statusEl = content.querySelector('#edit-sellside-status');
+          const newStatus = statusEl ? statusEl.value : prevStatus;
+          const sellContactInput = content.querySelector('#sellside-contact-input');
+          const sellContactName = sellContactInput ? sellContactInput.value.trim() : '';
+          const sellBackReason = formData.get('sellSide_backReason') || '';
+
+          const statusLabels = {
+            PENDING: 'En Cartera',
+            SOLD: 'Vendido',
+            RETURNED: 'Devuelto',
+            BACK: 'Volvió',
+            REJECTED: 'Rechazado'
+          };
+
+          if (prevStatus !== newStatus) {
+            currentMovements.push({
+              id: 'MOV-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase(),
+              type: newStatus === 'REJECTED' ? 'REJECTED' : (newStatus === 'SOLD' ? 'SELL' : (newStatus === 'BACK' || newStatus === 'RETURNED' ? 'RETURNED' : 'STATUS_CHANGE')),
+              title: newStatus === 'REJECTED' 
+                ? '🔴 Cheque Marcado como Rechazado' 
+                : (newStatus === 'SOLD' 
+                  ? '🔵 Cheque Marcado como Vendido' 
+                  : (newStatus === 'BACK' || newStatus === 'RETURNED'
+                    ? '🔄 Cheque Retornado a Cartera'
+                    : `✏️ Cambio de Estado: ${statusLabels[newStatus] || newStatus}`)),
+              description: `El estado del cheque fue modificado de <strong>"${statusLabels[prevStatus] || prevStatus}"</strong> a <strong>"${statusLabels[newStatus] || newStatus}"</strong>.${sellBackReason ? ` Motivo: ${sellBackReason}` : ''}`,
+              details: {
+                prevStatus,
+                newStatus,
+                buyer: sellContactName || (existingOp?.sellSide?.contactId ? (contacts.find(c => c.id === existingOp.sellSide.contactId)?.name || existingOp.sellSide.contactId) : ''),
+                backReason: sellBackReason,
+                notes: formData.get('notes') || ''
+              },
+              date: Date.now(),
+              createdAt: Date.now()
+            });
+          } else {
+            currentMovements.push({
+              id: 'MOV-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase(),
+              type: 'EDIT',
+              title: '✏️ Datos de Cheque Editados',
+              description: `Se actualizaron los datos de la operación.${formData.get('notes') ? ` Notas: ${formData.get('notes')}` : ''}`,
+              details: {
+                nominalValue: parseFloat(formData.get('nominalValue')),
+                dueDate: formData.get('dueDate'),
+                issuerName: formData.get('issuerName')
+              },
+              date: Date.now(),
+              createdAt: Date.now()
+            });
+          }
+        }
+        return currentMovements;
       })()
     };
     onSave(data);
@@ -882,3 +967,138 @@ export function showBatchSellModal(contacts, selectedChecks, onBatchSell, onDone
   content.querySelector('.btn-close-modal').onclick = closeModal;
   modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 }
+
+/**
+ * Muestra el modal con la línea de tiempo del historial de movimientos del cheque.
+ * @param {Check|Object} check - Entidad o datos del cheque.
+ * @param {Array<Object>} contacts - Catálogo de contactos para resolver nombres.
+ */
+export function showCheckMovementsModal(check, contacts = []) {
+  const chk = check instanceof Check ? check : new Check(check || {});
+  chk.calculate();
+  const timeline = chk.getFullTimeline(contacts);
+
+  const overlay = el('div', { 
+    classes: ['modal-overlay', 'fade-in'], 
+    style: 'position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; padding: clamp(0.5rem, 3vw, 2rem); overflow-y: auto;' 
+  });
+
+  const modal = el('div', { 
+    classes: ['glass-card'], 
+    style: 'background: var(--modal-bg, #16171d); max-width: 620px; width: 100%; max-height: calc(100vh - 3rem); overflow-y: auto; display: flex; flex-direction: column; padding: 0; position: relative; border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7); margin: auto; overscroll-behavior: contain;' 
+  });
+
+  const statusChipHtml = (() => {
+    const status = chk.sellSide?.status || 'PENDING';
+    if (status === 'SOLD') return '<span style="font-size:0.75rem;font-weight:800;padding:0.2rem 0.6rem;border-radius:6px;background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">VENDIDO</span>';
+    if (status === 'REJECTED') return '<span style="font-size:0.75rem;font-weight:800;padding:0.2rem 0.6rem;border-radius:6px;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);">RECHAZADO</span>';
+    if (status === 'BACK') return '<span style="font-size:0.75rem;font-weight:800;padding:0.2rem 0.6rem;border-radius:6px;background:rgba(245,158,11,0.15);color:#fbbf24;border:1px solid rgba(245,158,11,0.3);">VOLVIÓ</span>';
+    if (status === 'RETURNED') return '<span style="font-size:0.75rem;font-weight:800;padding:0.2rem 0.6rem;border-radius:6px;background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.3);">DEVUELTO</span>';
+    return '<span style="font-size:0.75rem;font-weight:800;padding:0.2rem 0.6rem;border-radius:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3);">EN CARTERA</span>';
+  })();
+
+  modal.innerHTML = `
+    <div style="flex-shrink: 0; background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 1.25rem 1.75rem; display: flex; align-items: center; justify-content: space-between; border-radius: 20px 20px 0 0; z-index: 10;">
+      <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+        <span style="font-size: 1.3rem;">🕒</span>
+        <div>
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-main);">
+            Historial de Movimientos
+          </h3>
+          <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600; margin-top: 0.15rem;">
+            Nº ${chk.checkNumber || 'S/N'} • ${chk.bank || 'Sin banco'}
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        ${statusChipHtml}
+        <button type="button" id="hist-close-x-btn" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--text-main); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center;">✕</button>
+      </div>
+    </div>
+
+    <div style="padding: 1.5rem 1.75rem; overflow-y: auto; flex: 1;">
+      <!-- Resumen del Cheque -->
+      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.85rem;">
+        <div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Valor Nominal</div>
+          <div style="font-size: 1.1rem; font-weight: 800; font-family: monospace; color: #ffffff; margin-top: 0.15rem;">${formatCurrency(chk.nominalValue)}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">F. Pago / Cobro</div>
+          <div style="font-size: 0.92rem; font-weight: 700; color: var(--primary); margin-top: 0.15rem;">📅 ${formatDateLocal(chk.dueDate)}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Librador</div>
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); margin-top: 0.15rem;">${chk.issuerName || '-'}</div>
+          ${chk.issuerCuit ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">CUIT: ${chk.issuerCuit}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- Línea de Tiempo -->
+      <h4 style="margin: 0 0 1rem; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700;">
+        📜 Secuencia Cronológica (${timeline.length} evento${timeline.length > 1 ? 's' : ''})
+      </h4>
+
+      <div class="timeline-container" style="position: relative; padding-left: 26px; border-left: 2px solid rgba(255,255,255,0.1); margin-left: 10px; display: flex; flex-direction: column; gap: 1.5rem;">
+        ${timeline.map((e, index) => {
+          const typeColors = {
+            BUY: '#10b981',
+            SELL: '#3b82f6',
+            REJECTED: '#ef4444',
+            RETURNED: '#8b5cf6',
+            CONFIRMATION_VOLVIO: '#14b8a6',
+            CONFIRMATION_COMPANY: '#6366f1',
+            CONFIRMATION_SELLER: '#a855f7',
+            UNDO_SALE: '#f43f5e',
+            STATUS_CHANGE: '#f59e0b',
+            EDIT: '#06b6d4'
+          };
+          const dotColor = typeColors[e.type] || 'var(--primary)';
+          const isLast = index === timeline.length - 1;
+
+          return `
+            <div class="timeline-item" style="position: relative;">
+              <div style="position: absolute; left: -33px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: ${dotColor}; border: 3px solid var(--modal-bg, #16171d); box-shadow: 0 0 8px ${dotColor}88;"></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted);">🕒 ${e.dateStr}</span>
+                ${isLast ? '<span style="font-size: 0.65rem; font-weight: 800; background: rgba(99,102,241,0.2); color: #818cf8; border: 1px solid rgba(99,102,241,0.4); padding: 0.1rem 0.4rem; border-radius: 4px; text-transform: uppercase;">Actual</span>' : ''}
+              </div>
+              <div style="font-weight: 750; font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.25rem;">
+                ${e.title}
+              </div>
+              <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.45;">
+                ${e.description}
+              </div>
+              ${e.details ? `
+                <div style="margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;">
+                  ${e.details.seller ? `<div><strong style="color:var(--text-muted);">Vendedor:</strong> <span style="color:#ffffff;">${e.details.seller}</span></div>` : ''}
+                  ${e.details.buyer ? `<div><strong style="color:var(--text-muted);">Comprador:</strong> <span style="color:#ffffff;">${e.details.buyer}</span></div>` : ''}
+                  ${e.details.netAmount !== undefined ? `<div><strong style="color:var(--text-muted);">Neto:</strong> <span style="color:#10b981; font-family:monospace; font-weight:700;">${formatCurrency(e.details.netAmount)}</span></div>` : ''}
+                  ${e.details.pesificacionRate ? `<div><strong style="color:var(--text-muted);">Pesif:</strong> <span style="color:#ffffff;">${e.details.pesificacionRate}%</span></div>` : ''}
+                  ${e.details.monthlyInterest ? `<div><strong style="color:var(--text-muted);">Int. Mensual:</strong> <span style="color:#ffffff;">${e.details.monthlyInterest}%</span></div>` : ''}
+                  ${e.details.operationId && e.details.operationId !== 'S/N' ? `<div><strong style="color:var(--text-muted);">Op ID:</strong> <span style="color:#818cf8; font-family:monospace;">${e.details.operationId}</span></div>` : ''}
+                  ${e.details.reason ? `<div style="width:100%;"><strong style="color:#f87171;">Motivo:</strong> <span style="color:#f87171;">${e.details.reason}</span></div>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+
+    <div style="flex-shrink: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 1rem 1.75rem; display: flex; justify-content: flex-end; border-radius: 0 0 20px 20px;">
+      <button type="button" id="hist-close-footer-btn" class="btn-secondary" style="padding: 0.6rem 1.5rem; border-radius: 10px; font-weight: 700; font-size: 0.88rem; cursor: pointer;">
+        Cerrar
+      </button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const closeModal = () => overlay.remove();
+  modal.querySelector('#hist-close-x-btn').onclick = closeModal;
+  modal.querySelector('#hist-close-footer-btn').onclick = closeModal;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+}
+

@@ -308,6 +308,28 @@ export class CheckPresenter {
       if (!operationData.buySide.date) {
         operationData.buySide.date = new Date().toISOString();
       }
+      
+      // Initial creation movement if no movements exist
+      if (!operationData.movements || operationData.movements.length === 0) {
+        const sellerName = this.contacts.find(c => c.id === operationData.buySide?.contactId)?.name || operationData.buySide?.contactId || 'Vendedor';
+        const now = Date.now();
+        operationData.movements = [{
+          id: 'MOV-' + now.toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase(),
+          type: 'BUY',
+          title: '🟢 Ingreso / Compra en Cartera',
+          description: `Ingresó a cartera desde <strong>${sellerName}</strong> por valor nominal de $${(parseFloat(operationData.nominalValue) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
+          details: {
+            seller: sellerName,
+            nominalValue: parseFloat(operationData.nominalValue) || 0,
+            pesificacionRate: parseFloat(operationData.buySide?.pesificacionRate) || 0,
+            monthlyInterest: parseFloat(operationData.buySide?.monthlyInterest) || 0,
+            operationId: operationData.buySide?.operationId || ''
+          },
+          date: operationData.receptionDate ? new Date(operationData.receptionDate + 'T00:00:00').getTime() : now,
+          createdAt: now
+        }];
+      }
+
       const processed = this.calculateOperation(operationData);
       const checkId = await this.checkRepository.saveCheck(this.currentUserUid, processed);
       processed.id = processed.id || checkId;
@@ -365,13 +387,21 @@ export class CheckPresenter {
       await this.operatorRepository.syncCheckTransaction(check.id, 'BUY', null);
     }
 
-    // SELL SIDE (Destino): Nosotros le damos un cheque. Funciona como DEUDA (Debe).
-    if (check.sellSide && check.sellSide.status === 'SOLD' && check.sellSide.contactId) {
+    // SELL SIDE (Destino): Nosotros le damos un cheque o fue rechazado (Opción B: mantener registro).
+    const isSold = check.sellSide && check.sellSide.status === 'SOLD' && check.sellSide.contactId;
+    const isRejected = check.sellSide && check.sellSide.status === 'REJECTED' && check.sellSide.contactId;
+
+    if (isSold || isRejected) {
+      const desc = isRejected
+        ? `Cheque Rechazado N°${check.checkNumber} (${check.bank})`
+        : `Salida Cheque N°${check.checkNumber} (${check.bank})`;
+
       const txData = {
         type: 'DEBT',
-        amount: check.sellSide.netAmount || 0,
-        description: `Salida Cheque N°${check.checkNumber} (${check.bank})`,
-        date: check.sellSide.date ? new Date(check.sellSide.date).getTime() : Date.now()
+        amount: check.sellSide.netAmount || check.nominalValue || 0,
+        description: desc,
+        date: check.sellSide.date ? new Date(check.sellSide.date).getTime() : Date.now(),
+        isRejected: isRejected
       };
       
       const isOperator = this.operators.some(o => o.id === check.sellSide.contactId || o.name === check.sellSide.contactId);
@@ -385,6 +415,7 @@ export class CheckPresenter {
         await this.operatorRepository.syncCheckTransaction(check.id, 'SELL', null);
       }
     } else {
+      // Si volvió a cartera (PENDING, BACK, RETURNED), se desvincula la deuda del comprador
       await this.clientRepository.syncCheckTransaction(check.id, 'SELL', null);
       await this.operatorRepository.syncCheckTransaction(check.id, 'SELL', null);
     }
@@ -417,6 +448,13 @@ export class CheckPresenter {
       issuerCuit: check.issuerCuit,
       days: check.days,
       expireAt: check.expireAt,
+      returned: check.returned || false,
+      returnedAt: check.returnedAt || null,
+      settledByCompany: check.settledByCompany || false,
+      settledByCompanyAt: check.settledByCompanyAt || null,
+      settledBySeller: check.settledBySeller || false,
+      settledBySellerAt: check.settledBySellerAt || null,
+      movements: check.movements ? [...check.movements] : [],
       buySide: check.buySide ? { ...check.buySide } : null,
       sellSide: check.sellSide ? { ...check.sellSide } : null,
       profit: check.profit
@@ -438,6 +476,26 @@ export class CheckPresenter {
         op.buySide.operationId = buyOperationId;
         op.buySide.date = buyDate;
         
+        const sellerName = this.contacts.find(c => c.id === op.buySide?.contactId)?.name || op.buySide?.contactId || 'Vendedor';
+        const now = Date.now();
+        if (!op.movements || op.movements.length === 0) {
+          op.movements = [{
+            id: 'MOV-' + now.toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase(),
+            type: 'BUY',
+            title: '🟢 Compra en Lote Masivo',
+            description: `Ingresó a cartera en lote desde <strong>${sellerName}</strong> por valor nominal de $${(parseFloat(op.nominalValue) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
+            details: {
+              seller: sellerName,
+              nominalValue: parseFloat(op.nominalValue) || 0,
+              pesificacionRate: parseFloat(op.buySide?.pesificacionRate) || 0,
+              monthlyInterest: parseFloat(op.buySide?.monthlyInterest) || 0,
+              operationId: buyOperationId
+            },
+            date: op.receptionDate ? new Date(op.receptionDate + 'T00:00:00').getTime() : now,
+            createdAt: now
+          }];
+        }
+
         const processed = this.calculateOperation(op);
         const checkId = await this.checkRepository.saveCheck(this.currentUserUid, processed);
         processed.id = processed.id || checkId;
@@ -463,11 +521,29 @@ export class CheckPresenter {
     try {
       const sellOperationId = 'VTA-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
       const sellDate = new Date().toISOString();
+      const buyerName = this.contacts.find(c => c.id === sellData.contactId)?.name || sellData.contactId || 'Comprador';
+      
       for (const id of checkIds) {
         const check = this.checks.find(c => c.id === id);
         if (!check) continue;
+        
+        const chkInstance = new Check(check);
+        chkInstance.addMovement({
+          type: 'SELL',
+          title: '🔵 Venta Masiva de Cheque',
+          description: `Vendido a <strong>${buyerName}</strong> en operación masiva por valor nominal de $${(parseFloat(check.nominalValue) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}.`,
+          details: {
+            buyer: buyerName,
+            pesificacionRate: parseFloat(sellData.pesificacionRate) || 0,
+            monthlyInterest: parseFloat(sellData.monthlyInterest) || 0,
+            operationId: sellOperationId
+          },
+          date: Date.now()
+        });
+
         const updated = {
           ...check,
+          movements: chkInstance.movements,
           sellSide: {
             ...check.sellSide,
             ...sellData,
@@ -505,8 +581,20 @@ export class CheckPresenter {
       }
 
       for (const check of checksToRevert) {
+        const chkInstance = new Check(check);
+        chkInstance.addMovement({
+          type: 'UNDO_SALE',
+          title: '↩️ Venta Deshecha / Revertida',
+          description: `Se revirtió la operación de venta (${operationId}). El cheque retornó a cartera.`,
+          details: {
+            previousOperationId: operationId
+          },
+          date: Date.now()
+        });
+
         const updated = {
           ...check,
+          movements: chkInstance.movements,
           sellSide: {
             status: 'PENDING',
             contactId: '',

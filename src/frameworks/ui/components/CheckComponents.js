@@ -1,7 +1,8 @@
 import { el } from '../../../frameworks/utils/dom.js';
 import { formatCurrency, formatDateLocal, addDays, getSortDate, parseDateLocal } from '../../../frameworks/utils/formatters.js';
-import { showOperationModal } from './ChecksModals.js';
+import { showOperationModal, showCheckMovementsModal } from './ChecksModals.js';
 import { printBuyOperationReport } from '../reports/ReportService.js';
+import { Check } from '../../../domain/entities/Check.js';
 
 export function renderPaginationControls(currentPage, totalPages, totalItems, onPageChange) {
   const pagContainer = el('div', { 
@@ -353,6 +354,9 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
         `}
         <td style="text-align: right; white-space: nowrap; border-radius: 0 14px 14px 0;">
           <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
+            <button class="icon-btn check-history-btn" data-id="${op.id}" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); color: #818cf8; border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Ver Historial de Movimientos">
+              <span style="font-size: 0.82rem;">🕒</span>
+            </button>
             <button class="icon-btn print-single-buy-pdf-btn" data-id="${op.id}" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.25); color: #818cf8; border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Imprimir Comprobante de Compra PDF">
               <span style="font-size: 0.8rem;">🖨️</span>
             </button>
@@ -375,7 +379,7 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
       const cbEmpresa = tr.querySelector('.state-levantado-empresa');
       const cbVendedor = tr.querySelector('.state-levantado-vendedor');
 
-      const handleStateCheck = (checkbox, stateKey, title, promptMsg) => {
+      const handleStateCheck = (checkbox, stateKey, title, promptMsg, movType, movTitle, movDesc) => {
         checkbox.addEventListener('change', (evt) => {
           if (checkbox.checked) {
             checkbox.checked = false; // Revert until confirmed
@@ -384,8 +388,20 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
               promptMsg,
               expectedValue: op.checkNumber,
               onConfirm: () => {
+                const now = Date.now();
                 op[stateKey] = true;
-                op[`${stateKey}At`] = Date.now();
+                op[`${stateKey}At`] = now;
+                
+                // Add movement to history
+                const chkInstance = op instanceof Check ? op : new Check(op);
+                chkInstance.addMovement({
+                  type: movType,
+                  title: movTitle,
+                  description: movDesc,
+                  date: now
+                });
+                op.movements = chkInstance.movements;
+                
                 onSave(op);
               }
             });
@@ -393,11 +409,15 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
         });
       };
 
-      if (cbVolvio) handleStateCheck(cbVolvio, 'returned', '¿Volvió el Cheque?', `¿Tienes la Hoja del Cheque? Para continuar por favor ingresa el número del cheque:`);
-      if (cbEmpresa) handleStateCheck(cbEmpresa, 'settledByCompany', 'Levantado por la Empresa', `¿El cheque fue levantado por la empresa? Para continuar por favor ingresa el número del cheque:`);
-      if (cbVendedor) handleStateCheck(cbVendedor, 'settledBySeller', 'Levantado por Vendedor', `¿El cheque fue levantado por el vendedor (${seller})? Para continuar por favor ingresa el número del cheque:`);
+      if (cbVolvio) handleStateCheck(cbVolvio, 'returned', '¿Volvió el Cheque?', `¿Tienes la Hoja del Cheque? Para continuar por favor ingresa el número del cheque:`, 'CONFIRMATION_VOLVIO', '🔄 Hoja de Cheque Recuperada', 'Se confirmó la recuperación física / soporte del cheque.');
+      if (cbEmpresa) handleStateCheck(cbEmpresa, 'settledByCompany', 'Levantado por la Empresa', `¿El cheque fue levantado por la empresa? Para continuar por favor ingresa el número del cheque:`, 'CONFIRMATION_COMPANY', '🏢 Levantado por la Empresa', 'Se confirmó que el cheque fue levantado y saldado por la empresa.');
+      if (cbVendedor) handleStateCheck(cbVendedor, 'settledBySeller', 'Levantado por Vendedor', `¿El cheque fue levantado por el vendedor (${seller})? Para continuar por favor ingresa el número del cheque:`, 'CONFIRMATION_SELLER', `👤 Levantado por Vendedor (${seller})`, `Se confirmó que el cheque fue levantado y saldado por el vendedor original (${seller}).`);
 
       tr.addEventListener('click', (e) => {
+        if (e.target.closest('.check-history-btn')) {
+          showCheckMovementsModal(op, contacts);
+          return;
+        }
         if (e.target.closest('.edit-btn')) { showOperationModal(op, contacts, buyContacts && buyContacts.length > 0 ? buyContacts : contacts, onSave); return; }
         if (e.target.closest('.delete-btn')) { onDelete(op.id); return; }
         if (e.target.closest('.bcra-list-btn')) {
