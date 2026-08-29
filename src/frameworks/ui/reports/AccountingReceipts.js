@@ -182,8 +182,9 @@ export function printReceipt(entry, type = 'standard') {
  */
 export function printSalaryReceipt(entry, type = 'standard', boxTitle = 'Caja General') {
   const printWindow = window.open('', '_blank', 'width=800,height=900');
-  const dateStr = new Date(entry.createdAt).toLocaleDateString('es-AR');
-  const timeStr = new Date(entry.createdAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const dateSource = entry.createdAt || entry.date || Date.now();
+  const dateStr = new Date(dateSource).toLocaleDateString('es-AR');
+  const timeStr = new Date(dateSource).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
   const isThermal = type === 'thermal';
   const billDetailsHtml = buildBillDetailsHtml(entry.billCounts, isThermal);

@@ -783,9 +783,10 @@ export function printBuyOperationReport(operationId, sellerName, dateStr, checks
     ? Boolean(includeContacts) 
     : (localStorage.getItem('checks_print_include_contacts') === 'true');
 
-  const printWindow = window.open('', '_blank', 'width=1000,height=900');
   const nowStr = new Date().toLocaleString('es-AR');
-  const dateFormatted = dateStr ? new Date(dateStr).toLocaleString('es-AR') : nowStr;
+  const dateFormatted = dateStr 
+    ? new Date(dateStr.length === 10 && !dateStr.includes('T') ? dateStr + 'T00:00:00' : dateStr).toLocaleString('es-AR') 
+    : nowStr;
   const isThermal = type === 'thermal';
 
   const sellerContact = contacts ? contacts.find(c => c.name?.toLowerCase() === sellerName?.toLowerCase() || c.id === sellerName) : null;
