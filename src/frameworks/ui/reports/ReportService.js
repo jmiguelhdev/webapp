@@ -221,6 +221,75 @@ export async function generateChecksExcel(checks, contacts) {
 }
 
 /**
+ * Safely prints an HTML document in a popup window, falling back to an invisible iframe if popups are blocked.
+ * @param {string} html - Complete HTML string to print.
+ * @param {string} [windowFeatures='width=1000,height=900'] - Optional window features.
+ */
+export function printHtmlDocument(html, windowFeatures = 'width=1000,height=900') {
+  let printWindow = null;
+  try {
+    printWindow = window.open('', '_blank', windowFeatures);
+  } catch (err) {
+    console.warn('Popup window.open failed, fallback to iframe:', err);
+  }
+
+  if (printWindow && printWindow.document) {
+    try {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      if (printWindow.focus) {
+        printWindow.focus();
+      }
+      return;
+    } catch (e) {
+      console.warn('Failed to write to popup window, fallback to iframe:', e);
+    }
+  }
+
+  // Fallback if popup is blocked by browser
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const doPrint = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (err) {
+        console.error('Error invoking print inside iframe:', err);
+      } finally {
+        setTimeout(() => {
+          if (iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe);
+          }
+        }, 1500);
+      }
+    };
+
+    if (doc.readyState === 'complete') {
+      setTimeout(doPrint, 250);
+    } else {
+      iframe.onload = doPrint;
+    }
+  } catch (err) {
+    console.error('Print iframe fallback failed:', err);
+  }
+}
+
+/**
  * Imprime un reporte formateado de cheques directamente usando la funcionalidad de impresión nativa del navegador.
  *
  * @param {Array<Check>} checks - Colección de cheques a listar en el reporte.
@@ -233,13 +302,12 @@ export async function generateChecksExcel(checks, contacts) {
  * @returns {void}
  */
 export function printChecksReport(checks, contacts, options = {}) {
+  if (!checks || checks.length === 0) return;
   const { fromDate, toDate, title, subtitle, includeContacts = null } = options;
   const isInstitutional = includeContacts !== null 
     ? Boolean(includeContacts) 
     : (localStorage.getItem('checks_print_include_contacts') === 'true');
 
-  const printWindow = window.open('', '_blank', 'width=1000,height=900');
-  
   const fromStr = fromDate ? fromDate.toLocaleDateString('es-AR') : 'Inicio';
   const toStr = toDate ? toDate.toLocaleDateString('es-AR') : 'Hoy';
   const nowStr = new Date().toLocaleString('es-AR');
@@ -368,27 +436,38 @@ export function printChecksReport(checks, contacts, options = {}) {
         
       </div>
       <script>
-        window.onload = () => {
-          setTimeout(() => {
+        function triggerPrint() {
+          try {
+            window.focus();
             window.print();
-            window.onfocus = function() { window.close(); }
-          }, 500);
+          } catch (e) {
+            console.error('Print error:', e);
+          }
+        }
+        window.onafterprint = function() {
+          setTimeout(function() {
+            try { window.close(); } catch (e) {}
+          }, 300);
         };
+        if (document.readyState === 'complete') {
+          setTimeout(triggerPrint, 300);
+        } else {
+          window.addEventListener('load', function() {
+            setTimeout(triggerPrint, 300);
+          });
+        }
       </script>
     </body>
     </html>
   `;
 
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printHtmlDocument(html, 'width=1000,height=900');
 }
 
 /**
  * Print Auxiliary Calculator details
  */
 export function printAuxiliaryCalcReport(breakdown, grandTotal, moduleTitle = 'Caja General') {
-  const printWindow = window.open('', '_blank', 'width=800,height=900');
-  
   const nowStr = new Date().toLocaleString('es-AR');
 
   const rowsHtml = Object.keys(breakdown).sort((a,b) => b - a).map(denom => {
@@ -474,19 +553,32 @@ export function printAuxiliaryCalcReport(breakdown, grandTotal, moduleTitle = 'C
         </div>
       </div>
       <script>
-        window.onload = () => {
-          setTimeout(() => {
+        function triggerPrint() {
+          try {
+            window.focus();
             window.print();
-            window.onfocus = function() { window.close(); }
-          }, 500);
+          } catch (e) {
+            console.error('Print error:', e);
+          }
+        }
+        window.onafterprint = function() {
+          setTimeout(function() {
+            try { window.close(); } catch (e) {}
+          }, 300);
         };
+        if (document.readyState === 'complete') {
+          setTimeout(triggerPrint, 300);
+        } else {
+          window.addEventListener('load', function() {
+            setTimeout(triggerPrint, 300);
+          });
+        }
       </script>
     </body>
     </html>
   `;
 
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printHtmlDocument(html, 'width=800,height=900');
 }
 
 /**
@@ -494,8 +586,6 @@ export function printAuxiliaryCalcReport(breakdown, grandTotal, moduleTitle = 'C
  */
 export function printDispatchPreparation(data) {
   const { selectedItems, client, grandTotal, totalKg, byCategory } = data;
-  const printWindow = window.open('', '_blank', 'width=800,height=900');
-  
   const nowStr = new Date().toLocaleString('es-AR');
 
   const rowsHtml = selectedItems.map(item => {
@@ -605,19 +695,32 @@ export function printDispatchPreparation(data) {
         </div>
       </div>
       <script>
-        window.onload = () => {
-          setTimeout(() => {
+        function triggerPrint() {
+          try {
+            window.focus();
             window.print();
-            window.onfocus = function() { window.close(); }
-          }, 500);
+          } catch (e) {
+            console.error('Print error:', e);
+          }
+        }
+        window.onafterprint = function() {
+          setTimeout(function() {
+            try { window.close(); } catch (e) {}
+          }, 300);
         };
+        if (document.readyState === 'complete') {
+          setTimeout(triggerPrint, 300);
+        } else {
+          window.addEventListener('load', function() {
+            setTimeout(triggerPrint, 300);
+          });
+        }
       </script>
     </body>
     </html>
   `;
 
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printHtmlDocument(html, 'width=800,height=900');
 }
 
 /**
@@ -628,7 +731,6 @@ export function printSaleOperationReport(operationId, buyerName, dateStr, checks
     ? Boolean(includeContacts) 
     : (localStorage.getItem('checks_print_include_contacts') === 'true');
 
-  const printWindow = window.open('', '_blank', 'width=1000,height=900');
   const nowStr = new Date().toLocaleString('es-AR');
   const dateFormatted = dateStr ? new Date(dateStr).toLocaleString('es-AR') : nowStr;
   
@@ -753,19 +855,32 @@ export function printSaleOperationReport(operationId, buyerName, dateStr, checks
         
       </div>
       <script>
-        window.onload = () => {
-          setTimeout(() => {
+        function triggerPrint() {
+          try {
+            window.focus();
             window.print();
-            window.onfocus = function() { window.close(); }
-          }, 500);
+          } catch (e) {
+            console.error('Print error:', e);
+          }
+        }
+        window.onafterprint = function() {
+          setTimeout(function() {
+            try { window.close(); } catch (e) {}
+          }, 300);
         };
+        if (document.readyState === 'complete') {
+          setTimeout(triggerPrint, 300);
+        } else {
+          window.addEventListener('load', function() {
+            setTimeout(triggerPrint, 300);
+          });
+        }
       </script>
     </body>
     </html>
   `;
 
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printHtmlDocument(html, 'width=1000,height=900');
 }
 
 /**
@@ -967,12 +1082,26 @@ export function printBuyOperationReport(operationId, sellerName, dateStr, checks
           </div>
         </div>
         <script>
-          window.onload = () => {
-            setTimeout(() => {
+          function triggerPrint() {
+            try {
+              window.focus();
               window.print();
-              window.onfocus = function() { window.close(); }
-            }, 500);
+            } catch (e) {
+              console.error('Print error:', e);
+            }
+          }
+          window.onafterprint = function() {
+            setTimeout(function() {
+              try { window.close(); } catch (e) {}
+            }, 300);
           };
+          if (document.readyState === 'complete') {
+            setTimeout(triggerPrint, 300);
+          } else {
+            window.addEventListener('load', function() {
+              setTimeout(triggerPrint, 300);
+            });
+          }
         </script>
       </body>
       </html>
@@ -1120,20 +1249,33 @@ export function printBuyOperationReport(operationId, sellerName, dateStr, checks
           
         </div>
         <script>
-          window.onload = () => {
-            setTimeout(() => {
+          function triggerPrint() {
+            try {
+              window.focus();
               window.print();
-              window.onfocus = function() { window.close(); }
-            }, 500);
+            } catch (e) {
+              console.error('Print error:', e);
+            }
+          }
+          window.onafterprint = function() {
+            setTimeout(function() {
+              try { window.close(); } catch (e) {}
+            }, 300);
           };
+          if (document.readyState === 'complete') {
+            setTimeout(triggerPrint, 300);
+          } else {
+            window.addEventListener('load', function() {
+              setTimeout(triggerPrint, 300);
+            });
+          }
         </script>
       </body>
       </html>
     `;
   }
 
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printHtmlDocument(html, isThermal ? 'width=450,height=800' : 'width=1000,height=900');
 }
 
 /**

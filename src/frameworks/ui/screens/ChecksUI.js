@@ -458,6 +458,10 @@ export function renderChecks(container, options) {
     printPortfolioBtn.onclick = () => {
       if (container._options && typeof container._options.onPrint === 'function') {
         const sortedP = container._sortedPortfolioCached || [];
+        if (sortedP.length === 0) {
+          alert('No hay cheques en cartera para imprimir con los filtros actuales.');
+          return;
+        }
         container._options.onPrint(sortedP);
       }
     };
@@ -515,10 +519,17 @@ export function renderChecks(container, options) {
 
     printSelBtn.onclick = () => {
       const selectedIds = container._selectedChecksIds;
-      if (!selectedIds || selectedIds.size === 0) return;
+      if (!selectedIds || selectedIds.size === 0) {
+        alert('Seleccione al menos un cheque para imprimir.');
+        return;
+      }
       if (container._options && typeof container._options.onPrint === 'function') {
         const allChecks = container._options.checks || [];
         const selectedChecks = Array.from(selectedIds).map(id => allChecks.find(c => String(c.id) === String(id))).filter(Boolean);
+        if (selectedChecks.length === 0) {
+          alert('No se encontraron cheques para la selección actual.');
+          return;
+        }
         container._options.onPrint(selectedChecks, 'Reporte de Cheques Seleccionados');
       }
     };
