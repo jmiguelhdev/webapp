@@ -5,7 +5,8 @@ export class Driver {
     this.id = data.id || Date.now();
     this.name = data.name || '';
     this.dni = data.dni || '';
-    this.license = data.license || '';
+    this.phone = data.phone || data.license || '';
+    this.license = data.license || this.phone || '';
   }
 }
 

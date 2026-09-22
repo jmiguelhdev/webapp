@@ -7,6 +7,7 @@
  */
 
 import { renderScanResultsModal } from '../components/Modals.js';
+import { generateTruckCardPdf, generateFleetReportPdf, shareOrDownloadPdf } from '../reports/TransportPdfService.js';
 
 /**
  * Renderiza la interfaz principal del gestor de Datos Maestros.
@@ -68,17 +69,29 @@ export function renderLogisticsMaster(container, type, dataList, dependencies = 
     }
     // Añadimos nuevos elementos al listado cargado en memoria local
     container._currentDataList = (container._currentDataList || []).concat(dataList);
+    container._dependencies = dependencies;
   } else {
     container._currentDataList = dataList;
+    container._dependencies = dependencies;
     container.innerHTML = `
       <div class="dashboard-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
         <div>
           <h2>Administración de Datos Maestros</h2>
           <p style="color: var(--text-muted); margin: 0.25rem 0 0 0;">Gestione los registros fundamentales del sistema de fletes y logística.</p>
         </div>
-        <button id="btn-add-master" class="btn-primary" style="padding: 0.85rem 2rem; border-radius: 12px; font-weight: 700; height: 48px; display: flex; align-items: center; gap: 0.5rem;">
-          ➕ Nuevo Registro
-        </button>
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;">
+          ${type === 'camiones' ? `
+            <button id="btn-pdf-fleet" class="btn-secondary" style="padding: 0.75rem 1.25rem; border-radius: 12px; font-weight: 700; height: 48px; display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid rgba(132, 29, 29, 0.3); color: var(--text-main); background: rgba(132, 29, 29, 0.08); cursor: pointer;" title="Descargar Planilla Consolidada de la Flota en PDF">
+              <span>📄</span> PDF Flota
+            </button>
+            <button id="btn-share-fleet" class="btn-secondary" style="padding: 0.75rem 1.25rem; border-radius: 12px; font-weight: 700; height: 48px; display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid rgba(16, 185, 129, 0.3); color: var(--text-main); background: rgba(16, 185, 129, 0.08); cursor: pointer;" title="Compartir Planilla de Flota por WhatsApp o Móvil">
+              <span>📲</span> Compartir Flota
+            </button>
+          ` : ''}
+          <button id="btn-add-master" class="btn-primary" style="padding: 0.85rem 2rem; border-radius: 12px; font-weight: 700; height: 48px; display: flex; align-items: center; gap: 0.5rem;">
+            ➕ Nuevo Registro
+          </button>
+        </div>
       </div>
 
       ${tabsHTML}
@@ -194,6 +207,142 @@ export function renderLogisticsMaster(container, type, dataList, dependencies = 
     });
   });
 
+  // Delegación de Descarga de PDF individual por camión
+  document.querySelectorAll('.btn-pdf-truck').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    newBtn.addEventListener('click', async (e) => {
+      const targetBtn = e.currentTarget;
+      const id = targetBtn.dataset.id;
+      const truck = (container._currentDataList || []).find(d => String(d.id) === String(id));
+      if (!truck) return;
+
+      const originalHtml = targetBtn.innerHTML;
+      targetBtn.innerHTML = `⏳ Generando...`;
+      targetBtn.disabled = true;
+      showMasterToast('📄 Generando constancia formal en PDF...', 'info');
+
+      try {
+        const doc = await generateTruckCardPdf(truck, container._dependencies || {});
+        const safePlate = (truck.licensePlate || 'SIN_PATENTE').replace(/[^a-zA-Z0-9]/g, '_');
+        const fileName = `Constancia_Transporte_${safePlate}.pdf`;
+        await shareOrDownloadPdf(doc, fileName, `Constancia ${truck.name || safePlate}`, false);
+        showMasterToast('✅ PDF descargado exitosamente.', 'success');
+      } catch (err) {
+        console.error('Error al generar PDF de camión:', err);
+        showMasterToast('❌ Error al generar el PDF: ' + err.message, 'error');
+      } finally {
+        targetBtn.innerHTML = originalHtml;
+        targetBtn.disabled = false;
+      }
+    });
+  });
+
+  // Delegación de Compartir PDF individual por camión (WhatsApp / Móvil)
+  document.querySelectorAll('.btn-share-truck').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    newBtn.addEventListener('click', async (e) => {
+      const targetBtn = e.currentTarget;
+      const id = targetBtn.dataset.id;
+      const truck = (container._currentDataList || []).find(d => String(d.id) === String(id));
+      if (!truck) return;
+
+      const originalHtml = targetBtn.innerHTML;
+      targetBtn.innerHTML = `⏳ Preparando...`;
+      targetBtn.disabled = true;
+      showMasterToast('📲 Preparando documento para compartir...', 'info');
+
+      try {
+        const doc = await generateTruckCardPdf(truck, container._dependencies || {});
+        const safePlate = (truck.licensePlate || 'SIN_PATENTE').replace(/[^a-zA-Z0-9]/g, '_');
+        const fileName = `Constancia_Transporte_${safePlate}.pdf`;
+        const res = await shareOrDownloadPdf(doc, fileName, `Constancia ${truck.name || safePlate}`, true);
+        if (res.shared) {
+          showMasterToast('✅ Documento compartido.', 'success');
+        } else if (res.downloaded) {
+          showMasterToast('✅ Descargado al dispositivo.', 'success');
+        }
+      } catch (err) {
+        console.error('Error al compartir PDF de camión:', err);
+        showMasterToast('❌ Error al procesar documento: ' + err.message, 'error');
+      } finally {
+        targetBtn.innerHTML = originalHtml;
+        targetBtn.disabled = false;
+      }
+    });
+  });
+
+  // Manejo de PDF de Flota Completa
+  const fleetPdfBtn = container.querySelector('#btn-pdf-fleet');
+  if (fleetPdfBtn) {
+    const newFleetPdfBtn = fleetPdfBtn.cloneNode(true);
+    fleetPdfBtn.parentNode.replaceChild(newFleetPdfBtn, fleetPdfBtn);
+    newFleetPdfBtn.addEventListener('click', async (e) => {
+      const targetBtn = e.currentTarget;
+      const trucks = container._currentDataList || [];
+      if (trucks.length === 0) {
+        showMasterToast('⚠️ No hay camiones registrados para exportar.', 'error');
+        return;
+      }
+
+      const originalHtml = targetBtn.innerHTML;
+      targetBtn.innerHTML = `<span>⏳</span> Generando...`;
+      targetBtn.disabled = true;
+      showMasterToast('📑 Generando planilla de flota completa...', 'info');
+
+      try {
+        const doc = await generateFleetReportPdf(trucks, container._dependencies || {});
+        const fileName = `Planilla_Flota_Frigorifico_Pampa_${new Date().toISOString().slice(0, 10)}.pdf`;
+        await shareOrDownloadPdf(doc, fileName, 'Planilla de Flota - Frigorífico Pampa', false);
+        showMasterToast('✅ Planilla de flota descargada con éxito.', 'success');
+      } catch (err) {
+        console.error('Error al generar PDF de flota:', err);
+        showMasterToast('❌ Error al generar la planilla: ' + err.message, 'error');
+      } finally {
+        targetBtn.innerHTML = originalHtml;
+        targetBtn.disabled = false;
+      }
+    });
+  }
+
+  // Manejo de Compartir Flota Completa
+  const fleetShareBtn = container.querySelector('#btn-share-fleet');
+  if (fleetShareBtn) {
+    const newFleetShareBtn = fleetShareBtn.cloneNode(true);
+    fleetShareBtn.parentNode.replaceChild(newFleetShareBtn, fleetShareBtn);
+    newFleetShareBtn.addEventListener('click', async (e) => {
+      const targetBtn = e.currentTarget;
+      const trucks = container._currentDataList || [];
+      if (trucks.length === 0) {
+        showMasterToast('⚠️ No hay camiones registrados para compartir.', 'error');
+        return;
+      }
+
+      const originalHtml = targetBtn.innerHTML;
+      targetBtn.innerHTML = `<span>⏳</span> Preparando...`;
+      targetBtn.disabled = true;
+      showMasterToast('📲 Preparando planilla para compartir...', 'info');
+
+      try {
+        const doc = await generateFleetReportPdf(trucks, container._dependencies || {});
+        const fileName = `Planilla_Flota_Frigorifico_Pampa_${new Date().toISOString().slice(0, 10)}.pdf`;
+        const res = await shareOrDownloadPdf(doc, fileName, 'Planilla de Flota - Frigorífico Pampa', true);
+        if (res.shared) {
+          showMasterToast('✅ Planilla compartida.', 'success');
+        } else if (res.downloaded) {
+          showMasterToast('✅ Descargada al dispositivo.', 'success');
+        }
+      } catch (err) {
+        console.error('Error al compartir planilla de flota:', err);
+        showMasterToast('❌ Error al compartir planilla: ' + err.message, 'error');
+      } finally {
+        targetBtn.innerHTML = originalHtml;
+        targetBtn.disabled = false;
+      }
+    });
+  }
+
   // ----------------------------------------------------
   // REAL-TIME SEARCH FILTER IMPLEMENTATION (EDITTEXT)
   // ----------------------------------------------------
@@ -208,7 +357,7 @@ export function renderLogisticsMaster(container, type, dataList, dependencies = 
     if (itemType === 'choferes') {
       return (item.name || '').toLowerCase().includes(q) ||
              (item.dni || '').toLowerCase().includes(q) ||
-             (item.license || '').toLowerCase().includes(q);
+             (item.phone || item.license || '').toLowerCase().includes(q);
     }
     if (itemType === 'jaulas') {
       return (item.name || '').toLowerCase().includes(q) ||
@@ -357,15 +506,57 @@ function capitalize(s) {
 function getMasterCardHtml(type, item) {
   const editSvg = `<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z" /></svg>`;
   const delSvg = `<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z" /></svg>`;
+  const pdfSvg = `<svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,19H5V5H19V19M10,10.5H8.5V13.5H10A1.5,1.5 0 0,0 11.5,12A1.5,1.5 0 0,0 10,10.5M10,12H9.5V11.5H10A0.5,0.5 0 0,1 10.5,12A0.5,0.5 0 0,1 10,12M15,10.5H13V15H14V13.5H15A1,1 0 0,0 16,12.5V11.5A1,1 0 0,0 15,10.5M15,12.5H14V11.5H15V12.5Z"/></svg>`;
+  const shareSvg = `<svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.91 18,21.91C19.61,21.91 20.92,20.61 20.92,19A2.92,2.92 0 0,0 18,16.08Z"/></svg>`;
+
+  const transportButtonsHtml = type === 'camiones' ? `
+    <div style="display: flex; gap: 0.4rem; align-items: center;">
+      <button class="btn-pdf-truck" data-id="${item.id}" title="Descargar Constancia Oficial en PDF" style="
+        background: rgba(132, 29, 29, 0.08); 
+        border: 1px solid rgba(132, 29, 29, 0.25); 
+        color: #ef4444; 
+        padding: 0.45rem 0.75rem; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        display: inline-flex; 
+        align-items: center; 
+        gap: 0.35rem; 
+        font-size: 0.8rem; 
+        font-weight: 700; 
+        transition: all 0.2s;
+      ">
+        ${pdfSvg} PDF
+      </button>
+      <button class="btn-share-truck" data-id="${item.id}" title="Compartir Constancia por WhatsApp / Móvil" style="
+        background: rgba(16, 185, 129, 0.08); 
+        border: 1px solid rgba(16, 185, 129, 0.25); 
+        color: #10b981; 
+        padding: 0.45rem 0.75rem; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        display: inline-flex; 
+        align-items: center; 
+        gap: 0.35rem; 
+        font-size: 0.8rem; 
+        font-weight: 700; 
+        transition: all 0.2s;
+      ">
+        ${shareSvg} Compartir
+      </button>
+    </div>
+  ` : '';
 
   const actionHtml = `
-    <div class="actions" style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem;">
-      <button class="btn-icon btn-edit" data-id="${item.id}" title="Editar Registro" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); color: var(--primary); padding: 0.55rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
-        ${editSvg}
-      </button> 
-      <button class="btn-icon btn-delete" data-id="${item.id}" title="Eliminar Registro" style="background: rgba(239, 68, 68, 0.03); border: 1px solid rgba(239, 68, 68, 0.15); color: var(--danger); padding: 0.55rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
-        ${delSvg}
-      </button>
+    <div class="actions" style="display: flex; gap: 0.5rem; justify-content: ${type === 'camiones' ? 'space-between' : 'flex-end'}; align-items: center; margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem; flex-wrap: wrap;">
+      ${transportButtonsHtml}
+      <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+        <button class="btn-icon btn-edit" data-id="${item.id}" title="Editar Registro" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); color: var(--primary); padding: 0.55rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+          ${editSvg}
+        </button> 
+        <button class="btn-icon btn-delete" data-id="${item.id}" title="Eliminar Registro" style="background: rgba(239, 68, 68, 0.03); border: 1px solid rgba(239, 68, 68, 0.15); color: var(--danger); padding: 0.55rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+          ${delSvg}
+        </button>
+      </div>
     </div>
   `;
 
@@ -384,7 +575,12 @@ function getMasterCardHtml(type, item) {
       </div>
       <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.85rem; color: var(--text-muted); background: rgba(255,255,255,0.01); padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.02);">
         <div style="display: flex; justify-content: space-between;"><span>DNI / Identificación</span> <strong style="color: var(--text-main);">${item.dni || '-'}</strong></div>
-        <div style="display: flex; justify-content: space-between;"><span>Licencia Profesional</span> <strong style="color: var(--text-main);">${item.license || '-'}</strong></div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Teléfono de Contacto</span> 
+          <strong style="color: var(--text-main);">
+            ${(item.phone || item.license) ? `<a href="tel:${(item.phone || item.license).replace(/[^0-9+]/g, '')}" style="color: #10b981; text-decoration: none; display: flex; align-items: center; gap: 4px;" title="Llamar al chofer">📞 ${item.phone || item.license}</a>` : '-'}
+          </strong>
+        </div>
       </div>
     `;
   } else if (type === 'jaulas') {
@@ -492,7 +688,14 @@ function showMasterModal(type, item, dependencies, presenter = null) {
   if (!container) return;
 
   const isEdit = !!item;
-  const entitySingular = capitalize(type.slice(0, -1));
+  const entitySingularMap = {
+    choferes: 'Chofer',
+    camiones: 'Camión',
+    jaulas: 'Jaula',
+    productores: 'Productor',
+    comisionistas: 'Comisionista'
+  };
+  const entitySingular = entitySingularMap[type] || capitalize(type.slice(0, -1));
   const title = isEdit ? `Editar ${entitySingular}` : `Nuevo ${entitySingular}`;
   
   let formHTML = '';
@@ -500,7 +703,7 @@ function showMasterModal(type, item, dependencies, presenter = null) {
     formHTML = `
       <div class="form-group"><label style="font-weight:600; margin-bottom:0.5rem; display:block;">Nombre Completo</label><input type="text" id="m-name" value="${item?.name || ''}" required style="border-radius:10px;"></div>
       <div class="form-group"><label style="font-weight:600; margin-bottom:0.5rem; display:block;">Número de DNI</label><input type="text" id="m-dni" value="${item?.dni || ''}" style="border-radius:10px;"></div>
-      <div class="form-group"><label style="font-weight:600; margin-bottom:0.5rem; display:block;">Código Licencia</label><input type="text" id="m-license" value="${item?.license || ''}" style="border-radius:10px;"></div>
+      <div class="form-group"><label style="font-weight:600; margin-bottom:0.5rem; display:block;">Número de Teléfono / Celular</label><input type="tel" id="m-phone" value="${item?.phone || item?.license || ''}" placeholder="Ej: +54 9 11 1234-5678" style="border-radius:10px;"></div>
     `;
   } else if (type === 'jaulas') {
     formHTML = `
@@ -714,7 +917,8 @@ function showMasterModal(type, item, dependencies, presenter = null) {
     if (type === 'choferes') {
       payload.name = document.getElementById('m-name').value;
       payload.dni = document.getElementById('m-dni').value;
-      payload.license = document.getElementById('m-license').value;
+      payload.phone = document.getElementById('m-phone').value;
+      payload.license = document.getElementById('m-phone').value; // Mantenemos retrocompatibilidad
     } else if (type === 'jaulas') {
       payload.name = document.getElementById('m-name').value;
       payload.licensePlate = document.getElementById('m-plate').value;
@@ -755,3 +959,43 @@ function showMasterModal(type, item, dependencies, presenter = null) {
     }
   });
 }
+
+/**
+ * Muestra una notificación emergente tipo toast elegante y moderna.
+ * @param {string} message - Mensaje o HTML a mostrar.
+ * @param {'info'|'success'|'error'} [type='info'] - Tipo de notificación.
+ */
+function showMasterToast(message, type = 'info') {
+  const existing = document.getElementById('master-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'master-toast';
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#1e293b'};
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(8px);
+  `;
+  toast.innerHTML = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
