@@ -142,6 +142,7 @@ export class KmpSidebar extends HTMLElement {
       {
         title: 'FINANZAS & CRÉDITO',
         items: [
+          { id: 'daily-cash-closings', label: '🏪 Cierres de Sucursales', roles: ['ADMIN', 'OPERARIO'] },
           { id: 'fiscal-invoices', label: '📄 Comprobantes ARCA', roles: ['ADMIN', 'OPERARIO'] },
           { id: 'checks', label: '💸 Gestión de Cheques', roles: ['ADMIN', 'OPERARIO'] },
           { id: 'accounting', label: '💰 Caja General', roles: ['ADMIN', 'OPERARIO'] },

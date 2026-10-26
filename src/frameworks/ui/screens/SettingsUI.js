@@ -355,6 +355,8 @@ export function renderSettings(container, options) {
         { id: 'travels', name: 'Viajes' },
         { id: 'consumption', name: 'Despacho y Stock' },
         { id: 'clients', name: 'Clientes y Cuentas' },
+        { id: 'daily-cash-closings', name: 'Cierres de Sucursales' },
+        { id: 'fiscal-invoices', name: 'Comprobantes ARCA' },
         { id: 'checks', name: 'Gestión de Cheques' },
         { id: 'accounting', name: 'Caja General' },
         { id: 'frigorifico', name: 'Caja Frigorífico' },
@@ -368,9 +370,9 @@ export function renderSettings(container, options) {
 
       const defaultViewsForRole = (role) => {
         if (role === 'ADMIN') {
-          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments'];
+          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
         } else if (role === 'OPERARIO') {
-          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel'];
+          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
         } else {
           return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
         }

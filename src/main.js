@@ -26,6 +26,7 @@ import { OperatorRepository } from './adapters/repositories/OperatorRepository.j
 import { SHARED_DATA_SOURCE_UID } from './config.js';
 import { SyncService } from './frameworks/services/SyncService.js';
 import { FiscalInvoicesUI } from './frameworks/ui/screens/FiscalInvoicesUI.js';
+import { DailyCashClosingsUI } from './frameworks/ui/screens/DailyCashClosingsUI.js';
 
 
 // Render Git commit version badge in header dynamically
@@ -318,13 +319,14 @@ function getAllowedViews(role, allowedViews = currentUserAllowedViews) {
     const list = [...allowedViews];
     if (!list.includes('logout')) list.push('logout');
     if (!list.includes('dashboard')) list.push('dashboard');
+    if (role === 'ADMIN' && !list.includes('daily-cash-closings')) list.push('daily-cash-closings');
     return list;
   }
 
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
   } else {
     // VISOR
     return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
@@ -390,6 +392,11 @@ const navigateTo = (view, role = currentUserRole) => {
     case 'fiscal-invoices': {
       const fiscalUI = new FiscalInvoicesUI('content');
       fiscalUI.render();
+      break;
+    }
+    case 'daily-cash-closings': {
+      const closingsUI = new DailyCashClosingsUI('content');
+      closingsUI.render();
       break;
     }
     case 'establishments':
