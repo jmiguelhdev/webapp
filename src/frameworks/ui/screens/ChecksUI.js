@@ -173,8 +173,8 @@ export function renderChecks(container, options) {
       style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;'
     });
     statsGrid.appendChild(createStatCard('Ganancia Vendida', '...', '#10b981', '📈'));
-    statsGrid.appendChild(createStatCard('Desc. en Cartera', '...', '#fbbf24', '📉'));
-    statsGrid.appendChild(createStatCard('Capital en Cartera', '...', '#3b82f6', '💰'));
+    statsGrid.appendChild(createStatCard('Desc. en Cartera', '...', '#d97706', '📉'));
+    statsGrid.appendChild(createStatCard('Capital en Cartera', '...', '#2563eb', '💰'));
     statsGrid.appendChild(createStatCard('Cheques en Cartera', '... uds.', 'var(--primary)', '📂'));
     container.appendChild(statsGrid);
 
@@ -210,7 +210,7 @@ export function renderChecks(container, options) {
         value: filters?.searchTerm || '', 
         autocomplete: 'off' 
       },
-      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.15); color: var(--text-main); font-weight: 600;'
+      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-main); font-weight: 600;'
     });
     
     let _searchDebounce = null;
@@ -235,7 +235,7 @@ export function renderChecks(container, options) {
 
       const dateInput = el('input', {
         attrs: { id: inputId, type: 'date', value: isoValue || '' },
-        style: 'flex: 1; min-width: 0; height: 38px; padding: 0 0.75rem; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.15); color: var(--text-main); font-weight: 600;'
+        style: 'flex: 1; min-width: 0; height: 38px; padding: 0 0.75rem; border-radius: 10px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-main); font-weight: 600;'
       });
 
       const calBtn = el('button', {
@@ -260,7 +260,7 @@ export function renderChecks(container, options) {
     }));
     const checkTypeSelect = el('select', { 
       attrs: { id: 'checks-type-select' },
-      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); color: var(--text-main); outline: none; font-family: inherit; font-weight: 600;' 
+      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text-main); outline: none; font-family: inherit; font-weight: 600;' 
     });
     checkTypeSelect.innerHTML = `
       <option value="ALL" ${filters?.checkType === 'ALL' ? 'selected' : ''}>Todos</option>
@@ -281,7 +281,7 @@ export function renderChecks(container, options) {
     }));
     const dateTypeSelect = el('select', { 
       attrs: { id: 'checks-date-type' },
-      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; background: rgba(0,0,0,0.15); border: 1px solid var(--border); color: var(--text-main); outline: none; font-family: inherit; font-weight: 600;' 
+      style: 'width: 100%; height: 38px; padding: 0 0.85rem; border-radius: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text-main); outline: none; font-family: inherit; font-weight: 600;' 
     });
     dateTypeSelect.innerHTML = `
       <option value="DUE" ${filters?.dateFilterType === 'DUE' ? 'selected' : ''}>Fecha de Pago</option>
@@ -335,7 +335,7 @@ export function renderChecks(container, options) {
 
     // --- 3.B OPTIONS & CONFIGURATION SUB-BAR ---
     const optionsBar = el('div', {
-      style: 'display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.65rem 1.15rem; background: rgba(0, 0, 0, 0.18); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 12px;'
+      style: 'display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.65rem 1.15rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;'
     });
 
     const leftToggles = el('div', {
@@ -752,10 +752,14 @@ export function renderChecks(container, options) {
         cards[1].setAttribute('value', '🔒 Oculto');
       } else {
         cards[0].setAttribute('value', formatCurrency(totalProfit));
+        cards[0].setAttribute('value-color', '#10b981');
         cards[1].setAttribute('value', formatCurrency(totalPortfolioDiscount));
+        cards[1].setAttribute('value-color', '#d97706');
       }
       cards[2].setAttribute('value', formatCurrency(totalInPortfolio));
+      cards[2].setAttribute('value-color', '#2563eb');
       cards[3].setAttribute('value', `${portfolioChecksCount} uds.`);
+      cards[3].setAttribute('value-color', 'var(--primary)');
     }
   }
 
@@ -1061,7 +1065,7 @@ export function renderChecks(container, options) {
             headerRow.innerHTML = `
               <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <span style="padding: 0.25rem 0.65rem; border-radius: 8px; background: rgba(16,185,129,0.12); color: #34d399; font-size: 0.72rem; font-weight: 800; text-transform: uppercase;">Venta</span>
-                <strong style="font-family: monospace; font-size: 0.95rem; color: #ffffff;">${op.id}</strong>
+                <strong style="font-family: monospace; font-size: 0.95rem; color: var(--text-main);">${op.id}</strong>
                 <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">📅 ${opDateStr}</span>
               </div>
               <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary);">
@@ -1070,12 +1074,12 @@ export function renderChecks(container, options) {
             `;
 
             const kpisRow = el('div', {
-              style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; background: rgba(0,0,0,0.15); border-radius: 12px; padding: 0.85rem 1.25rem; border: 1px solid rgba(255,255,255,0.02);'
+              style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; background: var(--card-bg); border-radius: 12px; padding: 0.85rem 1.25rem; border: 1px solid var(--border);'
             });
             kpisRow.innerHTML = `
               <div>
                 <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Total Nominal</div>
-                <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: #ffffff; margin-top: 0.15rem;">${formatCurrency(op.totalNominal)}</div>
+                <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: var(--text-main); margin-top: 0.15rem;">${formatCurrency(op.totalNominal)}</div>
               </div>
               ${!filters?.onlyNominal ? `
               <div>
@@ -1213,7 +1217,7 @@ export function renderChecks(container, options) {
             headerRow.innerHTML = `
               <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <span style="padding: 0.25rem 0.65rem; border-radius: 8px; background: rgba(59,130,246,0.12); color: #60a5fa; font-size: 0.72rem; font-weight: 800; text-transform: uppercase;">Compra</span>
-                <strong style="font-family: monospace; font-size: 0.95rem; color: #ffffff;">${op.id}</strong>
+                <strong style="font-family: monospace; font-size: 0.95rem; color: var(--text-main);">${op.id}</strong>
                 <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">📅 ${opDateStr}</span>
               </div>
               <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary);">
@@ -1222,12 +1226,12 @@ export function renderChecks(container, options) {
             `;
 
             const kpisRow = el('div', {
-              style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; background: rgba(0,0,0,0.15); border-radius: 12px; padding: 0.85rem 1.25rem; border: 1px solid rgba(255,255,255,0.02);'
+              style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; background: var(--card-bg); border-radius: 12px; padding: 0.85rem 1.25rem; border: 1px solid var(--border);'
             });
             kpisRow.innerHTML = `
               <div>
                 <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Total Nominal</div>
-                <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: #ffffff; margin-top: 0.15rem;">${formatCurrency(op.totalNominal)}</div>
+                <div style="font-size: 1.05rem; font-weight: 800; font-family: monospace; color: var(--text-main); margin-top: 0.15rem;">${formatCurrency(op.totalNominal)}</div>
               </div>
               ${!filters?.onlyNominal ? `
               <div>

@@ -28,6 +28,9 @@ import { SHARED_DATA_SOURCE_UID } from './config.js';
 import { SyncService } from './frameworks/services/SyncService.js';
 import { FiscalInvoicesUI } from './frameworks/ui/screens/FiscalInvoicesUI.js';
 import { DailyCashClosingsUI } from './frameworks/ui/screens/DailyCashClosingsUI.js';
+import { ToastService } from './frameworks/ui/components/ToastService.js';
+import { ConfirmModal } from './frameworks/ui/components/ConfirmModal.js';
+import { CommandPalette } from './frameworks/ui/components/CommandPalette.js';
 
 
 // Render Git commit version badge in header dynamically
@@ -67,15 +70,124 @@ let currentUser = null;
 let currentUserRole = null; // 'ADMIN', 'OPERARIO', or 'VISOR'
 let currentUserAllowedViews = null; // Custom permitted views array
 let usersListCache = null; // File-scoped cache for user list
-
-// Acceso compartido desde config.js
-
+let currentActiveView = 'dashboard';
 
 // UI elements
 const kmpSidebar = document.getElementById('kmp-sidebar');
 const content = document.getElementById('content');
 const themeToggle = document.getElementById('theme-toggle');
 const menuToggle = document.getElementById('menu-toggle');
+
+// Network Status Indicator Setup
+function initNetworkStatusIndicator() {
+  const indicator = document.getElementById('network-status-indicator');
+  if (!indicator) return;
+
+  const updateStatus = () => {
+    const isOnline = navigator.onLine;
+    if (isOnline) {
+      indicator.className = 'status-indicator online';
+      indicator.title = 'Conexión activa a internet y Firestore';
+      const text = indicator.querySelector('.status-text');
+      if (text) text.textContent = 'Online';
+    } else {
+      indicator.className = 'status-indicator offline';
+      indicator.title = 'Sin conexión a internet (Modo Offline / Local)';
+      const text = indicator.querySelector('.status-text');
+      if (text) text.textContent = 'Offline';
+      ToastService.warning('Sin conexión a internet. Trabajando con caché local.');
+    }
+  };
+
+  window.addEventListener('online', () => {
+    updateStatus();
+    ToastService.success('Conexión a internet reestablecida.');
+  });
+  window.addEventListener('offline', updateStatus);
+  updateStatus();
+}
+
+// User Profile in Header Setup
+function updateUserProfileUI(user, role) {
+  const profileWidget = document.getElementById('header-user-profile');
+  const avatarInitials = document.getElementById('user-avatar-initials');
+  const displayEmail = document.getElementById('user-display-email');
+  const displayRole = document.getElementById('user-display-role');
+  const logoutBtn = document.getElementById('header-logout-btn');
+
+  if (!profileWidget) return;
+
+  if (user) {
+    profileWidget.style.display = 'flex';
+    const email = user.email || 'Usuario';
+    const displayName = user.displayName || email.split('@')[0];
+    const initials = displayName
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase() || 'US';
+
+    if (avatarInitials) avatarInitials.textContent = initials;
+    if (displayEmail) {
+      displayEmail.textContent = email;
+      displayEmail.title = email;
+    }
+    if (displayRole) displayRole.textContent = role || 'VISOR';
+
+    if (logoutBtn) {
+      logoutBtn.onclick = async () => {
+        const confirmed = await ConfirmModal.confirm({
+          title: 'Cerrar Sesión',
+          message: '¿Está seguro de que desea salir de Frigorífico Pampa?',
+          icon: '🚪',
+          confirmText: 'Cerrar Sesión',
+          isDestructive: true
+        });
+        if (confirmed) {
+          window.dispatchEvent(new Event('app:logout'));
+        }
+      };
+    }
+  } else {
+    profileWidget.style.display = 'none';
+  }
+}
+
+// Command Palette Setup
+function initCommandPalette() {
+  const allModules = [
+    { id: 'dashboard', title: 'Dashboard Principal', category: 'Operaciones', icon: '📊' },
+    { id: 'daily-cash-closings', title: 'Cierres de Sucursales (Multi-PC)', category: 'Finanzas', icon: '🏪' },
+    { id: 'fiscal-invoices', title: 'Comprobantes ARCA', category: 'Finanzas', icon: '📄' },
+    { id: 'travels', title: 'Gestión de Viajes', category: 'Operaciones', icon: '🚛' },
+    { id: 'consumption', title: 'Despacho y Stock (Faenas)', category: 'Operaciones', icon: '🥩' },
+    { id: 'accounting', title: 'Caja General', category: 'Finanzas', icon: '💰' },
+    { id: 'frigorifico', title: 'Caja Frigorífico', category: 'Finanzas', icon: '🏢' },
+    { id: 'checks', title: 'Gestión de Cheques', category: 'Finanzas', icon: '💸' },
+    { id: 'clients', title: 'Gestión de Clientes', category: 'Comercial', icon: '👥' },
+    { id: 'logistics-liquidations', title: 'Liquidación Choferes', category: 'Logística', icon: '💵' },
+    { id: 'logistics-fuel', title: 'Rendimiento Combustible', category: 'Logística', icon: '⛽' },
+    { id: 'simulator', title: 'Simulador de Costos', category: 'Herramientas', icon: '🧮' },
+    { id: 'price-share', title: 'Placa de Precios', category: 'Herramientas', icon: '📲' },
+    { id: 'establishments', title: 'Establecimientos y Faena', category: 'Comercial', icon: '🏭' },
+    { id: 'master-data', title: 'Camiones y Flota', category: 'Logística', icon: '🚚' },
+    { id: 'settings', title: 'Ajustes del Sistema & Roles', category: 'Sistema', icon: '⚙️' },
+    { id: 'contact', title: 'Documentación Técnica', category: 'Sistema', icon: '📖' }
+  ];
+
+  CommandPalette.init({
+    onNavigate: (viewId) => navigateTo(viewId),
+    getItems: () => {
+      const allowed = getAllowedViews(currentUserRole || 'VISOR');
+      return allModules.filter(m => allowed.includes(m.id));
+    }
+  });
+}
+
+// Inicializar componentes globales
+initNetworkStatusIndicator();
+initCommandPalette();
 
 if (kmpSidebar) {
   kmpSidebar.addEventListener('navigate', (e) => {
@@ -225,6 +337,9 @@ onAuthStateChanged(auth, async (user) => {
       console.error("Error setting kmp-sidebar attributes:", e);
     }
 
+    // Update user profile badge in header
+    updateUserProfileUI(currentUser, currentUserRole);
+
     // Default view: Dashboard for everyone
     const startView = 'dashboard';
     navigateTo(startView);
@@ -235,6 +350,7 @@ onAuthStateChanged(auth, async (user) => {
   } else {
     currentUser = null;
     document.body.classList.remove('authenticated');
+    updateUserProfileUI(null, null);
     showLogin();
   }
 });
@@ -348,6 +464,8 @@ function enforcePermissions(role) {
 
 // Navigation Utility
 const navigateTo = (view, role = currentUserRole) => {
+  currentActiveView = view;
+
   if (kmpSidebar) {
     kmpSidebar.setAttribute('active', view);
   }
@@ -362,7 +480,7 @@ const navigateTo = (view, role = currentUserRole) => {
   const allowed = getAllowedViews(role);
   if (!allowed.includes(view)) {
     console.warn(`Access denied to ${view} for role ${role}`);
-    alert(`Acceso denegado: No tienes permiso para acceder a esta sección (${view}).`);
+    ToastService.warning(`Acceso denegado: No tienes permisos para acceder a la sección (${view}).`);
     return;
   }
 
@@ -882,9 +1000,23 @@ menuToggle.addEventListener('click', () => {
   document.body.classList.toggle('sidebar-open');
 });
 
-document.getElementById('export-pdf').addEventListener('click', () => {
-  travelPresenter.openExportOptions();
-});
+const exportBtn = document.getElementById('export-pdf');
+if (exportBtn) {
+  exportBtn.addEventListener('click', () => {
+    if (currentActiveView === 'travels') {
+      travelPresenter.openExportOptions();
+    } else if (currentActiveView === 'daily-cash-closings') {
+      const dayExportBtn = document.getElementById('btn-export-day-excel');
+      if (dayExportBtn) {
+        dayExportBtn.click();
+      } else {
+        ToastService.info('Selecciona un cierre diario en la lista para exportar su informe Excel.');
+      }
+    } else {
+      travelPresenter.openExportOptions();
+    }
+  });
+}
 
 // Event listener for in-screen navigation (like back buttons)
 window.addEventListener('nav:dashboard', () => navigateTo('dashboard'));

@@ -709,11 +709,12 @@ canvas { width: 100% !important; height: 100% !important; }
 }
 
 .check-card-row td {
-  background: rgba(255, 255, 255, 0.012) !important;
+  background: var(--card-bg) !important;
   border-top: 1px solid var(--border) !important;
   border-bottom: 1px solid var(--border) !important;
   padding: 1.1rem 1.25rem !important;
   transition: all 0.2s cubic-bezier(0.2, 0, 0.2, 1) !important;
+  color: var(--text-main);
 }
 
 .check-card-row td:first-child {
@@ -731,12 +732,22 @@ canvas { width: 100% !important; height: 100% !important; }
 /* Hover animations */
 .check-card-row:hover {
   transform: translateY(-2px);
-  filter: drop-shadow(0 6px 15px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0 6px 15px rgba(0, 0, 0, 0.15));
 }
 
 .check-card-row:hover td {
-  background: rgba(255, 255, 255, 0.035) !important;
+  background: var(--card-bg-solid, var(--card-bg)) !important;
   border-color: var(--primary) !important;
+}
+
+/* Lot header row */
+.check-lot-header-row td {
+  background: rgba(99, 102, 241, 0.07) !important;
+  border-top: 2px solid rgba(99, 102, 241, 0.3) !important;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2) !important;
+}
+.check-lot-header-row:hover td {
+  background: rgba(99, 102, 241, 0.12) !important;
 }
 
 /* E-Cheq row background & highlight */

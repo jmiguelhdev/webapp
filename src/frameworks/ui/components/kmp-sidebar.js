@@ -105,11 +105,11 @@ export class KmpSidebar extends HTMLElement {
         transform: translateX(2px);
       }
       .nav-item.active {
-        background: rgba(59, 130, 246, 0.12);
-        border: 1px solid rgba(59, 130, 246, 0.25);
-        color: #60a5fa; /* Blue-400 */
+        background: var(--nav-active-bg, rgba(185, 28, 28, 0.16));
+        border: 1px solid var(--nav-active-border, rgba(239, 68, 68, 0.35));
+        color: var(--nav-active-color, #fca5a5);
         font-weight: 700;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.05);
+        box-shadow: 0 4px 14px rgba(185, 28, 28, 0.12);
       }
       .nav-item.logout-item {
         color: var(--danger, #f87171);

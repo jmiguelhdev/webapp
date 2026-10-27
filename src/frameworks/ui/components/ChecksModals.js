@@ -785,9 +785,9 @@ export function showBatchSellModal(contacts, selectedChecks, onBatchSell, onDone
             </thead>
             <tbody id="bsell-checks-tbody"></tbody>
             <tfoot>
-              <tr style="border-top:1px solid var(--border);font-weight:800;background:rgba(255,255,255,0.03);font-size:0.85rem;color:#ffffff;">
+              <tr style="border-top:1px solid var(--border);font-weight:800;background:rgba(255,255,255,0.03);font-size:0.85rem;color:var(--text-main);">
                 <td colspan="3" style="padding:0.65rem 0.85rem;text-transform:uppercase;">TOTALES</td>
-                <td id="bsell-total-nominal" style="padding:0.65rem 0.85rem;text-align:right;font-family:monospace;color:#ffffff;">$0.00</td>
+                <td id="bsell-total-nominal" style="padding:0.65rem 0.85rem;text-align:right;font-family:monospace;color:var(--text-main);">$0.00</td>
                 ${!isNominalOnly ? `
                 <td id="bsell-total-buy-net" style="padding:0.65rem 0.85rem;text-align:right;font-family:monospace;color:#fbbf24;">$0.00</td>
                 <td id="bsell-total-net" style="padding:0.65rem 0.85rem;text-align:right;font-family:monospace;color:#60a5fa;">$0.00</td>
@@ -886,19 +886,19 @@ export function showBatchSellModal(contacts, selectedChecks, onBatchSell, onDone
       tr.style.borderBottom = '1px solid rgba(255,255,255,0.02)';
       tr.innerHTML = `
         <td style="padding:0.55rem 0.85rem;">
-          <div style="font-weight:700;color:#ffffff;">${op.bank || '-'}</div>
+          <div style="font-weight:700;color:var(--text-main);">${op.bank || '-'}</div>
           <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">Nº ${op.checkNumber || '-'}</div>
         </td>
         <td style="padding:0.55rem 0.85rem;">
-          <div style="font-weight:600;color:#ffffff;">${op.issuerName || '-'}</div>
+          <div style="font-weight:600;color:var(--text-main);">${op.issuerName || '-'}</div>
           <div style="font-size:0.75rem;color:var(--text-muted);font-weight:600;">CUIT ${op.issuerCuit || '-'}</div>
         </td>
         <td style="padding:0.55rem 0.85rem;">
           <div style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">Rec: ${formatDateLocal(op.receptionDate)}</div>
-          <div style="font-weight:700;color:#ffffff;font-size:0.85rem;">Venc: ${formatDateLocal(op.dueDate)}</div>
+          <div style="font-weight:700;color:var(--text-main);font-size:0.85rem;">Venc: ${formatDateLocal(op.dueDate)}</div>
           <div style="font-size:10px;color:var(--text-muted);font-weight:600;">${op.days || 0}d (Clear: ${op.clearing || 0}d)</div>
         </td>
-        <td style="padding:0.55rem 0.85rem;text-align:right;font-family:monospace;font-weight:700;color:#ffffff;">${formatCurrency(op.nominalValue)}</td>
+        <td style="padding:0.55rem 0.85rem;text-align:right;font-family:monospace;font-weight:700;color:var(--text-main);">${formatCurrency(op.nominalValue)}</td>
         ${!isNominalOnly ? `
         <td style="padding:0.55rem 0.85rem;text-align:right;font-family:monospace;color:#fbbf24;font-weight:700;">${formatCurrency(op.buySide?.netAmount || 0)}</td>
         <td style="padding:0.55rem 0.85rem;text-align:right;font-family:monospace;color:#60a5fa;font-weight:700;">${formatCurrency(op.sellSide.netAmount)}</td>
@@ -1021,7 +1021,7 @@ export function showCheckMovementsModal(check, contacts = []) {
       <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.85rem;">
         <div>
           <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Valor Nominal</div>
-          <div style="font-size: 1.1rem; font-weight: 800; font-family: monospace; color: #ffffff; margin-top: 0.15rem;">${formatCurrency(chk.nominalValue)}</div>
+          <div style="font-size: 1.1rem; font-weight: 800; font-family: monospace; color: var(--text-main); margin-top: 0.15rem;">${formatCurrency(chk.nominalValue)}</div>
         </div>
         <div>
           <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">F. Pago / Cobro</div>
@@ -1070,12 +1070,12 @@ export function showCheckMovementsModal(check, contacts = []) {
                 ${e.description}
               </div>
               ${e.details ? `
-                <div style="margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;">
-                  ${e.details.seller ? `<div><strong style="color:var(--text-muted);">Vendedor:</strong> <span style="color:#ffffff;">${e.details.seller}</span></div>` : ''}
-                  ${e.details.buyer ? `<div><strong style="color:var(--text-muted);">Comprador:</strong> <span style="color:#ffffff;">${e.details.buyer}</span></div>` : ''}
+                <div style="margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; font-size: 0.78rem; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem;">
+                  ${e.details.seller ? `<div><strong style="color:var(--text-muted);">Vendedor:</strong> <span style="color:var(--text-main);">${e.details.seller}</span></div>` : ''}
+                  ${e.details.buyer ? `<div><strong style="color:var(--text-muted);">Comprador:</strong> <span style="color:var(--text-main);">${e.details.buyer}</span></div>` : ''}
                   ${e.details.netAmount !== undefined ? `<div><strong style="color:var(--text-muted);">Neto:</strong> <span style="color:#10b981; font-family:monospace; font-weight:700;">${formatCurrency(e.details.netAmount)}</span></div>` : ''}
-                  ${e.details.pesificacionRate ? `<div><strong style="color:var(--text-muted);">Pesif:</strong> <span style="color:#ffffff;">${e.details.pesificacionRate}%</span></div>` : ''}
-                  ${e.details.monthlyInterest ? `<div><strong style="color:var(--text-muted);">Int. Mensual:</strong> <span style="color:#ffffff;">${e.details.monthlyInterest}%</span></div>` : ''}
+                  ${e.details.pesificacionRate ? `<div><strong style="color:var(--text-muted);">Pesif:</strong> <span style="color:var(--text-main);">${e.details.pesificacionRate}%</span></div>` : ''}
+                  ${e.details.monthlyInterest ? `<div><strong style="color:var(--text-muted);">Int. Mensual:</strong> <span style="color:var(--text-main);">${e.details.monthlyInterest}%</span></div>` : ''}
                   ${e.details.operationId && e.details.operationId !== 'S/N' ? `<div><strong style="color:var(--text-muted);">Op ID:</strong> <span style="color:#818cf8; font-family:monospace;">${e.details.operationId}</span></div>` : ''}
                   ${e.details.reason ? `<div style="width:100%;"><strong style="color:#f87171;">Motivo:</strong> <span style="color:#f87171;">${e.details.reason}</span></div>` : ''}
                 </div>

@@ -6,11 +6,18 @@
   --on-primary: #ffffff;
   --primary-container: #ffdcd8;
   --on-primary-container: #3b0003;
+  --brand-carmine: #8f0014;
+  --brand-carmine-hover: #a80017;
   
+  --nav-active-bg: rgba(143, 0, 20, 0.10);
+  --nav-active-border: rgba(143, 0, 20, 0.28);
+  --nav-active-color: #8f0014;
+
   --success: #10b981;
   --danger: #ba1a1a;
   --on-danger: #ffffff;
   --warning: #f59e0b;
+  --info: #3b82f6;
   
   /* M3 Light Surface */
   --bg-main: #fff8f7;
@@ -20,6 +27,7 @@
   --modal-bg: #ffffff;
   --bg-dark: #1e1e24;
   --text-main: #231918;
+  --text-primary: #231918;
   --text-muted: #554341;
   --border: #e7dbd9; 
   --outline: #887270;
@@ -36,13 +44,20 @@
 
 body.dark {
   color-scheme: dark;
-  --primary: #e0e0e0;
-  --on-primary: #000000;
-  --primary-container: #2a2a2a;
-  --on-primary-container: #ffffff;
+  --primary: #b91c1c;
+  --on-primary: #ffffff;
+  --primary-container: #450a0a;
+  --on-primary-container: #fecaca;
+  --brand-carmine: #b91c1c;
+  --brand-carmine-hover: #dc2626;
+
+  --nav-active-bg: rgba(185, 28, 28, 0.16);
+  --nav-active-border: rgba(239, 68, 68, 0.35);
+  --nav-active-color: #fca5a5;
   
   --danger: #ffb4ab;
   --on-danger: #690005;
+  --info: #60a5fa;
   
   /* Steel & Midnight Surface */
   --bg-main: #080808;
@@ -52,12 +67,13 @@ body.dark {
   --modal-bg: #181920;
   --bg-dark: #181920;
   --text-main: #ffffff;
+  --text-primary: #ffffff;
   --text-muted: #a0a0a0;
   --border: #262626;
   --outline: #404040;
   --glass: #181920;
-  --header-bg: #080808;
-  --input-bg: #080808;
+  --header-bg: #0c0d12;
+  --input-bg: #101118;
   
   --elevation-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.5), 0px 1px 3px 1px rgba(0, 0, 0, 0.2);
 }

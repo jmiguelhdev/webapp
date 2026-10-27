@@ -187,7 +187,7 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
                 ${isCollapsed ? '▶' : '▼'}
               </button>
               <div>
-                <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 0.45rem;">
+                <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.45rem;">
                   <span>📦 LOTE COMPRA</span>
                   <span style="font-size: 0.68rem; font-weight: 800; padding: 0.12rem 0.45rem; border-radius: 6px; background: rgba(99,102,241,0.22); color: #818cf8; border: 1px solid rgba(99,102,241,0.45); letter-spacing: 0.5px;">${lotChecks.length} CHEQUES</span>
                 </div>
@@ -196,18 +196,18 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
             </div>
           </td>
           <td style="padding: 0.85rem 1.25rem;">
-            <div style="font-weight: 750; color: #ffffff; display: flex; align-items: center; gap: 0.35rem; font-size: 0.88rem;">
+            <div style="font-weight: 750; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem; font-size: 0.88rem;">
               <span style="color: var(--primary);">📅</span> Compra: ${formatDateLocal(lotDate)}
             </div>
             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-weight: 600;">${lotChecks.length} vencimientos incluidos</div>
           </td>
-          <td style="font-weight: 900; text-align: right; font-family: monospace; font-size: 1.1rem; color: #ffffff; padding: 0.85rem 1.25rem;">
+          <td style="font-weight: 900; text-align: right; font-family: monospace; font-size: 1.1rem; color: var(--text-main); padding: 0.85rem 1.25rem;">
             ${formatCurrency(totalNominal)}
           </td>
           <td style="padding: 0.85rem 1.25rem;">
             <div style="font-size: 0.85rem; font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 0.4rem;">
               <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.35rem; border-radius: 4px; background: rgba(59,130,246,0.18); color: #60a5fa; border: 1px solid rgba(59,130,246,0.35);">VENDEDOR</span>
-              <span style="color: #ffffff; font-weight: 800;">${seller}</span>
+              <span style="color: var(--text-main); font-weight: 800;">${seller}</span>
             </div>
             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; font-weight: 600;">
               Neto Pagado: <strong style="color: #60a5fa; font-family: monospace;">${formatCurrency(totalNet)}</strong>
@@ -277,7 +277,7 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
       tr.innerHTML = `
         ${cbCell}
         <td style="${selectable ? '' : (isChild ? '' : 'border-radius: 14px 0 0 14px;')} ${isChild ? 'padding-left: 1.75rem;' : ''}">
-          <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; letter-spacing: 0.3px; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-main); letter-spacing: 0.3px; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
             ${isChild ? '<span style="color: #818cf8; font-size: 0.8rem;">↳</span>' : ''} Nº ${op.checkNumber || 'S/N'}
             ${op.isECheck ? `
               <span style="font-size: 0.65rem; font-weight: 800; padding: 0.12rem 0.4rem; border-radius: 4px; background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); letter-spacing: 0.5px;">E-CHEQ</span>
@@ -295,13 +295,13 @@ export function renderCheckTable(checksList, contacts, onSave, onDelete, sortBy 
           <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 0.25rem;"><span style="font-size: 0.8rem;">🏛️</span> ${op.bank || 'SIN BANCO'}</div>
         </td>
         <td>
-          <div style="font-weight: 750; color: #ffffff; display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem;">
+          <div style="font-weight: 750; color: var(--text-main); display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem;">
             <span style="color: var(--primary);">📅</span> ${formatDateLocal(op.dueDate)}
           </div>
           <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; font-weight: 600;">Límite: ${formatDateLocal(addDays(op.dueDate, 30))}</div>
           ${_daysBadge}
         </td>
-        <td style="font-weight: 900; text-align: right; font-family: monospace; font-size: 1.05rem; color: #ffffff; letter-spacing: 0.2px;">${formatCurrency(op.nominalValue)}</td>
+        <td style="font-weight: 900; text-align: right; font-family: monospace; font-size: 1.05rem; color: var(--text-main); letter-spacing: 0.2px;">${formatCurrency(op.nominalValue)}</td>
         <td>
           <div style="display: flex; flex-direction: column; gap: 0.35rem;">
             <div style="font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
@@ -582,6 +582,7 @@ export function createStatCard(label, value, color, emoji) {
       title: label,
       value: value,
       icon: emoji,
+      'value-color': color || '',
       subtitle: 'Indicador de cartera'
     }
   });
@@ -603,7 +604,7 @@ export function showStateConfirmationModal({ title, promptMsg, expectedValue, on
   });
   
   modal.innerHTML = `
-    <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 0.5rem;">
+    <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
       ⚠️ Confirmar Cambio de Estado
     </h3>
     <div style="font-size: 0.88rem; color: var(--text-main); font-weight: 550; line-height: 1.5;">

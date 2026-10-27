@@ -11,6 +11,7 @@ import { DailyCashClosingRepository } from '../../../adapters/repositories/Daily
 import { DailyCashClosingAggregator } from '../../services/DailyCashClosingAggregator.js';
 import { DailyClosingExcelExporter } from '../../services/DailyClosingExcelExporter.js';
 import { parseCashExtractionBreakdown } from '../../../adapters/api/CashExtractionApi.js';
+import { ToastService } from '../components/ToastService.js';
 
 export class DailyCashClosingsUI {
   constructor(containerId = 'content') {
@@ -259,6 +260,7 @@ export class DailyCashClosingsUI {
           <button id="btn-quick-today" class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.45rem 0.75rem;">📅 Hoy</button>
           <button id="btn-quick-yesterday" class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.45rem 0.75rem;">⏮️ Ayer</button>
           <button id="btn-quick-7days" class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.45rem 0.75rem;">📆 7 Días</button>
+          <button id="btn-quick-month" class="btn btn-secondary" style="font-size: 0.78rem; padding: 0.45rem 0.75rem;">🗓️ Este Mes</button>
           <button id="btn-refresh-closings" class="btn btn-primary" style="font-size: 0.82rem; padding: 0.45rem 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
             🔄 Actualizar
           </button>
@@ -1446,10 +1448,20 @@ export class DailyCashClosingsUI {
     const btnToday = document.getElementById('btn-quick-today');
     const btnYesterday = document.getElementById('btn-quick-yesterday');
     const btn7Days = document.getElementById('btn-quick-7days');
+    const btnMonth = document.getElementById('btn-quick-month');
 
     if (btnToday) btnToday.addEventListener('click', () => setQuickDates(0, 0));
     if (btnYesterday) btnYesterday.addEventListener('click', () => setQuickDates(1, 1));
     if (btn7Days) btn7Days.addEventListener('click', () => setQuickDates(7, 0));
+    if (btnMonth) {
+      btnMonth.addEventListener('click', () => {
+        const now = new Date();
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        this.filters.dateFrom = DailyCashClosingAggregator.toArgentinaDateString(firstDayOfMonth.getTime());
+        this.filters.dateTo = DailyCashClosingAggregator.toArgentinaDateString(now.getTime());
+        this.render();
+      });
+    }
 
     this.container.querySelectorAll('.day-closing-item').forEach(card => {
       card.addEventListener('click', () => {
@@ -1534,9 +1546,10 @@ export class DailyCashClosingsUI {
             },
             this.selectedDetailTerminal
           );
+          ToastService.success('Reporte Excel generado y descargado exitosamente.');
         } catch (err) {
           console.error('[DailyCashClosingsUI] Error exportando a Excel:', err);
-          alert('Ocurrió un error al generar el archivo Excel.');
+          ToastService.error('Ocurrió un error al generar el archivo Excel.');
         } finally {
           btnExportExcel.innerHTML = originalText;
           btnExportExcel.disabled = false;

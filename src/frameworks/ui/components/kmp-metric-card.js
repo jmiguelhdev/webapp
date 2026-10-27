@@ -43,12 +43,12 @@ export class KmpMetricCard extends HTMLElement {
       }
       .card {
         padding: 1.25rem 1.5rem;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: var(--card-bg, rgba(255, 255, 255, 0.02));
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.05));
         border-radius: 16px;
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+        box-shadow: var(--elevation-1, 0 4px 30px rgba(0, 0, 0, 0.2));
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
         overflow: hidden;
@@ -66,9 +66,8 @@ export class KmpMetricCard extends HTMLElement {
       }
       .card:hover {
         transform: translateY(-4px);
-        background: rgba(255, 255, 255, 0.04);
-        border-color: rgba(255, 255, 255, 0.1);
-        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
+        border-color: var(--primary, rgba(255, 255, 255, 0.1));
+        box-shadow: var(--elevation-2, 0 8px 40px rgba(0, 0, 0, 0.35));
       }
       .header {
         display: flex;
@@ -94,15 +93,15 @@ export class KmpMetricCard extends HTMLElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--input-bg, rgba(255, 255, 255, 0.03));
         border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.05));
         transition: all 0.2s ease;
       }
       .card:hover .icon-wrapper {
         transform: scale(1.1);
         background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.15);
+        border-color: var(--border, rgba(255, 255, 255, 0.15));
       }
       .body {
         position: relative;
@@ -112,7 +111,7 @@ export class KmpMetricCard extends HTMLElement {
         font-family: 'Outfit', 'Inter', system-ui, sans-serif;
         font-size: 1.62rem;
         font-weight: 800;
-        color: var(--text-primary, #f8fafc);
+        color: var(--text-main, var(--text-primary, #ffffff));
         letter-spacing: -0.5px;
         margin: 0;
         line-height: 1.2;
