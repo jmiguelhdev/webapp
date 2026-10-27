@@ -380,6 +380,39 @@ export function renderSettings(container, options) {
 
       rbacEl.innerHTML = `
         <h3 class="settings-section-title" style="margin: 2rem 0 1rem 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); font-weight: 700;">🔐 Accesos & Gestión de Permisos</h3>
+        
+        <!-- Card: Contraseña Maestra (PIN de Fábrica) -->
+        <div class="glass-card settings-card" style="padding: 1.75rem 2rem; border-radius: 20px; margin-bottom: 2rem; border: 1px solid var(--border);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+            <div>
+              <h4 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                <span>🔑</span> Contraseña Maestra de Seguridad (PIN de Fábrica)
+              </h4>
+              <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.82rem;">
+                Clave de supervisor requerida en terminales de caja y fábrica para autorizar acciones críticas (desbloquear ajustes, anular ventas, ver caja esperada y eliminar cuentas).
+              </p>
+            </div>
+            <div style="background: rgba(143, 0, 20, 0.08); border: 1px solid rgba(143, 0, 20, 0.2); padding: 0.35rem 0.8rem; border-radius: 8px; font-size: 0.8rem; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
+              <span>PIN actual:</span>
+              <span id="current-pin-display" style="letter-spacing: 2px; font-family: monospace; font-size: 0.9rem;">••••••</span>
+              <button id="toggle-view-pin-btn" type="button" style="background: none; border: none; cursor: pointer; color: var(--primary); font-size: 0.9rem; padding: 0 0.2rem;" title="Mostrar/Ocultar PIN">👁️</button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+            <div style="flex: 1; min-width: 200px;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Nueva Contraseña Maestra / PIN</label>
+              <input type="password" id="new-master-pin-input" class="form-input" placeholder="Ej: 180283" style="width: 100%; border-radius: 10px; padding: 0.6rem 0.8rem;" autocomplete="new-password">
+            </div>
+            <div style="flex: 1; min-width: 200px;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Confirmar Nueva Contraseña</label>
+              <input type="password" id="confirm-master-pin-input" class="form-input" placeholder="Repite la clave maestra" style="width: 100%; border-radius: 10px; padding: 0.6rem 0.8rem;" autocomplete="new-password">
+            </div>
+            <button id="save-master-pin-btn" class="btn-primary" style="padding: 0.65rem 1.75rem; margin: 0; font-size: 0.85rem; border-radius: 10px; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; height: 42px;">
+              <span>💾 Actualizar PIN Maestro</span>
+            </button>
+          </div>
+        </div>
+
         <div class="glass-card settings-card" style="padding: 2rem; border-radius: 20px; margin-bottom: 2.5rem;">
           <div style="margin-bottom: 1.5rem;">
             <h4 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-main);">Gestión de Usuarios Activos</h4>
@@ -524,6 +557,66 @@ export function renderSettings(container, options) {
             });
           };
         });
+      }
+
+      // Eventos para la gestión de Contraseña Maestra (PIN)
+      let pinRevealed = false;
+      let activePin = options.currentMasterPin || '180283';
+      const pinDisplay = rbacEl.querySelector('#current-pin-display');
+      const togglePinBtn = rbacEl.querySelector('#toggle-view-pin-btn');
+      const newPinInput = rbacEl.querySelector('#new-master-pin-input');
+      const confirmPinInput = rbacEl.querySelector('#confirm-master-pin-input');
+      const savePinBtn = rbacEl.querySelector('#save-master-pin-btn');
+
+      if (togglePinBtn && pinDisplay) {
+        togglePinBtn.onclick = () => {
+          pinRevealed = !pinRevealed;
+          pinDisplay.textContent = pinRevealed ? activePin : '••••••';
+          togglePinBtn.textContent = pinRevealed ? '🙈' : '👁️';
+        };
+      }
+
+      if (savePinBtn) {
+        savePinBtn.onclick = async () => {
+          const newPin = (newPinInput.value || '').trim();
+          const confirmPin = (confirmPinInput.value || '').trim();
+
+          if (!newPin) {
+            showMsg('Debes ingresar un nuevo PIN maestro.', true);
+            newPinInput.focus();
+            return;
+          }
+          if (newPin.length < 4) {
+            showMsg('El PIN debe tener al menos 4 caracteres.', true);
+            newPinInput.focus();
+            return;
+          }
+          if (newPin !== confirmPin) {
+            showMsg('La confirmación no coincide con el nuevo PIN.', true);
+            confirmPinInput.focus();
+            return;
+          }
+
+          savePinBtn.disabled = true;
+          savePinBtn.textContent = 'Actualizando...';
+          try {
+            if (options.onSaveMasterPin) {
+              await options.onSaveMasterPin(newPin);
+              activePin = newPin;
+              showMsg('Contraseña maestra actualizada con éxito. Se sincronizará con las terminales.');
+              newPinInput.value = '';
+              confirmPinInput.value = '';
+              if (pinDisplay) {
+                pinDisplay.textContent = pinRevealed ? newPin : '••••••';
+              }
+            }
+          } catch (e) {
+            showMsg('Error al guardar PIN maestro: ' + e.message, true);
+          } finally {
+            savePinBtn.disabled = false;
+            savePinBtn.innerHTML = '<span>💾 Actualizar PIN Maestro</span>';
+          }
+        };
       }
     }
   }

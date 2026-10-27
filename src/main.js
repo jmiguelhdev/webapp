@@ -8,6 +8,7 @@ import { SettingsService } from './frameworks/services/SettingsService.js';
 import { onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import * as userApi from './adapters/api/UserApi.js';
 import * as clientApi from './adapters/api/ClientApi.js';
+import * as securityConfigApi from './adapters/api/SecurityConfigApi.js';
 import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
 import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
@@ -427,11 +428,17 @@ const navigateTo = (view, role = currentUserRole) => {
         const camaras = await clientRepository.getCamaras() || [];
         
         let usersList = [];
+        let currentMasterPin = '180283';
         if (currentUserRole === 'ADMIN') {
           if (!usersListCache) {
             usersListCache = await userApi.fetchAllUsersRoles(db);
           }
           usersList = usersListCache;
+          try {
+            currentMasterPin = await securityConfigApi.fetchMasterPin(db);
+          } catch (e) {
+            console.warn('Could not fetch master PIN:', e);
+          }
         }
 
         uiInterface.hideLoading();
@@ -442,10 +449,14 @@ const navigateTo = (view, role = currentUserRole) => {
           camarasList: camaras,
           userRole: currentUserRole,
           usersList: usersList,
+          currentMasterPin: currentMasterPin,
           currentUserUid: currentUser ? currentUser.uid : null,
           onSavePrices: (newPrices) => clientRepository.saveCategoryPrices(newPrices),
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
+          onSaveMasterPin: async (newPin) => {
+            await securityConfigApi.updateMasterPin(db, newPin, currentUser?.email || 'ADMIN');
+          },
           onSaveUserRole: async (uid, role, allowedViews) => {
             await userApi.saveUserRole(db, uid, role, allowedViews);
             if (currentUser && uid === currentUser.uid) {
