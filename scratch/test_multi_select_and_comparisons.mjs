@@ -205,5 +205,29 @@ assert.strictEqual(pendingStats.comparisons.producers[0].costoGancho, 0);
 assert.strictEqual(pendingStats.comparisons.producers[0].realCostGancho, 0);
 console.log('✅ Test 5: Zero yield / unslaughtered travels correctly produce 0 for hook costs and margins.');
 
+// Test 6: Verify Totals object in comparisons
+assert.ok(stats.comparisons.totals, 'comparisons.totals must exist');
+assert.strictEqual(stats.comparisons.totals.travelCount, 3);
+assert.strictEqual(stats.comparisons.totals.heads, 110);
+assert.strictEqual(stats.comparisons.totals.kgClean, 45000);
+assert.strictEqual(stats.comparisons.totals.kgFaena, 26100);
+assert.strictEqual(stats.comparisons.totals.yieldPct.toFixed(2), '58.00'); // 26100 / 45000 = 58%
+console.log('✅ Test 6: Comparisons totals object correctly computed.');
+
+// Test 7: Mixed travels (one slaughtered, one pending) computes yield ONLY on slaughtered kilos
+const mixedTravels = [
+  ...mockTravels,
+  pendingTravel[0]
+];
+const mixedStats = useCase.execute(mixedTravels, 'TODOS', true, categoryPrices);
+const compX = mixedStats.comparisons.agents.find(a => a.name === 'Comisionista X');
+assert.ok(compX, 'Comisionista X must exist in comparisons');
+assert.strictEqual(compX.kgClean, 10000);
+assert.strictEqual(compX.kgFaena, 0);
+assert.strictEqual(compX.kgForYield, 0);
+assert.strictEqual(compX.yieldPct, 0);
+
+console.log('✅ Test 7: Mixed slaughtered and pending travels verify kgForYield calculations.');
+
 console.log('\n🎉 ALL SELL REF PRICE, MARGINS, ZERO YIELD, AND EXCEL EXPORT TESTS PASSED!');
 

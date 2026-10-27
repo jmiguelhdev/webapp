@@ -335,6 +335,7 @@ export class CalculateCategoryStats {
     completedTravels.forEach(t => {
       const buy = t.buy;
       if (!buy) return;
+      const travelId = String(t.id || buy.id || Math.random());
 
       const agentName = (buy.agent?.name || 'Sin Comisionista').trim();
       const agentPercent = buy.agent?.percent || 0;
@@ -343,10 +344,11 @@ export class CalculateCategoryStats {
         agentCompMap.set(agentName, {
           name: agentName,
           percent: agentPercent,
-          travelCount: 0,
+          travelIds: new Set(),
           heads: 0,
           kgClean: 0,
           kgFaena: 0,
+          kgForYield: 0,
           totalOp: 0,
           totalOpWithComm: 0,
           totalCommission: 0,
@@ -356,7 +358,6 @@ export class CalculateCategoryStats {
         });
       }
       const aComp = agentCompMap.get(agentName);
-      aComp.travelCount++;
 
       (buy.listOfProducers || []).forEach(p => {
         const prodName = (p.producer?.name || p.name || 'Productor').trim();
@@ -368,10 +369,11 @@ export class CalculateCategoryStats {
             name: prodName,
             cuit: prodCuit,
             origin: prodOrigin,
-            travelCount: 0,
+            travelIds: new Set(),
             heads: 0,
             kgClean: 0,
             kgFaena: 0,
+            kgForYield: 0,
             totalOp: 0,
             totalOpWithComm: 0,
             weightedSellRef: 0,
@@ -380,7 +382,6 @@ export class CalculateCategoryStats {
           });
         }
         const pComp = prodCompMap.get(prodName);
-        pComp.travelCount++;
 
         // Sub-producer within agent
         if (!aComp.producersMap.has(prodName)) {
@@ -388,10 +389,11 @@ export class CalculateCategoryStats {
             name: prodName,
             cuit: prodCuit,
             origin: prodOrigin,
-            travelCount: 0,
+            travelIds: new Set(),
             heads: 0,
             kgClean: 0,
             kgFaena: 0,
+            kgForYield: 0,
             totalOp: 0,
             totalOpWithComm: 0,
             weightedSellRef: 0,
@@ -399,17 +401,17 @@ export class CalculateCategoryStats {
           });
         }
         const aSubProd = aComp.producersMap.get(prodName);
-        aSubProd.travelCount++;
 
         // Sub-agent within producer
         if (!pComp.agentsMap.has(agentName)) {
           pComp.agentsMap.set(agentName, {
             name: agentName,
             percent: agentPercent,
-            travelCount: 0,
+            travelIds: new Set(),
             heads: 0,
             kgClean: 0,
             kgFaena: 0,
+            kgForYield: 0,
             totalOp: 0,
             totalOpWithComm: 0,
             weightedSellRef: 0,
@@ -417,7 +419,6 @@ export class CalculateCategoryStats {
           });
         }
         const pSubAgent = pComp.agentsMap.get(agentName);
-        pSubAgent.travelCount++;
 
         // Cross Cell (agent x producer)
         const crossKey = `${agentName}:::${prodName}`;
@@ -426,10 +427,11 @@ export class CalculateCategoryStats {
             agentName,
             producerName: prodName,
             cuit: prodCuit,
-            travelCount: 0,
+            travelIds: new Set(),
             heads: 0,
             kgClean: 0,
             kgFaena: 0,
+            kgForYield: 0,
             totalOp: 0,
             totalOpWithComm: 0,
             weightedSellRef: 0,
@@ -437,9 +439,8 @@ export class CalculateCategoryStats {
           });
         }
         const crossEntry = crossCompMap.get(crossKey);
-        crossEntry.travelCount++;
 
-        p.listOfProducts.forEach(pr => {
+        (p.listOfProducts || []).forEach(pr => {
           const catName = pr.standardizedCategory || pr.name || 'OTRO';
           if (isAll || catsToFilter.includes(catName)) {
             const cleanKg = pr.kgClean || 0;
@@ -450,10 +451,20 @@ export class CalculateCategoryStats {
             const commAmount = opWithComm - op;
             const refPrice = parseFloat(categoryPrices[catName]) || 0;
 
+            // Only mark travel as visited if there are matching category items
+            aComp.travelIds.add(travelId);
+            pComp.travelIds.add(travelId);
+            aSubProd.travelIds.add(travelId);
+            pSubAgent.travelIds.add(travelId);
+            crossEntry.travelIds.add(travelId);
+
             // Update Agent Aggregate
             aComp.heads += qty;
             aComp.kgClean += cleanKg;
             aComp.kgFaena += faenaKg;
+            if (faenaKg > 0) {
+              aComp.kgForYield += cleanKg;
+            }
             aComp.totalOp += op;
             aComp.totalOpWithComm += opWithComm;
             aComp.totalCommission += commAmount;
@@ -466,6 +477,9 @@ export class CalculateCategoryStats {
             pComp.heads += qty;
             pComp.kgClean += cleanKg;
             pComp.kgFaena += faenaKg;
+            if (faenaKg > 0) {
+              pComp.kgForYield += cleanKg;
+            }
             pComp.totalOp += op;
             pComp.totalOpWithComm += opWithComm;
             if (refPrice > 0 && cleanKg > 0) {
@@ -477,6 +491,9 @@ export class CalculateCategoryStats {
             aSubProd.heads += qty;
             aSubProd.kgClean += cleanKg;
             aSubProd.kgFaena += faenaKg;
+            if (faenaKg > 0) {
+              aSubProd.kgForYield += cleanKg;
+            }
             aSubProd.totalOp += op;
             aSubProd.totalOpWithComm += opWithComm;
             if (refPrice > 0 && cleanKg > 0) {
@@ -488,6 +505,9 @@ export class CalculateCategoryStats {
             pSubAgent.heads += qty;
             pSubAgent.kgClean += cleanKg;
             pSubAgent.kgFaena += faenaKg;
+            if (faenaKg > 0) {
+              pSubAgent.kgForYield += cleanKg;
+            }
             pSubAgent.totalOp += op;
             pSubAgent.totalOpWithComm += opWithComm;
             if (refPrice > 0 && cleanKg > 0) {
@@ -499,6 +519,9 @@ export class CalculateCategoryStats {
             crossEntry.heads += qty;
             crossEntry.kgClean += cleanKg;
             crossEntry.kgFaena += faenaKg;
+            if (faenaKg > 0) {
+              crossEntry.kgForYield += cleanKg;
+            }
             crossEntry.totalOp += op;
             crossEntry.totalOpWithComm += opWithComm;
             if (refPrice > 0 && cleanKg > 0) {
@@ -510,130 +533,147 @@ export class CalculateCategoryStats {
       });
     });
 
-    // Transform maps to structured sorted arrays
-    const agentComparisons = Array.from(agentCompMap.values()).map(a => {
-      const yieldPct = a.kgClean > 0 ? (a.kgFaena / a.kgClean) * 100 : 0;
-      const avgPrice = a.kgClean > 0 ? (a.totalOp / a.kgClean) : 0;
-      const avgPriceWithComm = a.kgClean > 0 ? (a.totalOpWithComm / a.kgClean) : 0;
-      const costVivo = includeCommission ? avgPriceWithComm : avgPrice;
-      const yieldRatio = yieldPct > 0 ? (yieldPct / 100) : 0;
-      const costoGancho = yieldRatio > 0 ? (costVivo / yieldRatio) : 0;
-      const realCostGancho = costoGancho > 0 ? (costoGancho / (1 - 0.017)) : 0;
-      const sellPriceRef = a.refKg > 0 && a.weightedSellRef > 0 ? (a.weightedSellRef / a.refKg) : 0;
-      const margin = (sellPriceRef > 0 && realCostGancho > 0) ? (sellPriceRef - realCostGancho) : 0;
-      const marginPct = (sellPriceRef > 0 && realCostGancho > 0) ? (margin / realCostGancho) * 100 : 0;
+    // Transform maps to structured sorted arrays (filtering out empty ghost records)
+    const agentComparisons = Array.from(agentCompMap.values())
+      .filter(a => a.heads > 0 || a.kgClean > 0)
+      .map(a => {
+        // Use kgForYield so pending unslaughtered travels do not distort the real slaughter yield
+        const yieldPct = a.kgForYield > 0 ? (a.kgFaena / a.kgForYield) * 100 : 0;
+        const avgPrice = a.kgClean > 0 ? (a.totalOp / a.kgClean) : 0;
+        const avgPriceWithComm = a.kgClean > 0 ? (a.totalOpWithComm / a.kgClean) : 0;
+        const costVivo = includeCommission ? avgPriceWithComm : avgPrice;
+        const yieldRatio = yieldPct > 0 ? (yieldPct / 100) : 0;
+        const costoGancho = yieldRatio > 0 ? (costVivo / yieldRatio) : 0;
+        const realCostGancho = costoGancho > 0 ? (costoGancho / (1 - 0.017)) : 0;
+        const sellPriceRef = a.refKg > 0 && a.weightedSellRef > 0 ? (a.weightedSellRef / a.refKg) : 0;
+        const margin = (sellPriceRef > 0 && realCostGancho > 0) ? (sellPriceRef - realCostGancho) : 0;
+        const marginPct = (sellPriceRef > 0 && realCostGancho > 0) ? (margin / realCostGancho) * 100 : 0;
 
-      const producers = Array.from(a.producersMap.values()).map(p => {
-        const pYield = p.kgClean > 0 ? (p.kgFaena / p.kgClean) * 100 : 0;
-        const pPrice = p.kgClean > 0 ? (p.totalOp / p.kgClean) : 0;
-        const pPriceWithComm = p.kgClean > 0 ? (p.totalOpWithComm / p.kgClean) : 0;
-        const pCostVivo = includeCommission ? pPriceWithComm : pPrice;
-        const pYieldRatio = pYield > 0 ? (pYield / 100) : 0;
-        const pCostoGancho = pYieldRatio > 0 ? (pCostVivo / pYieldRatio) : 0;
-        const pRealCost = pCostoGancho > 0 ? (pCostoGancho / (1 - 0.017)) : 0;
-        const pSellRef = p.refKg > 0 && p.weightedSellRef > 0 ? (p.weightedSellRef / p.refKg) : 0;
-        const pMargin = (pSellRef > 0 && pRealCost > 0) ? (pSellRef - pRealCost) : 0;
-        const pMarginPct = (pSellRef > 0 && pRealCost > 0) ? (pMargin / pRealCost) * 100 : 0;
+        const producers = Array.from(a.producersMap.values())
+          .filter(p => p.heads > 0 || p.kgClean > 0)
+          .map(p => {
+            const pYield = p.kgForYield > 0 ? (p.kgFaena / p.kgForYield) * 100 : 0;
+            const pPrice = p.kgClean > 0 ? (p.totalOp / p.kgClean) : 0;
+            const pPriceWithComm = p.kgClean > 0 ? (p.totalOpWithComm / p.kgClean) : 0;
+            const pCostVivo = includeCommission ? pPriceWithComm : pPrice;
+            const pYieldRatio = pYield > 0 ? (pYield / 100) : 0;
+            const pCostoGancho = pYieldRatio > 0 ? (pCostVivo / pYieldRatio) : 0;
+            const pRealCost = pCostoGancho > 0 ? (pCostoGancho / (1 - 0.017)) : 0;
+            const pSellRef = p.refKg > 0 && p.weightedSellRef > 0 ? (p.weightedSellRef / p.refKg) : 0;
+            const pMargin = (pSellRef > 0 && pRealCost > 0) ? (pSellRef - pRealCost) : 0;
+            const pMarginPct = (pSellRef > 0 && pRealCost > 0) ? (pMargin / pRealCost) * 100 : 0;
+            return {
+              ...p,
+              travelCount: p.travelIds.size,
+              yieldPct: pYield,
+              avgPrice: pPrice,
+              avgPriceWithCommission: pPriceWithComm,
+              costoGancho: pCostoGancho,
+              realCostGancho: pRealCost,
+              sellPriceRef: pSellRef,
+              margin: pMargin,
+              marginPct: pMarginPct
+            };
+          }).sort((x, y) => y.kgClean - x.kgClean);
+
         return {
-          ...p,
-          yieldPct: pYield,
-          avgPrice: pPrice,
-          avgPriceWithCommission: pPriceWithComm,
-          costoGancho: pCostoGancho,
-          realCostGancho: pRealCost,
-          sellPriceRef: pSellRef,
-          margin: pMargin,
-          marginPct: pMarginPct
+          name: a.name,
+          percent: a.percent,
+          travelCount: a.travelIds.size,
+          travelIds: Array.from(a.travelIds),
+          heads: a.heads,
+          kgClean: a.kgClean,
+          kgFaena: a.kgFaena,
+          kgForYield: a.kgForYield,
+          yieldPct,
+          avgPrice,
+          avgPriceWithCommission: avgPriceWithComm,
+          costoGancho,
+          realCostGancho,
+          sellPriceRef,
+          margin,
+          marginPct,
+          totalOp: a.totalOp,
+          totalOpWithCommission: a.totalOpWithComm,
+          totalCommission: a.totalCommission,
+          producers
         };
-      }).sort((x, y) => y.kgClean - x.kgClean);
+      }).sort((a, b) => b.kgClean - a.kgClean);
 
-      return {
-        name: a.name,
-        percent: a.percent,
-        travelCount: a.travelCount,
-        heads: a.heads,
-        kgClean: a.kgClean,
-        kgFaena: a.kgFaena,
-        yieldPct,
-        avgPrice,
-        avgPriceWithCommission: avgPriceWithComm,
-        costoGancho,
-        realCostGancho,
-        sellPriceRef,
-        margin,
-        marginPct,
-        totalOp: a.totalOp,
-        totalOpWithCommission: a.totalOpWithComm,
-        totalCommission: a.totalCommission,
-        producers
-      };
-    }).sort((a, b) => b.kgClean - a.kgClean);
+    const producerComparisons = Array.from(prodCompMap.values())
+      .filter(p => p.heads > 0 || p.kgClean > 0)
+      .map(p => {
+        const yieldPct = p.kgForYield > 0 ? (p.kgFaena / p.kgForYield) * 100 : 0;
+        const avgPrice = p.kgClean > 0 ? (p.totalOp / p.kgClean) : 0;
+        const avgPriceWithComm = p.kgClean > 0 ? (p.totalOpWithComm / p.kgClean) : 0;
+        const costVivo = includeCommission ? avgPriceWithComm : avgPrice;
+        const yieldRatio = yieldPct > 0 ? (yieldPct / 100) : 0;
+        const costoGancho = yieldRatio > 0 ? (costVivo / yieldRatio) : 0;
+        const realCostGancho = costoGancho > 0 ? (costoGancho / (1 - 0.017)) : 0;
+        const sellPriceRef = p.refKg > 0 && p.weightedSellRef > 0 ? (p.weightedSellRef / p.refKg) : 0;
+        const margin = (sellPriceRef > 0 && realCostGancho > 0) ? (sellPriceRef - realCostGancho) : 0;
+        const marginPct = (sellPriceRef > 0 && realCostGancho > 0) ? (margin / realCostGancho) * 100 : 0;
 
-    const producerComparisons = Array.from(prodCompMap.values()).map(p => {
-      const yieldPct = p.kgClean > 0 ? (p.kgFaena / p.kgClean) * 100 : 0;
-      const avgPrice = p.kgClean > 0 ? (p.totalOp / p.kgClean) : 0;
-      const avgPriceWithComm = p.kgClean > 0 ? (p.totalOpWithComm / p.kgClean) : 0;
-      const costVivo = includeCommission ? avgPriceWithComm : avgPrice;
-      const yieldRatio = yieldPct > 0 ? (yieldPct / 100) : 0;
-      const costoGancho = yieldRatio > 0 ? (costVivo / yieldRatio) : 0;
-      const realCostGancho = costoGancho > 0 ? (costoGancho / (1 - 0.017)) : 0;
-      const sellPriceRef = p.refKg > 0 && p.weightedSellRef > 0 ? (p.weightedSellRef / p.refKg) : 0;
-      const margin = (sellPriceRef > 0 && realCostGancho > 0) ? (sellPriceRef - realCostGancho) : 0;
-      const marginPct = (sellPriceRef > 0 && realCostGancho > 0) ? (margin / realCostGancho) * 100 : 0;
+        const agents = Array.from(p.agentsMap.values())
+          .filter(a => a.heads > 0 || a.kgClean > 0)
+          .map(a => {
+            const aYield = a.kgForYield > 0 ? (a.kgFaena / a.kgForYield) * 100 : 0;
+            const aPrice = a.kgClean > 0 ? (a.totalOp / a.kgClean) : 0;
+            const aPriceWithComm = a.kgClean > 0 ? (a.totalOpWithComm / a.kgClean) : 0;
+            const aCostVivo = includeCommission ? aPriceWithComm : aPrice;
+            const aYieldRatio = aYield > 0 ? (aYield / 100) : 0;
+            const aCostoGancho = aYieldRatio > 0 ? (aCostVivo / aYieldRatio) : 0;
+            const aRealCost = aCostoGancho > 0 ? (aCostoGancho / (1 - 0.017)) : 0;
+            const aSellRef = a.refKg > 0 && a.weightedSellRef > 0 ? (a.weightedSellRef / a.refKg) : 0;
+            const aMargin = (aSellRef > 0 && aRealCost > 0) ? (aSellRef - aRealCost) : 0;
+            const aMarginPct = (aSellRef > 0 && aRealCost > 0) ? (aMargin / aRealCost) * 100 : 0;
+            return {
+              ...a,
+              travelCount: a.travelIds.size,
+              yieldPct: aYield,
+              avgPrice: aPrice,
+              avgPriceWithCommission: aPriceWithComm,
+              costoGancho: aCostoGancho,
+              realCostGancho: aRealCost,
+              sellPriceRef: aSellRef,
+              margin: aMargin,
+              marginPct: aMarginPct
+            };
+          }).sort((x, y) => y.kgClean - x.kgClean);
 
-      const agents = Array.from(p.agentsMap.values()).map(a => {
-        const aYield = a.kgClean > 0 ? (a.kgFaena / a.kgClean) * 100 : 0;
-        const aPrice = a.kgClean > 0 ? (a.totalOp / a.kgClean) : 0;
-        const aPriceWithComm = a.kgClean > 0 ? (a.totalOpWithComm / a.kgClean) : 0;
-        const aCostVivo = includeCommission ? aPriceWithComm : aPrice;
-        const aYieldRatio = aYield > 0 ? (aYield / 100) : 0;
-        const aCostoGancho = aYieldRatio > 0 ? (aCostVivo / aYieldRatio) : 0;
-        const aRealCost = aCostoGancho > 0 ? (aCostoGancho / (1 - 0.017)) : 0;
-        const aSellRef = a.refKg > 0 && a.weightedSellRef > 0 ? (a.weightedSellRef / a.refKg) : 0;
-        const aMargin = (aSellRef > 0 && aRealCost > 0) ? (aSellRef - aRealCost) : 0;
-        const aMarginPct = (aSellRef > 0 && aRealCost > 0) ? (aMargin / aRealCost) * 100 : 0;
         return {
-          ...a,
-          yieldPct: aYield,
-          avgPrice: aPrice,
-          avgPriceWithCommission: aPriceWithComm,
-          costoGancho: aCostoGancho,
-          realCostGancho: aRealCost,
-          sellPriceRef: aSellRef,
-          margin: aMargin,
-          marginPct: aMarginPct
+          name: p.name,
+          cuit: p.cuit,
+          origin: p.origin,
+          travelCount: p.travelIds.size,
+          travelIds: Array.from(p.travelIds),
+          heads: p.heads,
+          kgClean: p.kgClean,
+          kgFaena: p.kgFaena,
+          kgForYield: p.kgForYield,
+          yieldPct,
+          avgPrice,
+          avgPriceWithCommission: avgPriceWithComm,
+          costoGancho,
+          realCostGancho,
+          sellPriceRef,
+          margin,
+          marginPct,
+          totalOp: p.totalOp,
+          totalOpWithCommission: p.totalOpWithComm,
+          agents
         };
-      }).sort((x, y) => y.kgClean - x.kgClean);
+      }).sort((a, b) => b.kgClean - a.kgClean);
 
-      return {
-        name: p.name,
-        cuit: p.cuit,
-        origin: p.origin,
-        travelCount: p.travelCount,
-        heads: p.heads,
-        kgClean: p.kgClean,
-        kgFaena: p.kgFaena,
-        yieldPct,
-        avgPrice,
-        avgPriceWithCommission: avgPriceWithComm,
-        costoGancho,
-        realCostGancho,
-        sellPriceRef,
-        margin,
-        marginPct,
-        totalOp: p.totalOp,
-        totalOpWithCommission: p.totalOpWithComm,
-        agents
-      };
-    }).sort((a, b) => b.kgClean - a.kgClean);
-
+    // Cross matrix compilation
     const crossMatrix = {
       agents: agentComparisons.map(a => a.name),
       producers: producerComparisons.map(p => p.name),
       cells: {}
     };
     crossCompMap.forEach((entry, key) => {
-      const yPct = entry.kgClean > 0 ? (entry.kgFaena / entry.kgClean) * 100 : 0;
+      if (entry.heads === 0 && entry.kgClean === 0) return;
+      const yPct = entry.kgForYield > 0 ? (entry.kgFaena / entry.kgForYield) * 100 : 0;
       const price = entry.kgClean > 0 ? (entry.totalOp / entry.kgClean) : 0;
       const priceWithComm = entry.kgClean > 0 ? (entry.totalOpWithComm / entry.kgClean) : 0;
       const costVivo = includeCommission ? priceWithComm : price;
@@ -646,6 +686,7 @@ export class CalculateCategoryStats {
 
       crossMatrix.cells[key] = {
         ...entry,
+        travelCount: entry.travelIds.size,
         yieldPct: yPct,
         avgPrice: price,
         avgPriceWithCommission: priceWithComm,
@@ -657,10 +698,68 @@ export class CalculateCategoryStats {
       };
     });
 
+    // Consolidated totals across all compared agents
+    const allComparisonTravelIds = new Set();
+    let totalCompHeads = 0;
+    let totalCompKgClean = 0;
+    let totalCompKgFaena = 0;
+    let totalCompKgForYield = 0;
+    let totalCompOp = 0;
+    let totalCompOpWithComm = 0;
+    let totalCompCommission = 0;
+    let totalCompWeightedSellRef = 0;
+    let totalCompRefKg = 0;
+
+    agentComparisons.forEach(a => {
+      totalCompHeads += a.heads;
+      totalCompKgClean += a.kgClean;
+      totalCompKgFaena += a.kgFaena;
+      totalCompKgForYield += a.kgForYield;
+      totalCompOp += a.totalOp;
+      totalCompOpWithComm += a.totalOpWithCommission;
+      totalCompCommission += a.totalCommission;
+      if (a.sellPriceRef > 0 && a.refKg > 0) {
+        totalCompWeightedSellRef += a.sellPriceRef * a.refKg;
+        totalCompRefKg += a.refKg;
+      }
+      (a.travelIds || []).forEach(id => allComparisonTravelIds.add(id));
+    });
+
+    const totalCompYieldPct = totalCompKgForYield > 0 ? (totalCompKgFaena / totalCompKgForYield) * 100 : 0;
+    const totalCompAvgPrice = totalCompKgClean > 0 ? (totalCompOp / totalCompKgClean) : 0;
+    const totalCompAvgPriceWithComm = totalCompKgClean > 0 ? (totalCompOpWithComm / totalCompKgClean) : 0;
+    const totalCompCostVivo = includeCommission ? totalCompAvgPriceWithComm : totalCompAvgPrice;
+    const totalCompYieldRatio = totalCompYieldPct > 0 ? (totalCompYieldPct / 100) : 0;
+    const totalCompCostoGancho = totalCompYieldRatio > 0 ? (totalCompCostVivo / totalCompYieldRatio) : 0;
+    const totalCompRealCostGancho = totalCompCostoGancho > 0 ? (totalCompCostoGancho / (1 - 0.017)) : 0;
+    const totalCompSellPriceRef = totalCompRefKg > 0 ? (totalCompWeightedSellRef / totalCompRefKg) : 0;
+    const totalCompMargin = (totalCompSellPriceRef > 0 && totalCompRealCostGancho > 0) ? (totalCompSellPriceRef - totalCompRealCostGancho) : 0;
+    const totalCompMarginPct = (totalCompSellPriceRef > 0 && totalCompRealCostGancho > 0) ? (totalCompMargin / totalCompRealCostGancho) * 100 : 0;
+
+    const totals = {
+      travelCount: allComparisonTravelIds.size,
+      heads: totalCompHeads,
+      kgClean: totalCompKgClean,
+      kgFaena: totalCompKgFaena,
+      kgForYield: totalCompKgForYield,
+      yieldPct: totalCompYieldPct,
+      avgPrice: totalCompAvgPrice,
+      avgPriceWithCommission: totalCompAvgPriceWithComm,
+      costoGancho: totalCompCostoGancho,
+      realCostGancho: totalCompRealCostGancho,
+      sellPriceRef: totalCompSellPriceRef,
+      margin: totalCompMargin,
+      marginPct: totalCompMarginPct,
+      totalOp: totalCompOp,
+      totalOpWithCommission: totalCompOpWithComm,
+      totalCommission: totalCompCommission
+    };
+
     const comparisons = {
       agents: agentComparisons,
       producers: producerComparisons,
-      crossMatrix
+      crossMatrix,
+      totals
     };
 
     return {

@@ -17,10 +17,12 @@
 </head>
 <body class="dark">
   <header class="header">
-    <button id="menu-toggle" class="menu-toggle" aria-label="Abrir Menú">☰</button>
-    <div class="logo">
-      <img src="/logo.jpg" alt="Logo Frigorífico Pampa" class="header-logo" />
-      <h1>Frigorífico Pampa</h1>
+    <div class="header-brand">
+      <button id="menu-toggle" class="menu-toggle" aria-label="Alternar Menú Lateral" title="Alternar Menú Lateral">☰</button>
+      <div class="logo">
+        <img src="/logo.jpg" alt="Logo Frigorífico Pampa" class="header-logo" />
+        <h1>Frigorífico Pampa</h1>
+      </div>
     </div>
 
     <!-- Buscador Rápido / Command Palette Trigger -->
@@ -58,6 +60,7 @@
   <aside class="sidebar">
     <kmp-sidebar id="kmp-sidebar" role="VISOR" active="dashboard"></kmp-sidebar>
   </aside>
+  <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
 
   <main id="content" class="content"></main>
 

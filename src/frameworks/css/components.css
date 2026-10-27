@@ -793,3 +793,160 @@ select option {
   padding: 0.05rem 0.3rem;
   font-family: monospace;
 }
+
+/* ==========================================================================
+   Modern Surfaces, @starting-style Entry & Micro-interactions
+   ========================================================================== */
+.glass-card,
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--elevation-1);
+  transition:
+    transform 0.24s var(--ease-spring),
+    box-shadow 0.24s var(--ease-spring),
+    border-color 0.2s ease,
+    background-color 0.25s ease,
+    opacity 0.24s ease,
+    translate 0.24s var(--ease-spring);
+  opacity: 1;
+  translate: 0 0;
+}
+
+@starting-style {
+  .glass-card,
+  .card {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-outline,
+.btn-icon,
+.btn-nueva-operacion {
+  transition:
+    transform 0.18s var(--ease-spring),
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    filter 0.2s ease;
+}
+
+.btn:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.btn-outline:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-outline:active:not(:disabled),
+.btn-icon:active:not(:disabled),
+.btn-nueva-operacion:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  background: var(--surface-subtle);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 0.55rem 1.15rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+}
+
+/* Focus-visible Ring */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Reusable Collapsible Panel (CSS Grid 1fr <-> 0fr Accordion)
+   ========================================================================== */
+.collapsible-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--elevation-1);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.35rem;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface-subtle);
+  transition: background-color 0.2s ease;
+}
+.collapsible-header:hover {
+  background: var(--surface-hover);
+}
+
+.collapsible-title {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.collapsible-chevron {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  transition: transform 0.28s var(--ease-spring);
+}
+
+.collapsible-panel.is-collapsed .collapsible-chevron {
+  transform: rotate(-90deg);
+}
+
+.collapsible-body-wrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.3s var(--ease-spring), opacity 0.22s ease;
+  opacity: 1;
+}
+
+.collapsible-panel.is-collapsed .collapsible-body-wrapper {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+.collapsible-body-inner {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-card,
+  .card,
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-outline,
+  .collapsible-body-wrapper,
+  .collapsible-chevron {
+    transition: none !important;
+    translate: none !important;
+  }
+}

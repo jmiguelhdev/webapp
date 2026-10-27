@@ -189,9 +189,59 @@ function initCommandPalette() {
 initNetworkStatusIndicator();
 initCommandPalette();
 
+const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+
+function setSidebarCollapsed(collapsed) {
+  document.body.classList.toggle('sidebar-collapsed', collapsed);
+  if (kmpSidebar) {
+    if (collapsed) {
+      kmpSidebar.setAttribute('collapsed', 'true');
+    } else {
+      kmpSidebar.removeAttribute('collapsed');
+    }
+  }
+  try {
+    localStorage.setItem('kmp_sidebar_rail_collapsed', collapsed ? 'true' : 'false');
+  } catch {
+    // Ignore storage error
+  }
+}
+
+// Restore saved rail state on desktop
+try {
+  const savedCollapsed = localStorage.getItem('kmp_sidebar_rail_collapsed') === 'true';
+  if (savedCollapsed && window.innerWidth > 768) {
+    setSidebarCollapsed(true);
+  }
+} catch {
+  // Ignore
+}
+
 if (kmpSidebar) {
   kmpSidebar.addEventListener('navigate', (e) => {
     navigateTo(e.detail.view);
+  });
+  kmpSidebar.addEventListener('toggle-collapse', () => {
+    const nextState = !document.body.classList.contains('sidebar-collapsed');
+    setSidebarCollapsed(nextState);
+  });
+  kmpSidebar.addEventListener('request-logout', async () => {
+    const confirmed = await ConfirmModal.confirm({
+      title: 'Cerrar Sesión',
+      message: '¿Está seguro de que desea salir de Frigorífico Pampa?',
+      icon: '🚪',
+      confirmText: 'Cerrar Sesión',
+      isDestructive: true
+    });
+    if (confirmed) {
+      window.dispatchEvent(new Event('app:logout'));
+    }
+  });
+}
+
+if (sidebarBackdrop) {
+  sidebarBackdrop.addEventListener('click', () => {
+    document.body.classList.remove('sidebar-open');
   });
 }
 
@@ -485,14 +535,20 @@ const navigateTo = (view, role = currentUserRole) => {
   }
 
   document.body.classList.remove('sidebar-open');
-  content.innerHTML = '';
-  switch (view) {
-    case 'travels': 
-      travelPresenter.updateView();
-      break;
-    case 'dashboard':
-      travelPresenter.showDashboard();
-      break;
+
+  const performNavigationRender = () => {
+    content.classList.remove('view-enter-anim');
+    // Force reflow for fallback CSS animation
+    void content.offsetWidth;
+    content.classList.add('view-enter-anim');
+    content.innerHTML = '';
+    switch (view) {
+      case 'travels': 
+        travelPresenter.updateView();
+        break;
+      case 'dashboard':
+        travelPresenter.showDashboard();
+        break;
     case 'consumption':
       consumptionPresenter.loadFaenas(SHARED_DATA_SOURCE_UID);
       break;
@@ -986,6 +1042,20 @@ const navigateTo = (view, role = currentUserRole) => {
       break;
     case 'logout': signOut(auth); break;
     default: content.textContent = 'Vista no encontrada';
+    }
+  };
+
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (document.startViewTransition && !prefersReducedMotion) {
+    try {
+      document.startViewTransition(() => {
+        performNavigationRender();
+      });
+    } catch {
+      performNavigationRender();
+    }
+  } else {
+    performNavigationRender();
   }
 }
 
@@ -997,7 +1067,13 @@ themeToggle.addEventListener('click', () => {
 });
 
 menuToggle.addEventListener('click', () => {
-  document.body.classList.toggle('sidebar-open');
+  if (window.innerWidth <= 768) {
+    if (kmpSidebar) kmpSidebar.removeAttribute('collapsed');
+    document.body.classList.toggle('sidebar-open');
+  } else {
+    const nextCollapsed = !document.body.classList.contains('sidebar-collapsed');
+    setSidebarCollapsed(nextCollapsed);
+  }
 });
 
 const exportBtn = document.getElementById('export-pdf');

@@ -1,5 +1,5 @@
 /* webApp/src/css/variables.css */
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Outfit:wght@600;700;800&family=Roboto:wght@300;400;500;700&display=swap');
 
 :root {
   --primary: #8f0014;
@@ -20,26 +20,36 @@
   --info: #3b82f6;
   
   /* M3 Light Surface */
-  --bg-main: #fff8f7;
-  --sidebar-bg: #fff8f7;
+  --bg-main: #faf5f4;
+  --sidebar-bg: #fffbfa;
   --card-bg: #ffffff; /* Surface Container */
   --card-bg-solid: #ffffff;
   --modal-bg: #ffffff;
   --bg-dark: #1e1e24;
   --text-main: #231918;
   --text-primary: #231918;
-  --text-muted: #554341;
-  --border: #e7dbd9; 
+  --text-muted: #5e4b48;
+  --border: #e5d8d6; 
   --outline: #887270;
-  --glass: #ffffff; /* Fallback for glass to solid */
-  --header-bg: #fff8f7;
-  --input-bg: #fff8f7;
-  --transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); /* M3 Standard */
+  --glass: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(143, 0, 20, 0.08);
+  --surface-hover: rgba(143, 0, 20, 0.04);
+  --surface-subtle: rgba(35, 25, 24, 0.03);
+  --header-bg: rgba(255, 251, 250, 0.88);
+  --input-bg: #ffffff;
+
+  /* Motion & Layout Tokens */
+  --sidebar-width: 256px;
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --duration-fast: 160ms;
+  --duration-normal: 260ms;
+  --transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Elevations */
-  --elevation-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
-  --elevation-2: 0px 1px 2px 0px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
-  --elevation-3: 0px 1px 3px 0px rgba(0, 0, 0, 0.3), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
+  --elevation-1: 0 2px 8px -2px rgba(35, 25, 24, 0.07), 0 1px 3px 0 rgba(35, 25, 24, 0.05);
+  --elevation-2: 0 8px 24px -4px rgba(35, 25, 24, 0.10), 0 2px 6px -1px rgba(35, 25, 24, 0.06);
+  --elevation-3: 0 16px 36px -6px rgba(35, 25, 24, 0.14), 0 4px 12px -2px rgba(35, 25, 24, 0.08);
 }
 
 body.dark {
@@ -51,8 +61,8 @@ body.dark {
   --brand-carmine: #b91c1c;
   --brand-carmine-hover: #dc2626;
 
-  --nav-active-bg: rgba(185, 28, 28, 0.16);
-  --nav-active-border: rgba(239, 68, 68, 0.35);
+  --nav-active-bg: rgba(185, 28, 28, 0.18);
+  --nav-active-border: rgba(239, 68, 68, 0.38);
   --nav-active-color: #fca5a5;
   
   --danger: #ffb4ab;
@@ -60,36 +70,55 @@ body.dark {
   --info: #60a5fa;
   
   /* Steel & Midnight Surface */
-  --bg-main: #080808;
-  --sidebar-bg: #080808;
-  --card-bg: #181920; /* Elevation 1 Surface */
-  --card-bg-solid: #181920;
-  --modal-bg: #181920;
-  --bg-dark: #181920;
-  --text-main: #ffffff;
-  --text-primary: #ffffff;
-  --text-muted: #a0a0a0;
-  --border: #262626;
-  --outline: #404040;
-  --glass: #181920;
-  --header-bg: #0c0d12;
-  --input-bg: #101118;
+  --bg-main: #090a0f;
+  --sidebar-bg: #0d0f17;
+  --card-bg: #151722; /* Elevation 1 Surface */
+  --card-bg-solid: #151722;
+  --modal-bg: #181a26;
+  --bg-dark: #151722;
+  --text-main: #f8fafc;
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: #232736;
+  --outline: #3b4256;
+  --glass: rgba(21, 23, 34, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.04);
+  --surface-subtle: rgba(255, 255, 255, 0.02);
+  --header-bg: rgba(13, 15, 23, 0.85);
+  --input-bg: #0f111a;
   
-  --elevation-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.5), 0px 1px 3px 1px rgba(0, 0, 0, 0.2);
+  --elevation-1: 0 4px 16px -2px rgba(0, 0, 0, 0.45), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  --elevation-2: 0 10px 28px -4px rgba(0, 0, 0, 0.55), 0 4px 10px -2px rgba(0, 0, 0, 0.35);
+  --elevation-3: 0 20px 44px -8px rgba(0, 0, 0, 0.7), 0 8px 16px -4px rgba(0, 0, 0, 0.45);
+}
+
+body.sidebar-collapsed {
+  --sidebar-width: 72px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Inter', 'Roboto', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-main);
   color: var(--text-main);
   color-scheme: light;
   display: grid;
-  grid-template-columns: 240px 1fr;
-  grid-template-rows: 70px 1fr;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: 68px 1fr;
   grid-template-areas: "header header" "sidebar main";
   min-height: 100vh;
-  transition: background-color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.25s ease,
+    grid-template-columns 0.3s var(--ease-spring);
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none;
+  }
 }

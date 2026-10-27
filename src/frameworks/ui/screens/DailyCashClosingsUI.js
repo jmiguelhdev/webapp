@@ -267,55 +267,68 @@ export class DailyCashClosingsUI {
         </div>
       </div>
 
-      <!-- Barra de Filtros -->
-      <div class="card" style="padding: 1.15rem; margin-bottom: 1.25rem; background: rgba(15, 23, 42, 0.65); border: 1px solid var(--border); border-radius: 14px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0.9rem; align-items: end;">
-          
-          <!-- 1. Carnicería / Sucursal -->
-          <div>
-            <label style="font-size: 0.74rem; color: #60a5fa; font-weight: 700; display: block; margin-bottom: 0.3rem;">🏪 Sucursal / Carnicería</label>
-            <select id="filter-butchery" class="form-control" style="width: 100%; border-color: rgba(96, 165, 250, 0.4);">
-              <option value="ALL" ${this.filters.butcheryName === 'ALL' ? 'selected' : ''}>🌐 Todas las Sucursales</option>
-              ${this.butcheriesList.map(b => `<option value="${b}" ${this.filters.butcheryName === b ? 'selected' : ''}>🥩 ${b}</option>`).join('')}
-            </select>
+      <!-- Barra de Filtros Colapsable -->
+      <div class="collapsible-panel ${this._filtersCollapsed ? 'is-collapsed' : ''}" id="closings-filter-panel" style="margin-bottom: 1.25rem; border-radius: 14px;">
+        <div class="collapsible-header" id="toggle-closings-filters" title="Clic para mostrar/ocultar filtros">
+          <div class="collapsible-title" style="font-size: 0.85rem;">
+            <span>🎛️ Filtros de Sucursal, Terminal y Período</span>
+            <span style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-left: 0.4rem;">
+              (${this.filters.butcheryName === 'ALL' ? 'Todas las sucursales' : this.filters.butcheryName} • ${this.filters.dateFrom} → ${this.filters.dateTo})
+            </span>
           </div>
+          <span class="collapsible-chevron">▾</span>
+        </div>
+        <div class="collapsible-body-wrapper">
+          <div class="collapsible-body-inner">
+            <div style="padding: 1.15rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0.9rem; align-items: end;">
+              
+              <!-- 1. Carnicería / Sucursal -->
+              <div>
+                <label style="font-size: 0.74rem; color: #3b82f6; font-weight: 700; display: block; margin-bottom: 0.3rem;">🏪 Sucursal / Carnicería</label>
+                <select id="filter-butchery" class="form-control" style="width: 100%; border-color: rgba(59, 130, 246, 0.4);">
+                  <option value="ALL" ${this.filters.butcheryName === 'ALL' ? 'selected' : ''}>🌐 Todas las Sucursales</option>
+                  ${this.butcheriesList.map(b => `<option value="${b}" ${this.filters.butcheryName === b ? 'selected' : ''}>🥩 ${b}</option>`).join('')}
+                </select>
+              </div>
 
-          <!-- 2. Terminal / PC de Caja -->
-          <div>
-            <label style="font-size: 0.74rem; color: #c084fc; font-weight: 700; display: block; margin-bottom: 0.3rem;">🖥️ Terminal / PC</label>
-            <select id="filter-terminal" class="form-control" style="width: 100%; border-color: rgba(192, 132, 252, 0.4);">
-              <option value="ALL" ${this.filters.terminalId === 'ALL' ? 'selected' : ''}>🖥️ Todas las PCs (Consolidado)</option>
-              ${availableTerminals.map(t => `<option value="${t}" ${this.filters.terminalId === t ? 'selected' : ''}>💻 ${t}</option>`).join('')}
-            </select>
-          </div>
+              <!-- 2. Terminal / PC de Caja -->
+              <div>
+                <label style="font-size: 0.74rem; color: #9333ea; font-weight: 700; display: block; margin-bottom: 0.3rem;">🖥️ Terminal / PC</label>
+                <select id="filter-terminal" class="form-control" style="width: 100%; border-color: rgba(147, 51, 234, 0.4);">
+                  <option value="ALL" ${this.filters.terminalId === 'ALL' ? 'selected' : ''}>🖥️ Todas las PCs (Consolidado)</option>
+                  ${availableTerminals.map(t => `<option value="${t}" ${this.filters.terminalId === t ? 'selected' : ''}>💻 ${t}</option>`).join('')}
+                </select>
+              </div>
 
-          <!-- 3. Tipo de Turno -->
-          <div>
-            <label style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.3rem;">⏱️ Turno</label>
-            <select id="filter-closing-type" class="form-control" style="width: 100%;">
-              <option value="ALL" ${this.filters.closingType === 'ALL' ? 'selected' : ''}>📋 Jornada Completa (Todos)</option>
-              <option value="PARCIAL" ${this.filters.closingType === 'PARCIAL' ? 'selected' : ''}>🌅 Turno Mañana (PARCIAL)</option>
-              <option value="GENERAL" ${this.filters.closingType === 'GENERAL' ? 'selected' : ''}>🌙 Turno Tarde / Cierre (GENERAL)</option>
-            </select>
-          </div>
+              <!-- 3. Tipo de Turno -->
+              <div>
+                <label style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.3rem;">⏱️ Turno</label>
+                <select id="filter-closing-type" class="form-control" style="width: 100%;">
+                  <option value="ALL" ${this.filters.closingType === 'ALL' ? 'selected' : ''}>📋 Jornada Completa (Todos)</option>
+                  <option value="PARCIAL" ${this.filters.closingType === 'PARCIAL' ? 'selected' : ''}>🌅 Turno Mañana (PARCIAL)</option>
+                  <option value="GENERAL" ${this.filters.closingType === 'GENERAL' ? 'selected' : ''}>🌙 Turno Tarde / Cierre (GENERAL)</option>
+                </select>
+              </div>
 
-          <!-- 4. Fecha Desde -->
-          <div>
-            <label style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.3rem;">📅 Fecha Desde</label>
-            <input type="date" id="filter-date-from" class="form-control" value="${this.filters.dateFrom}" style="width: 100%;" />
-          </div>
+              <!-- 4. Fecha Desde -->
+              <div>
+                <label style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.3rem;">📅 Fecha Desde</label>
+                <input type="date" id="filter-date-from" class="form-control" value="${this.filters.dateFrom}" style="width: 100%;" />
+              </div>
 
-          <!-- 5. Fecha Hasta -->
-          <div>
-            <label style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.3rem;">📅 Fecha Hasta</label>
-            <input type="date" id="filter-date-to" class="form-control" value="${this.filters.dateTo}" style="width: 100%;" />
-          </div>
+              <!-- 5. Fecha Hasta -->
+              <div>
+                <label style="font-size: 0.74rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.3rem;">📅 Fecha Hasta</label>
+                <input type="date" id="filter-date-to" class="form-control" value="${this.filters.dateTo}" style="width: 100%;" />
+              </div>
 
-          <!-- 6. Botón Consultar Rango -->
-          <div>
-            <button id="btn-query-dates" class="btn btn-primary" style="width: 100%; font-weight: 700; padding: 0.55rem;">
-              🔍 Filtrar Período
-            </button>
+              <!-- 6. Botón Consultar Rango -->
+              <div>
+                <button id="btn-query-dates" class="btn btn-primary" style="width: 100%; font-weight: 700; padding: 0.55rem;">
+                  🔍 Filtrar Período
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1391,6 +1404,15 @@ export class DailyCashClosingsUI {
   }
 
   attachEventListeners() {
+    const toggleFiltersHeader = document.getElementById('toggle-closings-filters');
+    const filterPanel = document.getElementById('closings-filter-panel');
+    if (toggleFiltersHeader && filterPanel) {
+      toggleFiltersHeader.addEventListener('click', () => {
+        this._filtersCollapsed = !this._filtersCollapsed;
+        filterPanel.classList.toggle('is-collapsed', this._filtersCollapsed);
+      });
+    }
+
     const branchSelect = document.getElementById('filter-butchery');
     const terminalSelect = document.getElementById('filter-terminal');
     const typeSelect = document.getElementById('filter-closing-type');

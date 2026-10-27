@@ -798,3 +798,37 @@ canvas { width: 100% !important; height: 100% !important; }
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
 }
 
+/* Interactive Day Closing Cards & Table Rows Entry Animations */
+.day-closing-item {
+  transition:
+    transform 0.22s var(--ease-spring),
+    box-shadow 0.22s var(--ease-spring),
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    opacity 0.22s ease,
+    translate 0.22s var(--ease-spring) !important;
+  opacity: 1;
+  translate: 0 0;
+}
+.day-closing-item:hover {
+  transform: translateX(3px);
+}
+
+@starting-style {
+  .check-card-row,
+  .day-closing-item {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-card-row,
+  .day-closing-item {
+    transition: none !important;
+    translate: none !important;
+    transform: none !important;
+  }
+}
+
+

@@ -905,10 +905,17 @@ export function renderDashboard(container, options) {
       style: 'margin-bottom: 2.25rem; padding: 1.75rem 2rem; border-radius: 22px; border: 1px solid var(--border); border-left: 6px solid #8b5cf6; background: var(--card-bg);' 
     });
 
-    const comparisons = (categoryStats && categoryStats.comparisons) ? categoryStats.comparisons : { agents: [], producers: [], crossMatrix: { agents: [], producers: [], cells: {} } };
-    const compAgents = comparisons.agents || [];
-    const compProducers = comparisons.producers || [];
+    const comparisons = (categoryStats && categoryStats.comparisons) ? categoryStats.comparisons : { agents: [], producers: [], crossMatrix: { agents: [], producers: [], cells: {} }, totals: {} };
+    const rawAgents = comparisons.agents || [];
+    const rawProducers = comparisons.producers || [];
     const crossMatrix = comparisons.crossMatrix || { agents: [], producers: [], cells: {} };
+    const compTotals = comparisons.totals || {};
+
+    let compActiveTab = 'agents'; // 'agents' | 'producers' | 'matrix'
+    let compSearchQuery = '';
+    let compSortKey = 'kgClean';
+    let compSortAsc = false;
+    const compExpandedRows = new Set();
 
     comparisonSection.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
@@ -923,55 +930,79 @@ export function renderDashboard(container, options) {
             Análisis cruzado bidireccional de rendimiento porcentual de faena, volumen de cabezas y costo gancho entre intermediarios y productores.
           </p>
         </div>
-        
-        <!-- Segmented Tab Switcher -->
-        <div class="comparison-tabs-container" style="
-          display: flex; 
-          background: rgba(0,0,0,0.3); 
-          padding: 0.25rem; 
-          border-radius: 12px; 
-          border: 1px solid var(--border);
-          gap: 0.25rem;
-        ">
-          <button type="button" id="tab-comp-agents" class="comp-tab-btn active" style="
-            background: #8b5cf6;
-            color: #ffffff;
-            border: none;
-            padding: 0.45rem 0.9rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
+
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <!-- Quick Search Filter -->
+          <div style="position: relative;">
+            <input 
+              type="text" 
+              id="comp-search-input" 
+              placeholder="🔍 Buscar comisionista o productor..." 
+              style="
+                background: var(--surface-subtle); 
+                border: 1px solid var(--border); 
+                color: var(--text-main); 
+                padding: 0.45rem 0.85rem; 
+                border-radius: 10px; 
+                font-size: 0.82rem; 
+                outline: none; 
+                min-width: 230px;
+                transition: border-color 0.2s;
+              "
+              onfocus="this.style.borderColor='#8b5cf6'" 
+              onblur="this.style.borderColor='var(--border)'"
+            />
+          </div>
+          
+          <!-- Segmented Tab Switcher -->
+          <div class="comparison-tabs-container" style="
+            display: flex; 
+            background: var(--surface-subtle); 
+            padding: 0.25rem; 
+            border-radius: 12px; 
+            border: 1px solid var(--border);
+            gap: 0.25rem;
           ">
-            👤 Por Comisionistas (${compAgents.length})
-          </button>
-          <button type="button" id="tab-comp-producers" class="comp-tab-btn" style="
-            background: transparent;
-            color: var(--text-muted);
-            border: none;
-            padding: 0.45rem 0.9rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-          ">
-            🏭 Por Productores (${compProducers.length})
-          </button>
-          <button type="button" id="tab-comp-matrix" class="comp-tab-btn" style="
-            background: transparent;
-            color: var(--text-muted);
-            border: none;
-            padding: 0.45rem 0.9rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-          ">
-            🔀 Matriz Cruzada
-          </button>
+            <button type="button" id="tab-comp-agents" class="comp-tab-btn active" style="
+              background: #8b5cf6;
+              color: #ffffff;
+              border: none;
+              padding: 0.45rem 0.9rem;
+              border-radius: 8px;
+              font-size: 0.8rem;
+              font-weight: 700;
+              cursor: pointer;
+              transition: all 0.2s;
+            ">
+              👤 Por Comisionistas (${rawAgents.length})
+            </button>
+            <button type="button" id="tab-comp-producers" class="comp-tab-btn" style="
+              background: transparent;
+              color: var(--text-muted);
+              border: none;
+              padding: 0.45rem 0.9rem;
+              border-radius: 8px;
+              font-size: 0.8rem;
+              font-weight: 700;
+              cursor: pointer;
+              transition: all 0.2s;
+            ">
+              🏭 Por Productores (${rawProducers.length})
+            </button>
+            <button type="button" id="tab-comp-matrix" class="comp-tab-btn" style="
+              background: transparent;
+              color: var(--text-muted);
+              border: none;
+              padding: 0.45rem 0.9rem;
+              border-radius: 8px;
+              font-size: 0.8rem;
+              font-weight: 700;
+              cursor: pointer;
+              transition: all 0.2s;
+            ">
+              🔀 Matriz Cruzada
+            </button>
+          </div>
         </div>
       </div>
       
@@ -983,95 +1014,177 @@ export function renderDashboard(container, options) {
     const tabAgentsBtn = comparisonSection.querySelector('#tab-comp-agents');
     const tabProducersBtn = comparisonSection.querySelector('#tab-comp-producers');
     const tabMatrixBtn = comparisonSection.querySelector('#tab-comp-matrix');
+    const compSearchInput = comparisonSection.querySelector('#comp-search-input');
 
     function getYieldBadge(yPct) {
-      if (yPct === 0) {
+      if (!yPct || yPct <= 0) {
         return `
           <div style="display: flex; flex-direction: column; align-items: center; gap: 0.2rem;">
-            <span style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); font-weight: 700; font-size: 0.82rem; padding: 0.2rem 0.6rem; border-radius: 6px; font-family: monospace;">
+            <span style="background: var(--surface-subtle); color: var(--text-muted); border: 1px solid var(--border); font-weight: 700; font-size: 0.8rem; padding: 0.2rem 0.55rem; border-radius: 6px; font-family: monospace;">
               0.00%
             </span>
           </div>
         `;
       }
-      let color = '#34d399';
+      let color = '#10b981';
       let bg = 'rgba(16, 185, 129, 0.12)';
-      let border = 'rgba(16, 185, 129, 0.25)';
+      let border = 'rgba(16, 185, 129, 0.3)';
       if (yPct < 55) {
-        color = '#f87171';
+        color = '#ef4444';
         bg = 'rgba(239, 68, 68, 0.12)';
-        border = 'rgba(239, 68, 68, 0.25)';
+        border = 'rgba(239, 68, 68, 0.3)';
       } else if (yPct < 57.5) {
-        color = '#fbbf24';
+        color = '#f59e0b';
         bg = 'rgba(245, 158, 11, 0.12)';
-        border = 'rgba(245, 158, 11, 0.25)';
+        border = 'rgba(245, 158, 11, 0.3)';
       }
       return `
         <div style="display: flex; flex-direction: column; align-items: center; gap: 0.2rem;">
           <span style="background: ${bg}; color: ${color}; border: 1px solid ${border}; font-weight: 800; font-size: 0.84rem; padding: 0.2rem 0.6rem; border-radius: 6px; font-family: monospace;">
             ${yPct.toFixed(2)}%
           </span>
-          <div style="width: 70px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;">
+          <div style="width: 70px; height: 3px; background: var(--surface-subtle); border-radius: 2px; overflow: hidden; border: 1px solid var(--border);">
             <div style="width: ${Math.min(100, Math.max(0, (yPct / 65) * 100))}%; height: 100%; background: ${color};"></div>
           </div>
         </div>
       `;
     }
 
+    function sortItems(list, key, asc) {
+      return [...list].sort((a, b) => {
+        let valA = a[key] ?? 0;
+        let valB = b[key] ?? 0;
+        if (typeof valA === 'string') {
+          return asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        return asc ? (valA - valB) : (valB - valA);
+      });
+    }
+
+    function renderSortHeader(label, key, align = 'right', width = '') {
+      const isCurrent = compSortKey === key;
+      const indicator = isCurrent 
+        ? (compSortAsc ? ' ▲' : ' ▼') 
+        : ' <span style="opacity:0.35; font-size:0.65rem;">↕</span>';
+      const widthStyle = width ? `width: ${width};` : '';
+      return `
+        <th data-sort-key="${key}" class="comp-sortable-th" style="padding: 0.95rem 1.15rem; text-align: ${align}; cursor: pointer; user-select: none; transition: background 0.15s; ${widthStyle}">
+          <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: ${isCurrent ? '#8b5cf6' : 'var(--text-muted)'}; font-weight: ${isCurrent ? '850' : '750'};">
+            ${label} ${indicator}
+          </span>
+        </th>
+      `;
+    }
+
+    function bindTableInteractions() {
+      viewsWrapper.querySelectorAll('.comp-sortable-th').forEach(th => {
+        th.onclick = () => {
+          const key = th.getAttribute('data-sort-key');
+          if (compSortKey === key) {
+            compSortAsc = !compSortAsc;
+          } else {
+            compSortKey = key;
+            compSortAsc = (key === 'name');
+          }
+          renderActiveView();
+        };
+      });
+
+      viewsWrapper.querySelectorAll('.btn-comp-expand').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const rowId = btn.getAttribute('data-row-id');
+          if (compExpandedRows.has(rowId)) {
+            compExpandedRows.delete(rowId);
+          } else {
+            compExpandedRows.add(rowId);
+          }
+          renderActiveView();
+        };
+      });
+    }
+
     function renderAgentsComparisonView() {
-      if (compAgents.length === 0) {
+      let filtered = rawAgents;
+      if (compSearchQuery) {
+        filtered = filtered.filter(a => {
+          const matchAgent = a.name.toLowerCase().includes(compSearchQuery);
+          const matchProds = (a.producers || []).some(p => 
+            p.name.toLowerCase().includes(compSearchQuery) || 
+            (p.cuit && p.cuit.includes(compSearchQuery)) ||
+            (p.origin && p.origin.toLowerCase().includes(compSearchQuery))
+          );
+          return matchAgent || matchProds;
+        });
+      }
+
+      const sorted = sortItems(filtered, compSortKey, compSortAsc);
+
+      if (sorted.length === 0) {
         viewsWrapper.innerHTML = `
-          <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); background: rgba(255,255,255,0.01); border-radius: 14px; border: 1px dashed var(--border); font-size: 0.88rem; font-weight: 600;">
-            No hay datos de comisionistas para los filtros aplicados.
+          <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); background: var(--surface-subtle); border-radius: 14px; border: 1px dashed var(--border); font-size: 0.88rem; font-weight: 600;">
+            ${compSearchQuery ? `No se encontraron comisionistas para "${compSearchQuery}".` : 'No hay datos de comisionistas para los filtros aplicados.'}
           </div>
         `;
         return;
       }
 
       let html = `
-        <div class="table-responsive" style="background: rgba(0,0,0,0.15); border-radius: 16px; border: 1px solid var(--border); overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 0.83rem; min-width: 1100px;">
+        <div class="table-responsive" style="background: var(--surface-subtle); border-radius: 16px; border: 1px solid var(--border); overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.83rem; min-width: 1200px;">
             <thead>
-              <tr style="border-bottom: 2px solid var(--border); background: rgba(255,255,255,0.02); color: var(--text-muted); font-weight: 750; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.74rem;">
-                <th style="padding: 0.95rem 1.15rem; text-align: left;">Comisionista</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: center; width: 75px;">Viajes</th>
+              <tr style="border-bottom: 2px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-weight: 750; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.74rem;">
+                <th style="padding: 0.95rem 0.5rem 0.95rem 1.15rem; width: 40px; text-align: center;"></th>
+                ${renderSortHeader('Comisionista', 'name', 'left')}
+                ${renderSortHeader('Viajes', 'travelCount', 'center', '75px')}
                 <th style="padding: 0.95rem 1.15rem; text-align: left;">Productores Aportados</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: center; width: 85px;">Cabezas</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Kilos Limpios</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Kilos Faena</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: center; width: 130px;">Rendimiento (%)</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Precio Vivo</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right; color: var(--text-muted);">Costo Gancho</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right; color: #60a5fa;">Costo Real</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Ref. Venta</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Margen</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Total Operación</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right; color: #fbbf24;">Comisiones</th>
+                ${renderSortHeader('Cabezas', 'heads', 'center', '85px')}
+                ${renderSortHeader('Kilos Limpios', 'kgClean', 'right')}
+                ${renderSortHeader('Kilos Faena', 'kgFaena', 'right')}
+                ${renderSortHeader('Rendimiento (%)', 'yieldPct', 'center', '135px')}
+                ${renderSortHeader('Precio Vivo', 'avgPrice', 'right')}
+                ${renderSortHeader('Costo Gancho', 'costoGancho', 'right')}
+                ${renderSortHeader('Costo Real', 'realCostGancho', 'right')}
+                ${renderSortHeader('Ref. Venta', 'sellPriceRef', 'right')}
+                ${renderSortHeader('Margen', 'margin', 'right')}
+                ${renderSortHeader('Total Operación', 'totalOp', 'right')}
+                ${renderSortHeader('Comisiones', 'totalCommission', 'right')}
               </tr>
             </thead>
             <tbody style="font-weight: 600; color: var(--text-main);">
       `;
 
-      compAgents.forEach((a) => {
-        const prodBadges = a.producers.map(p => {
-          const hasMargin = p.sellPriceRef > 0 && p.realCostGancho > 0;
-          const pMarginStr = hasMargin ? ` | ${p.margin >= 0 ? '+' : ''}$${p.margin.toFixed(1)}` : '';
-          return `
-            <span style="background: rgba(139, 92, 246, 0.1); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.25); padding: 0.15rem 0.45rem; border-radius: 6px; font-size: 0.72rem; display: inline-block; margin: 0.1rem 0;">
-              🏭 ${p.name} (${p.heads} cab. - ${p.yieldPct.toFixed(1)}%${pMarginStr})
-            </span>
-          `;
-        }).join(' ');
-
+      sorted.forEach((a) => {
+        const rowId = `agent-${a.name}`;
+        const isExpanded = compExpandedRows.has(rowId);
         const hasRef = a.sellPriceRef > 0;
         const hasCost = a.realCostGancho > 0;
         const hasMargin = hasRef && hasCost;
         const isProfit = a.margin >= 0;
 
         html += `
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
+          <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s; ${isExpanded ? 'background: rgba(139, 92, 246, 0.05);' : ''}">
+            <td style="padding: 0.95rem 0.5rem 0.95rem 1.15rem; text-align: center;">
+              <button type="button" class="btn-comp-expand" data-row-id="${rowId}" title="${isExpanded ? 'Colapsar desglose' : 'Expandir desglose'}" style="
+                background: var(--surface-subtle); 
+                border: 1px solid var(--border); 
+                color: var(--text-main); 
+                cursor: pointer; 
+                width: 26px; 
+                height: 26px; 
+                border-radius: 6px; 
+                display: inline-flex; 
+                align-items: center; 
+                justify-content: center;
+                font-size: 0.72rem;
+                font-weight: 800;
+                transition: all 0.2s;
+              ">
+                ${isExpanded ? '▼' : '▶'}
+              </button>
+            </td>
             <td style="padding: 0.95rem 1.15rem;">
-              <div style="font-weight: 800; color: #ffffff; font-size: 0.88rem;">
+              <div style="font-weight: 800; color: var(--text-main); font-size: 0.88rem;">
                 👤 ${a.name}
               </div>
               <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
@@ -1081,8 +1194,24 @@ export function renderDashboard(container, options) {
             <td style="padding: 0.95rem 1.15rem; text-align: center; font-weight: 700; color: #818cf8;">
               ${a.travelCount}
             </td>
-            <td style="padding: 0.95rem 1.15rem; max-width: 250px;">
-              ${prodBadges || '<span style="color:var(--text-muted);">-</span>'}
+            <td style="padding: 0.95rem 1.15rem;">
+              <button type="button" class="btn-comp-expand" data-row-id="${rowId}" style="
+                background: rgba(139, 92, 246, 0.1); 
+                color: #8b5cf6; 
+                border: 1px solid rgba(139, 92, 246, 0.25); 
+                padding: 0.25rem 0.65rem; 
+                border-radius: 6px; 
+                font-size: 0.75rem; 
+                font-weight: 700; 
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                transition: all 0.2s;
+              ">
+                🏭 ${a.producers.length} productor${a.producers.length === 1 ? '' : 'es'}
+                <span style="font-size: 0.68rem; font-weight: 800;">${isExpanded ? '▲ Ocultar' : '▼ Ver'}</span>
+              </button>
             </td>
             <td style="padding: 0.95rem 1.15rem; text-align: center; font-weight: 700;">
               ${a.heads} cab.
@@ -1110,82 +1239,268 @@ export function renderDashboard(container, options) {
             </td>
             <td style="padding: 0.95rem 1.15rem; text-align: right; font-family: monospace;">
               ${hasMargin ? `
-                <span style="color: ${isProfit ? '#34d399' : '#f87171'}; font-weight: 800;">
+                <span style="color: ${isProfit ? '#10b981' : '#ef4444'}; font-weight: 800;">
                   ${isProfit ? '+' : ''}$${a.margin.toFixed(2)} <span style="font-size:0.72rem;">(${a.marginPct.toFixed(1)}%)</span>
                 </span>
               ` : '<span style="color:var(--text-muted); font-size:0.75rem;">-</span>'}
             </td>
-            <td style="padding: 0.95rem 1.15rem; text-align: right; font-family: monospace; font-weight: 800; color: #34d399;">
+            <td style="padding: 0.95rem 1.15rem; text-align: right; font-family: monospace; font-weight: 800; color: #10b981;">
               $${a.totalOp.toLocaleString(undefined, {maximumFractionDigits: 0})}
             </td>
-            <td style="padding: 0.95rem 1.15rem; text-align: right; font-family: monospace; font-weight: 800; color: #fbbf24;">
+            <td style="padding: 0.95rem 1.15rem; text-align: right; font-family: monospace; font-weight: 800; color: #f59e0b;">
               $${a.totalCommission.toLocaleString(undefined, {maximumFractionDigits: 0})}
             </td>
           </tr>
         `;
+
+        // Expandable Detail Row (Nested Sub-table of Producers)
+        if (isExpanded) {
+          html += `
+            <tr class="comp-expanded-detail-row" style="background: var(--surface-subtle);">
+              <td colspan="15" style="padding: 0.85rem 1.25rem 1.25rem 1.25rem;">
+                <div style="
+                  background: var(--card-bg); 
+                  border-radius: 12px; 
+                  border: 1px solid var(--border); 
+                  padding: 1.15rem; 
+                  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+                ">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                      <span style="font-size: 1.1rem;">🏭</span>
+                      <strong style="color: var(--text-main); font-size: 0.86rem;">
+                        Productores aportados por ${a.name} (${a.producers.length})
+                      </strong>
+                    </div>
+                    <span style="font-size: 0.76rem; color: var(--text-muted);">
+                      Total: ${a.heads} cabezas | ${a.travelCount} viajes computados
+                    </span>
+                  </div>
+
+                  <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+                      <thead>
+                        <tr style="border-bottom: 1px solid var(--border); background: var(--surface-subtle); color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">
+                          <th style="padding: 0.6rem 0.85rem; text-align: left;">Productor / Origen</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: center;">Viajes</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: center;">Cabezas</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Kilos Limpios</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Kilos Faena</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: center;">Rinde (%)</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Precio Vivo</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Costo Gancho</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Costo Real</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Margen</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Total Operación</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${a.producers.map(p => {
+                          const pHasRef = p.sellPriceRef > 0;
+                          const pHasCost = p.realCostGancho > 0;
+                          const pHasMargin = pHasRef && pHasCost;
+                          const pIsProfit = p.margin >= 0;
+                          return `
+                            <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s;">
+                              <td style="padding: 0.65rem 0.85rem;">
+                                <div style="font-weight: 750; color: var(--text-main);">🏭 ${p.name}</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; gap: 0.5rem;">
+                                  ${p.cuit ? `<span>CUIT: ${p.cuit}</span>` : ''}
+                                  ${p.origin ? `<span style="color:#60a5fa;">📍 ${p.origin}</span>` : ''}
+                                </div>
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: center; color: #818cf8; font-weight: 700;">
+                                ${p.travelCount}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: center; font-weight: 700;">
+                                ${p.heads} cab.
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace;">
+                                ${p.kgClean.toLocaleString(undefined, {maximumFractionDigits: 0})} kg
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; color: #60a5fa;">
+                                ${p.kgFaena.toLocaleString(undefined, {maximumFractionDigits: 0})} kg
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: center;">
+                                ${getYieldBadge(p.yieldPct)}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; font-weight: 700;">
+                                $${(includeCommission ? p.avgPriceWithCommission : p.avgPrice).toFixed(2)}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; color: var(--text-muted);">
+                                ${p.costoGancho > 0 ? `$${p.costoGancho.toFixed(2)}` : '-'}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; font-weight: 800; color: #60a5fa;">
+                                ${p.realCostGancho > 0 ? `$${p.realCostGancho.toFixed(2)}` : '-'}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace;">
+                                ${pHasMargin ? `
+                                  <span style="color: ${pIsProfit ? '#10b981' : '#ef4444'}; font-weight: 800;">
+                                    ${pIsProfit ? '+' : ''}$${p.margin.toFixed(2)}
+                                  </span>
+                                ` : '-'}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; font-weight: 800; color: #10b981;">
+                                $${p.totalOp.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                              </td>
+                            </tr>
+                          `;
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          `;
+        }
       });
 
+      // Consolidation Footer Row
       html += `
             </tbody>
+            <tfoot>
+              <tr style="border-top: 2px solid var(--border); background: var(--surface-subtle); color: var(--text-main); font-weight: 850; font-size: 0.85rem;">
+                <td style="padding: 1.1rem 0.5rem 1.1rem 1.15rem; text-align: center;"></td>
+                <td style="padding: 1.1rem 1.15rem;">
+                  <div style="font-weight: 850; letter-spacing: 0.5px; text-transform: uppercase;">
+                    📊 TOTALES CONSOLIDADOS
+                  </div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 0.15rem;">
+                    ${sorted.length} de ${rawAgents.length} comisionistas
+                  </div>
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: center; color: #818cf8;">
+                  ${compTotals.travelCount || 0}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
+                  -
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: center;">
+                  ${(compTotals.heads || 0).toLocaleString()} cab.
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace;">
+                  ${(compTotals.kgClean || 0).toLocaleString(undefined, {maximumFractionDigits: 0})} kg
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: #60a5fa;">
+                  ${(compTotals.kgFaena || 0).toLocaleString(undefined, {maximumFractionDigits: 0})} kg
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: center;">
+                  ${getYieldBadge(compTotals.yieldPct || 0)}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace;">
+                  $${((includeCommission ? compTotals.avgPriceWithCommission : compTotals.avgPrice) || 0).toFixed(2)}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: var(--text-muted);">
+                  ${compTotals.costoGancho > 0 ? `$${compTotals.costoGancho.toFixed(2)}` : '-'}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: #60a5fa;">
+                  ${compTotals.realCostGancho > 0 ? `$${compTotals.realCostGancho.toFixed(2)}` : '-'}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace;">
+                  ${compTotals.sellPriceRef > 0 ? `$${compTotals.sellPriceRef.toFixed(2)}` : '-'}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace;">
+                  ${compTotals.sellPriceRef > 0 && compTotals.realCostGancho > 0 ? `
+                    <span style="color: ${compTotals.margin >= 0 ? '#10b981' : '#ef4444'}; font-weight: 850;">
+                      ${compTotals.margin >= 0 ? '+' : ''}$${compTotals.margin.toFixed(2)}
+                    </span>
+                  ` : '-'}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: #10b981;">
+                  $${(compTotals.totalOp || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: #f59e0b;">
+                  $${(compTotals.totalCommission || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       `;
+
       viewsWrapper.innerHTML = html;
+      bindTableInteractions();
     }
 
     function renderProducersComparisonView() {
-      if (compProducers.length === 0) {
+      let filtered = rawProducers;
+      if (compSearchQuery) {
+        filtered = filtered.filter(p => {
+          const matchProd = p.name.toLowerCase().includes(compSearchQuery) ||
+            (p.cuit && p.cuit.includes(compSearchQuery)) ||
+            (p.origin && p.origin.toLowerCase().includes(compSearchQuery));
+          const matchAgents = (p.agents || []).some(a => a.name.toLowerCase().includes(compSearchQuery));
+          return matchProd || matchAgents;
+        });
+      }
+
+      const sorted = sortItems(filtered, compSortKey, compSortAsc);
+
+      if (sorted.length === 0) {
         viewsWrapper.innerHTML = `
-          <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); background: rgba(255,255,255,0.01); border-radius: 14px; border: 1px dashed var(--border); font-size: 0.88rem; font-weight: 600;">
-            No hay datos de productores para los filtros aplicados.
+          <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); background: var(--surface-subtle); border-radius: 14px; border: 1px dashed var(--border); font-size: 0.88rem; font-weight: 600;">
+            ${compSearchQuery ? `No se encontraron productores para "${compSearchQuery}".` : 'No hay datos de productores para los filtros aplicados.'}
           </div>
         `;
         return;
       }
 
       let html = `
-        <div class="table-responsive" style="background: rgba(0,0,0,0.15); border-radius: 16px; border: 1px solid var(--border); overflow-x: auto;">
+        <div class="table-responsive" style="background: var(--surface-subtle); border-radius: 16px; border: 1px solid var(--border); overflow-x: auto;">
           <table style="width: 100%; border-collapse: collapse; font-size: 0.83rem; min-width: 1100px;">
             <thead>
-              <tr style="border-bottom: 2px solid var(--border); background: rgba(255,255,255,0.02); color: var(--text-muted); font-weight: 750; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.74rem;">
-                <th style="padding: 0.95rem 1.15rem; text-align: left;">Productor</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: center; width: 75px;">Viajes</th>
+              <tr style="border-bottom: 2px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-weight: 750; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.74rem;">
+                <th style="padding: 0.95rem 0.5rem 0.95rem 1.15rem; width: 40px; text-align: center;"></th>
+                ${renderSortHeader('Productor', 'name', 'left')}
+                ${renderSortHeader('Viajes', 'travelCount', 'center', '75px')}
                 <th style="padding: 0.95rem 1.15rem; text-align: left;">Comisionistas Intermediarios</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: center; width: 85px;">Cabezas</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Kilos Limpios</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Kilos Faena</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: center; width: 130px;">Rendimiento (%)</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Precio Vivo</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right; color: var(--text-muted);">Costo Gancho</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right; color: #60a5fa;">Costo Real</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Ref. Venta</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Margen</th>
-                <th style="padding: 0.95rem 1.15rem; text-align: right;">Total Operado</th>
+                ${renderSortHeader('Cabezas', 'heads', 'center', '85px')}
+                ${renderSortHeader('Kilos Limpios', 'kgClean', 'right')}
+                ${renderSortHeader('Kilos Faena', 'kgFaena', 'right')}
+                ${renderSortHeader('Rendimiento (%)', 'yieldPct', 'center', '135px')}
+                ${renderSortHeader('Precio Vivo', 'avgPrice', 'right')}
+                ${renderSortHeader('Costo Gancho', 'costoGancho', 'right')}
+                ${renderSortHeader('Costo Real', 'realCostGancho', 'right')}
+                ${renderSortHeader('Ref. Venta', 'sellPriceRef', 'right')}
+                ${renderSortHeader('Margen', 'margin', 'right')}
+                ${renderSortHeader('Total Operado', 'totalOp', 'right')}
               </tr>
             </thead>
             <tbody style="font-weight: 600; color: var(--text-main);">
       `;
 
-      compProducers.forEach((p) => {
-        const agentBadges = p.agents.map(a => {
-          const hasMargin = a.sellPriceRef > 0 && a.realCostGancho > 0;
-          const aMarginStr = hasMargin ? ` | ${a.margin >= 0 ? '+' : ''}$${a.margin.toFixed(1)}` : '';
-          return `
-            <span style="background: rgba(99, 102, 241, 0.1); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.25); padding: 0.15rem 0.45rem; border-radius: 6px; font-size: 0.72rem; display: inline-block; margin: 0.1rem 0;">
-              👤 ${a.name} (${a.heads} cab. - ${a.yieldPct.toFixed(1)}%${aMarginStr})
-            </span>
-          `;
-        }).join(' ');
-
+      sorted.forEach((p) => {
+        const rowId = `producer-${p.name}`;
+        const isExpanded = compExpandedRows.has(rowId);
         const hasRef = p.sellPriceRef > 0;
         const hasCost = p.realCostGancho > 0;
         const hasMargin = hasRef && hasCost;
         const isProfit = p.margin >= 0;
 
         html += `
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
+          <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s; ${isExpanded ? 'background: rgba(16, 185, 129, 0.05);' : ''}">
+            <td style="padding: 0.95rem 0.5rem 0.95rem 1.15rem; text-align: center;">
+              <button type="button" class="btn-comp-expand" data-row-id="${rowId}" title="${isExpanded ? 'Colapsar desglose' : 'Expandir desglose'}" style="
+                background: var(--surface-subtle); 
+                border: 1px solid var(--border); 
+                color: var(--text-main); 
+                cursor: pointer; 
+                width: 26px; 
+                height: 26px; 
+                border-radius: 6px; 
+                display: inline-flex; 
+                align-items: center; 
+                justify-content: center;
+                font-size: 0.72rem;
+                font-weight: 800;
+                transition: all 0.2s;
+              ">
+                ${isExpanded ? '▼' : '▶'}
+              </button>
+            </td>
             <td style="padding: 0.95rem 1.15rem;">
-              <div style="font-weight: 800; color: #ffffff; font-size: 0.88rem;">
+              <div style="font-weight: 800; color: var(--text-main); font-size: 0.88rem;">
                 🏭 ${p.name}
               </div>
               <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; display: flex; gap: 0.4rem; flex-wrap: wrap;">
@@ -1196,8 +1511,24 @@ export function renderDashboard(container, options) {
             <td style="padding: 0.95rem 1.15rem; text-align: center; font-weight: 700; color: #10b981;">
               ${p.travelCount}
             </td>
-            <td style="padding: 0.95rem 1.15rem; max-width: 280px;">
-              ${agentBadges || '<span style="color:var(--text-muted);">-</span>'}
+            <td style="padding: 0.95rem 1.15rem;">
+              <button type="button" class="btn-comp-expand" data-row-id="${rowId}" style="
+                background: rgba(16, 185, 129, 0.1); 
+                color: #10b981; 
+                border: 1px solid rgba(16, 185, 129, 0.25); 
+                padding: 0.25rem 0.65rem; 
+                border-radius: 6px; 
+                font-size: 0.75rem; 
+                font-weight: 700; 
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.35rem;
+                transition: all 0.2s;
+              ">
+                👤 ${p.agents.length} comisionista${p.agents.length === 1 ? '' : 's'}
+                <span style="font-size: 0.68rem; font-weight: 800;">${isExpanded ? '▲ Ocultar' : '▼ Ver'}</span>
+              </button>
             </td>
             <td style="padding: 0.95rem 1.15rem; text-align: center; font-weight: 700;">
               ${p.heads} cab.
@@ -1225,46 +1556,211 @@ export function renderDashboard(container, options) {
             </td>
             <td style="padding: 0.95rem 1.15rem; text-align: right; font-family: monospace;">
               ${hasMargin ? `
-                <span style="color: ${isProfit ? '#34d399' : '#f87171'}; font-weight: 800;">
+                <span style="color: ${isProfit ? '#10b981' : '#ef4444'}; font-weight: 800;">
                   ${isProfit ? '+' : ''}$${p.margin.toFixed(2)} <span style="font-size:0.72rem;">(${p.marginPct.toFixed(1)}%)</span>
                 </span>
               ` : '<span style="color:var(--text-muted); font-size:0.75rem;">-</span>'}
             </td>
-            <td style="padding: 0.95rem 1.15rem; text-align: right; font-family: monospace; font-weight: 800; color: #34d399;">
+            <td style="padding: 0.95rem 1.15rem; text-align: right; font-family: monospace; font-weight: 800; color: #10b981;">
               $${p.totalOp.toLocaleString(undefined, {maximumFractionDigits: 0})}
             </td>
           </tr>
         `;
+
+        // Expandable Detail Row (Nested Sub-table of Intermediary Agents)
+        if (isExpanded) {
+          html += `
+            <tr class="comp-expanded-detail-row" style="background: var(--surface-subtle);">
+              <td colspan="14" style="padding: 0.85rem 1.25rem 1.25rem 1.25rem;">
+                <div style="
+                  background: var(--card-bg); 
+                  border-radius: 12px; 
+                  border: 1px solid var(--border); 
+                  padding: 1.15rem; 
+                  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+                ">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                      <span style="font-size: 1.1rem;">👤</span>
+                      <strong style="color: var(--text-main); font-size: 0.86rem;">
+                        Comisionistas que intermediaron con ${p.name} (${p.agents.length})
+                      </strong>
+                    </div>
+                    <span style="font-size: 0.76rem; color: var(--text-muted);">
+                      Total: ${p.heads} cabezas | ${p.travelCount} viajes computados
+                    </span>
+                  </div>
+
+                  <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+                      <thead>
+                        <tr style="border-bottom: 1px solid var(--border); background: var(--surface-subtle); color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">
+                          <th style="padding: 0.6rem 0.85rem; text-align: left;">Comisionista</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: center;">Viajes</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: center;">Cabezas</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Kilos Limpios</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Kilos Faena</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: center;">Rinde (%)</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Precio Vivo</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Costo Gancho</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Costo Real</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Margen</th>
+                          <th style="padding: 0.6rem 0.85rem; text-align: right;">Total Operación</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${p.agents.map(a => {
+                          const aHasRef = a.sellPriceRef > 0;
+                          const aHasCost = a.realCostGancho > 0;
+                          const aHasMargin = aHasRef && aHasCost;
+                          const aIsProfit = a.margin >= 0;
+                          return `
+                            <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s;">
+                              <td style="padding: 0.65rem 0.85rem;">
+                                <div style="font-weight: 750; color: var(--text-main);">👤 ${a.name}</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">
+                                  ${a.percent ? `Comisión: ${a.percent}%` : 'Sin comisión fija'}
+                                </div>
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: center; color: #818cf8; font-weight: 700;">
+                                ${a.travelCount}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: center; font-weight: 700;">
+                                ${a.heads} cab.
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace;">
+                                ${a.kgClean.toLocaleString(undefined, {maximumFractionDigits: 0})} kg
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; color: #60a5fa;">
+                                ${a.kgFaena.toLocaleString(undefined, {maximumFractionDigits: 0})} kg
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: center;">
+                                ${getYieldBadge(a.yieldPct)}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; font-weight: 700;">
+                                $${(includeCommission ? a.avgPriceWithCommission : a.avgPrice).toFixed(2)}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; color: var(--text-muted);">
+                                ${a.costoGancho > 0 ? `$${a.costoGancho.toFixed(2)}` : '-'}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; font-weight: 800; color: #60a5fa;">
+                                ${a.realCostGancho > 0 ? `$${a.realCostGancho.toFixed(2)}` : '-'}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace;">
+                                ${aHasMargin ? `
+                                  <span style="color: ${aIsProfit ? '#10b981' : '#ef4444'}; font-weight: 800;">
+                                    ${aIsProfit ? '+' : ''}$${a.margin.toFixed(2)}
+                                  </span>
+                                ` : '-'}
+                              </td>
+                              <td style="padding: 0.65rem 0.85rem; text-align: right; font-family: monospace; font-weight: 800; color: #10b981;">
+                                $${a.totalOp.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                              </td>
+                            </tr>
+                          `;
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          `;
+        }
       });
 
+      // Consolidation Footer Row
       html += `
             </tbody>
+            <tfoot>
+              <tr style="border-top: 2px solid var(--border); background: var(--surface-subtle); color: var(--text-main); font-weight: 850; font-size: 0.85rem;">
+                <td style="padding: 1.1rem 0.5rem 1.1rem 1.15rem; text-align: center;"></td>
+                <td style="padding: 1.1rem 1.15rem;">
+                  <div style="font-weight: 850; letter-spacing: 0.5px; text-transform: uppercase;">
+                    📊 TOTALES CONSOLIDADOS
+                  </div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 0.15rem;">
+                    ${sorted.length} de ${rawProducers.length} productores
+                  </div>
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: center; color: #10b981;">
+                  ${compTotals.travelCount || 0}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: center; color: var(--text-muted); font-size: 0.78rem;">
+                  -
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: center;">
+                  ${(compTotals.heads || 0).toLocaleString()} cab.
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace;">
+                  ${(compTotals.kgClean || 0).toLocaleString(undefined, {maximumFractionDigits: 0})} kg
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: #60a5fa;">
+                  ${(compTotals.kgFaena || 0).toLocaleString(undefined, {maximumFractionDigits: 0})} kg
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: center;">
+                  ${getYieldBadge(compTotals.yieldPct || 0)}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace;">
+                  $${((includeCommission ? compTotals.avgPriceWithCommission : compTotals.avgPrice) || 0).toFixed(2)}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: var(--text-muted);">
+                  ${compTotals.costoGancho > 0 ? `$${compTotals.costoGancho.toFixed(2)}` : '-'}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: #60a5fa;">
+                  ${compTotals.realCostGancho > 0 ? `$${compTotals.realCostGancho.toFixed(2)}` : '-'}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace;">
+                  ${compTotals.sellPriceRef > 0 ? `$${compTotals.sellPriceRef.toFixed(2)}` : '-'}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace;">
+                  ${compTotals.sellPriceRef > 0 && compTotals.realCostGancho > 0 ? `
+                    <span style="color: ${compTotals.margin >= 0 ? '#10b981' : '#ef4444'}; font-weight: 850;">
+                      ${compTotals.margin >= 0 ? '+' : ''}$${compTotals.margin.toFixed(2)}
+                    </span>
+                  ` : '-'}
+                </td>
+                <td style="padding: 1.1rem 1.15rem; text-align: right; font-family: monospace; color: #10b981;">
+                  $${(compTotals.totalOp || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       `;
+
       viewsWrapper.innerHTML = html;
+      bindTableInteractions();
     }
 
     function renderMatrixComparisonView() {
-      if (crossMatrix.agents.length === 0 || crossMatrix.producers.length === 0) {
+      let filteredAgents = crossMatrix.agents || [];
+      let filteredProducers = crossMatrix.producers || [];
+
+      if (compSearchQuery) {
+        filteredAgents = filteredAgents.filter(ag => ag.toLowerCase().includes(compSearchQuery));
+        filteredProducers = filteredProducers.filter(prod => prod.toLowerCase().includes(compSearchQuery));
+      }
+
+      if (filteredAgents.length === 0 || filteredProducers.length === 0) {
         viewsWrapper.innerHTML = `
-          <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); background: rgba(255,255,255,0.01); border-radius: 14px; border: 1px dashed var(--border); font-size: 0.88rem; font-weight: 600;">
-            No hay suficientes combinaciones de comisionistas y productores para generar la matriz cruzada.
+          <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); background: var(--surface-subtle); border-radius: 14px; border: 1px dashed var(--border); font-size: 0.88rem; font-weight: 600;">
+            ${compSearchQuery ? `No hay combinaciones para "${compSearchQuery}".` : 'No hay suficientes combinaciones de comisionistas y productores para generar la matriz cruzada.'}
           </div>
         `;
         return;
       }
 
       let html = `
-        <div class="table-responsive" style="background: rgba(0,0,0,0.15); border-radius: 16px; border: 1px solid var(--border); overflow-x: auto;">
+        <div class="table-responsive" style="background: var(--surface-subtle); border-radius: 16px; border: 1px solid var(--border); overflow-x: auto;">
           <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 800px;">
             <thead>
-              <tr style="border-bottom: 2px solid var(--border); background: rgba(255,255,255,0.02); color: var(--text-muted); font-weight: 750; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.74rem;">
-                <th style="padding: 0.95rem 1.15rem; text-align: left; position: sticky; left: 0; background: #1e1e24; z-index: 2;">
+              <tr style="border-bottom: 2px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-weight: 750; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.74rem;">
+                <th style="padding: 0.95rem 1.15rem; text-align: left; position: sticky; left: 0; background: var(--card-bg); color: var(--text-main); border-right: 2px solid var(--border); z-index: 2;">
                   Comisionista ╲ Productor
                 </th>
-                ${crossMatrix.producers.map(prod => `
-                  <th style="padding: 0.95rem 1.15rem; text-align: center; min-width: 160px;">
+                ${filteredProducers.map(prod => `
+                  <th style="padding: 0.95rem 1.15rem; text-align: center; min-width: 170px; background: var(--card-bg); color: var(--text-main);">
                     🏭 ${prod}
                   </th>
                 `).join('')}
@@ -1273,22 +1769,22 @@ export function renderDashboard(container, options) {
             <tbody style="font-weight: 600; color: var(--text-main);">
       `;
 
-      crossMatrix.agents.forEach(ag => {
+      filteredAgents.forEach(ag => {
         html += `
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background='transparent'">
-            <td style="padding: 0.95rem 1.15rem; font-weight: 800; color: #ffffff; position: sticky; left: 0; background: #1e1e24; z-index: 1;">
+          <tr style="border-bottom: 1px solid var(--border); transition: background 0.15s;">
+            <td style="padding: 0.95rem 1.15rem; font-weight: 800; color: var(--text-main); position: sticky; left: 0; background: var(--card-bg); border-right: 2px solid var(--border); z-index: 1;">
               👤 ${ag}
             </td>
-            ${crossMatrix.producers.map(prod => {
+            ${filteredProducers.map(prod => {
               const cell = crossMatrix.cells[`${ag}:::${prod}`];
               if (!cell) {
                 return `<td style="padding: 0.95rem 1.15rem; text-align: center; color: var(--text-muted); font-size: 0.75rem;">-</td>`;
               }
               const yPct = cell.yieldPct;
-              let yColor = '#34d399';
+              let yColor = '#10b981';
               if (yPct === 0) yColor = 'var(--text-muted)';
-              else if (yPct < 55) yColor = '#f87171';
-              else if (yPct < 57.5) yColor = '#fbbf24';
+              else if (yPct < 55) yColor = '#ef4444';
+              else if (yPct < 57.5) yColor = '#f59e0b';
 
               const hasCost = cell.realCostGancho > 0;
               const hasRef = cell.sellPriceRef > 0;
@@ -1297,18 +1793,18 @@ export function renderDashboard(container, options) {
 
               return `
                 <td style="padding: 0.85rem 1rem; text-align: center;">
-                  <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.65rem; display: flex; flex-direction: column; gap: 0.25rem; align-items: center;">
+                  <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.7rem; display: flex; flex-direction: column; gap: 0.25rem; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
                     <span style="font-weight: 850; font-size: 0.88rem; color: ${yColor}; font-family: monospace;">
                       ${yPct.toFixed(2)}%
                     </span>
-                    <div style="font-size: 0.75rem; font-family: monospace; color: var(--text-main); font-weight: 700;">
+                    <div style="font-size: 0.75rem; font-family: monospace; color: var(--text-main); font-weight: 750;">
                       $${(includeCommission ? cell.avgPriceWithCommission : cell.avgPrice).toFixed(2)} / kg
                     </div>
                     <div style="font-size: 0.72rem; color: var(--text-muted);">
                       ${cell.heads} cab. (${cell.travelCount} v.)
                     </div>
                     ${hasMargin ? `
-                      <div style="font-size: 0.72rem; font-family: monospace; color: ${isProfit ? '#34d399' : '#f87171'}; font-weight: 750; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 0.2rem; width: 100%;">
+                      <div style="font-size: 0.72rem; font-family: monospace; color: ${isProfit ? '#10b981' : '#ef4444'}; font-weight: 750; border-top: 1px dashed var(--border); padding-top: 0.25rem; width: 100%;">
                         Ref: $${cell.sellPriceRef.toFixed(1)} (${isProfit ? '+' : ''}$${cell.margin.toFixed(1)})
                       </div>
                     ` : ''}
@@ -1328,39 +1824,69 @@ export function renderDashboard(container, options) {
       viewsWrapper.innerHTML = html;
     }
 
+    function renderActiveView() {
+      if (compActiveTab === 'agents') {
+        renderAgentsComparisonView();
+      } else if (compActiveTab === 'producers') {
+        renderProducersComparisonView();
+      } else {
+        renderMatrixComparisonView();
+      }
+    }
+
+    function updateTabStyles() {
+      if (compActiveTab === 'agents') {
+        tabAgentsBtn.style.background = '#8b5cf6';
+        tabAgentsBtn.style.color = '#ffffff';
+        tabProducersBtn.style.background = 'transparent';
+        tabProducersBtn.style.color = 'var(--text-muted)';
+        tabMatrixBtn.style.background = 'transparent';
+        tabMatrixBtn.style.color = 'var(--text-muted)';
+      } else if (compActiveTab === 'producers') {
+        tabProducersBtn.style.background = '#10b981';
+        tabProducersBtn.style.color = '#ffffff';
+        tabAgentsBtn.style.background = 'transparent';
+        tabAgentsBtn.style.color = 'var(--text-muted)';
+        tabMatrixBtn.style.background = 'transparent';
+        tabMatrixBtn.style.color = 'var(--text-muted)';
+      } else {
+        tabMatrixBtn.style.background = '#6366f1';
+        tabMatrixBtn.style.color = '#ffffff';
+        tabAgentsBtn.style.background = 'transparent';
+        tabAgentsBtn.style.color = 'var(--text-muted)';
+        tabProducersBtn.style.background = 'transparent';
+        tabProducersBtn.style.color = 'var(--text-muted)';
+      }
+    }
+
     // Tab Switcher Click Handlers
     tabAgentsBtn.onclick = () => {
-      tabAgentsBtn.style.background = '#8b5cf6';
-      tabAgentsBtn.style.color = '#ffffff';
-      tabProducersBtn.style.background = 'transparent';
-      tabProducersBtn.style.color = 'var(--text-muted)';
-      tabMatrixBtn.style.background = 'transparent';
-      tabMatrixBtn.style.color = 'var(--text-muted)';
-      renderAgentsComparisonView();
+      compActiveTab = 'agents';
+      updateTabStyles();
+      renderActiveView();
     };
 
     tabProducersBtn.onclick = () => {
-      tabProducersBtn.style.background = '#10b981';
-      tabProducersBtn.style.color = '#ffffff';
-      tabAgentsBtn.style.background = 'transparent';
-      tabAgentsBtn.style.color = 'var(--text-muted)';
-      tabMatrixBtn.style.background = 'transparent';
-      tabMatrixBtn.style.color = 'var(--text-muted)';
-      renderProducersComparisonView();
+      compActiveTab = 'producers';
+      updateTabStyles();
+      renderActiveView();
     };
 
     tabMatrixBtn.onclick = () => {
-      tabMatrixBtn.style.background = '#6366f1';
-      tabMatrixBtn.style.color = '#ffffff';
-      tabAgentsBtn.style.background = 'transparent';
-      tabAgentsBtn.style.color = 'var(--text-muted)';
-      tabProducersBtn.style.background = 'transparent';
-      tabProducersBtn.style.color = 'var(--text-muted)';
-      renderMatrixComparisonView();
+      compActiveTab = 'matrix';
+      updateTabStyles();
+      renderActiveView();
     };
 
+    if (compSearchInput) {
+      compSearchInput.oninput = (e) => {
+        compSearchQuery = e.target.value.trim().toLowerCase();
+        renderActiveView();
+      };
+    }
+
     // Initial render: Agents View
-    renderAgentsComparisonView();
+    renderActiveView();
 
     wrapper.appendChild(comparisonSection);
 
