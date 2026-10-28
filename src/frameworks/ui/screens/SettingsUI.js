@@ -364,15 +364,16 @@ export function renderSettings(container, options) {
         { id: 'master-data', name: 'Logística' },
         { id: 'logistics-liquidations', name: 'Liquidaciones Fletes' },
         { id: 'logistics-fuel', name: 'Rendimiento Combustible' },
+        { id: 'branch-pricing', name: 'Precios & Cartel QR' },
         { id: 'simulator', name: 'Simulador' },
         { id: 'settings', name: 'Configuración' }
       ];
 
       const defaultViewsForRole = (role) => {
         if (role === 'ADMIN') {
-          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
+          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'branch-pricing', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
         } else if (role === 'OPERARIO') {
-          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
+          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'branch-pricing', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
         } else {
           return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
         }
@@ -381,6 +382,41 @@ export function renderSettings(container, options) {
       rbacEl.innerHTML = `
         <h3 class="settings-section-title" style="margin: 2rem 0 1rem 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); font-weight: 700;">🔐 Accesos & Gestión de Permisos</h3>
         
+        <!-- Card: Credencial Institucional (Paso 1 del Portal Web) -->
+        <div class="glass-card settings-card" style="padding: 1.75rem 2rem; border-radius: 20px; margin-bottom: 2rem; border: 1px solid var(--border);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+            <div>
+              <h4 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                <span>🛡️</span> Credencial Institucional (Paso 1 - Portal Web)
+              </h4>
+              <p style="margin: 0.25rem 0 0 0; color: var(--text-muted); font-size: 0.82rem;">
+                Usuario y clave corporativa requerida como primer filtro en la pantalla de bienvenida antes de habilitar la autenticación con Google.
+              </p>
+            </div>
+            <div style="background: rgba(143, 0, 20, 0.08); border: 1px solid rgba(143, 0, 20, 0.2); padding: 0.35rem 0.8rem; border-radius: 8px; font-size: 0.8rem; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
+              <span>Usuario actual:</span>
+              <span id="current-gatekeeper-user-display" style="font-family: monospace; font-size: 0.9rem;">${options.securityConfig?.gatekeeperUser || 'pampa'}</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+            <div style="flex: 1; min-width: 180px;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Usuario Institucional</label>
+              <input type="text" id="new-gatekeeper-user-input" class="form-input" value="${options.securityConfig?.gatekeeperUser || 'pampa'}" placeholder="Ej: pampa" style="width: 100%; border-radius: 10px; padding: 0.6rem 0.8rem;" autocomplete="off">
+            </div>
+            <div style="flex: 1; min-width: 180px;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Nueva Contraseña</label>
+              <input type="password" id="new-gatekeeper-pass-input" class="form-input" placeholder="Nueva clave de acceso" style="width: 100%; border-radius: 10px; padding: 0.6rem 0.8rem;" autocomplete="new-password">
+            </div>
+            <div style="flex: 1; min-width: 180px;">
+              <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Confirmar Contraseña</label>
+              <input type="password" id="confirm-gatekeeper-pass-input" class="form-input" placeholder="Repite la clave" style="width: 100%; border-radius: 10px; padding: 0.6rem 0.8rem;" autocomplete="new-password">
+            </div>
+            <button id="save-gatekeeper-btn" class="btn-primary" style="padding: 0.65rem 1.5rem; margin: 0; font-size: 0.85rem; border-radius: 10px; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; height: 42px;">
+              <span>💾 Actualizar Credencial</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Card: Contraseña Maestra (PIN de Fábrica) -->
         <div class="glass-card settings-card" style="padding: 1.75rem 2rem; border-radius: 20px; margin-bottom: 2rem; border: 1px solid var(--border);">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
@@ -618,6 +654,254 @@ export function renderSettings(container, options) {
           }
         };
       }
+
+      // Eventos para la gestión de Credenciales Institucionales (Gatekeeper - Paso 1)
+      const saveGatekeeperBtn = rbacEl.querySelector('#save-gatekeeper-btn');
+      const gatekeeperUserInput = rbacEl.querySelector('#new-gatekeeper-user-input');
+      const gatekeeperPassInput = rbacEl.querySelector('#new-gatekeeper-pass-input');
+      const gatekeeperPassConfirm = rbacEl.querySelector('#confirm-gatekeeper-pass-input');
+      const gatekeeperUserDisplay = rbacEl.querySelector('#current-gatekeeper-user-display');
+
+      if (saveGatekeeperBtn) {
+        saveGatekeeperBtn.onclick = async () => {
+          const userVal = (gatekeeperUserInput.value || '').trim();
+          const passVal = (gatekeeperPassInput.value || '').trim();
+          const confirmVal = (gatekeeperPassConfirm.value || '').trim();
+
+          if (!userVal) {
+            showMsg('Debes ingresar un usuario institucional.', true);
+            gatekeeperUserInput.focus();
+            return;
+          }
+          if (!passVal) {
+            showMsg('Debes ingresar la nueva contraseña institucional.', true);
+            gatekeeperPassInput.focus();
+            return;
+          }
+          if (passVal.length < 4) {
+            showMsg('La contraseña debe tener al menos 4 caracteres.', true);
+            gatekeeperPassInput.focus();
+            return;
+          }
+          if (passVal !== confirmVal) {
+            showMsg('La confirmación de contraseña no coincide.', true);
+            gatekeeperPassConfirm.focus();
+            return;
+          }
+
+          saveGatekeeperBtn.disabled = true;
+          saveGatekeeperBtn.textContent = 'Actualizando...';
+          try {
+            if (options.onSaveGatekeeperCredentials) {
+              await options.onSaveGatekeeperCredentials(userVal, passVal);
+              showMsg('Credenciales institucionales actualizadas con éxito.');
+              gatekeeperPassInput.value = '';
+              gatekeeperPassConfirm.value = '';
+              if (gatekeeperUserDisplay) gatekeeperUserDisplay.textContent = userVal;
+            }
+          } catch (e) {
+            showMsg('Error al guardar credenciales: ' + e.message, true);
+          } finally {
+            saveGatekeeperBtn.disabled = false;
+            saveGatekeeperBtn.innerHTML = '<span>💾 Actualizar Credencial</span>';
+          }
+        };
+      }
+    }
+
+    // Sección: Portada Institucional, Sucursales & Horarios (Admin Only)
+    const brandingSection = el('div', { attrs: { id: 'settings-branding-section' } });
+    wrapper.appendChild(brandingSection);
+
+    const compConfig = options.companyConfig || {
+      companyName: 'Frigorífico Pampa',
+      slogan: 'Calidad, Trazabilidad y Excelencia en la Industria Cárnica',
+      description: 'Instalaciones de faena, desposte y logística frigorífica con los más altos estándares sanitarios y tecnológicos.',
+      branches: []
+    };
+
+    let branchesList = Array.isArray(compConfig.branches) ? compConfig.branches.map(b => ({ ...b })) : [];
+
+    const escapeAttr = (str) => String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const syncBranchesFromDom = () => {
+      const branchCards = brandingSection.querySelectorAll('#admin-branches-list > div[data-index]');
+      branchCards.forEach((card) => {
+        const idx = parseInt(card.dataset.index, 10);
+        if (!Number.isNaN(idx) && branchesList[idx]) {
+          branchesList[idx].name = card.querySelector('.branch-input-name')?.value.trim() || '';
+          branchesList[idx].address = card.querySelector('.branch-input-address')?.value.trim() || '';
+          branchesList[idx].phone = card.querySelector('.branch-input-phone')?.value.trim() || '';
+          branchesList[idx].email = card.querySelector('.branch-input-email')?.value.trim() || '';
+          branchesList[idx].hours = card.querySelector('.branch-input-hours')?.value.trim() || '';
+        }
+      });
+    };
+
+    const renderBranchesAdmin = () => {
+      const branchesContainer = brandingSection.querySelector('#admin-branches-list');
+      if (!branchesContainer) return;
+      
+      if (branchesList.length === 0) {
+        branchesContainer.innerHTML = `
+          <div style="padding: 1.5rem; text-align: center; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 12px;">
+            No hay sucursales registradas. Pulsa en "➕ Agregar Sucursal" para crear una.
+          </div>
+        `;
+        return;
+      }
+
+      branchesContainer.innerHTML = branchesList.map((b, idx) => `
+        <div class="glass-card" style="padding: 1.25rem; border-radius: 14px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.85rem;" data-index="${idx}">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong style="color: var(--primary); font-size: 0.95rem;">🏢 Sucursal #${idx + 1}</strong>
+            <button type="button" class="btn-remove-branch" data-index="${idx}" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: 600;" title="Eliminar Sucursal">🗑️ Eliminar</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
+            <div>
+              <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Nombre de Planta / Sucursal</label>
+              <input type="text" class="form-input branch-input-name" value="${escapeAttr(b.name || '')}" placeholder="Ej: Planta Central" style="width: 100%; border-radius: 8px; padding: 0.5rem 0.75rem;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Dirección Física</label>
+              <input type="text" class="form-input branch-input-address" value="${escapeAttr(b.address || '')}" placeholder="Ej: Ruta 5 Km 600, La Pampa" style="width: 100%; border-radius: 8px; padding: 0.5rem 0.75rem;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Teléfono de Contacto</label>
+              <input type="text" class="form-input branch-input-phone" value="${escapeAttr(b.phone || '')}" placeholder="Ej: +54 9 2954 123456" style="width: 100%; border-radius: 8px; padding: 0.5rem 0.75rem;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Email de Contacto</label>
+              <input type="email" class="form-input branch-input-email" value="${escapeAttr(b.email || '')}" placeholder="Ej: contacto@frigorificopampa.tech" style="width: 100%; border-radius: 8px; padding: 0.5rem 0.75rem;">
+            </div>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Horarios de Atención</label>
+            <input type="text" class="form-input branch-input-hours" value="${escapeAttr(b.hours || '')}" placeholder="Ej: Lunes a Viernes 06:00 a 16:00 hs — Sábados 07:00 a 12:00 hs" style="width: 100%; border-radius: 8px; padding: 0.5rem 0.75rem;">
+          </div>
+        </div>
+      `).join('');
+
+      branchesContainer.querySelectorAll('.btn-remove-branch').forEach(btn => {
+        btn.onclick = () => {
+          syncBranchesFromDom();
+          const index = parseInt(btn.dataset.index, 10);
+          branchesList.splice(index, 1);
+          renderBranchesAdmin();
+        };
+      });
+    };
+
+    brandingSection.innerHTML = `
+      <h3 class="settings-section-title" style="margin: 2.5rem 0 1rem 0; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); font-weight: 700;">🏢 Portada Institucional, Sucursales & Horarios</h3>
+      <div class="glass-card settings-card" style="padding: 2rem; border-radius: 20px; margin-bottom: 2.5rem; border: 1px solid var(--border);">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          Personaliza la información que se muestra en la pantalla de bienvenida pública (antes del inicio de sesión) para visitantes, clientes y transportistas.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Nombre de la Empresa</label>
+            <input type="text" id="branding-company-name" class="form-input" value="${escapeAttr(compConfig.companyName || 'Frigorífico Pampa')}" style="width: 100%; border-radius: 10px; padding: 0.6rem 0.8rem;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Eslogan Institucional</label>
+            <input type="text" id="branding-slogan" class="form-input" value="${escapeAttr(compConfig.slogan || '')}" placeholder="Ej: Calidad y Trazabilidad Cárnica" style="width: 100%; border-radius: 10px; padding: 0.6rem 0.8rem;">
+          </div>
+        </div>
+
+        <div style="margin-bottom: 2rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.35rem;">Descripción Institucional</label>
+          <textarea id="branding-desc" class="form-input" rows="3" style="width: 100%; border-radius: 10px; padding: 0.6rem 0.8rem; resize: vertical;">${escapeAttr(compConfig.description || '')}</textarea>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+          <h4 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-main);">Listado de Sucursales y Plantas</h4>
+          <button type="button" id="btn-add-branch" class="btn-outline" style="padding: 0.4rem 0.9rem; font-size: 0.82rem; border-radius: 8px; cursor: pointer;">
+            ➕ Agregar Sucursal
+          </button>
+        </div>
+
+        <div id="admin-branches-list" style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;"></div>
+
+        <button id="save-branding-btn" class="btn-primary" style="padding: 0.75rem 2rem; border-radius: 10px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+          <span>💾 Guardar Portada & Sucursales</span>
+        </button>
+      </div>
+    `;
+
+    renderBranchesAdmin();
+
+    const addBranchBtn = brandingSection.querySelector('#btn-add-branch');
+    if (addBranchBtn) {
+      addBranchBtn.onclick = () => {
+        syncBranchesFromDom();
+        branchesList.push({
+          id: 'branch_' + Date.now(),
+          name: '',
+          address: '',
+          phone: '',
+          email: '',
+          hours: 'Lunes a Viernes: 07:00 a 16:00 hs'
+        });
+        renderBranchesAdmin();
+      };
+    }
+
+    const saveBrandingBtn = brandingSection.querySelector('#save-branding-btn');
+    if (saveBrandingBtn) {
+      saveBrandingBtn.onclick = async () => {
+        const branchCards = brandingSection.querySelectorAll('#admin-branches-list > div');
+        const updatedBranches = [];
+        branchCards.forEach((card, idx) => {
+          const name = card.querySelector('.branch-input-name')?.value.trim() || '';
+          const address = card.querySelector('.branch-input-address')?.value.trim() || '';
+          const phone = card.querySelector('.branch-input-phone')?.value.trim() || '';
+          const email = card.querySelector('.branch-input-email')?.value.trim() || '';
+          const hours = card.querySelector('.branch-input-hours')?.value.trim() || '';
+          if (name || address) {
+            updatedBranches.push({
+              id: branchesList[idx]?.id || 'branch_' + Date.now() + '_' + idx,
+              name,
+              address,
+              phone,
+              email,
+              hours
+            });
+          }
+        });
+
+        const nameInput = brandingSection.querySelector('#branding-company-name');
+        const sloganInput = brandingSection.querySelector('#branding-slogan');
+        const descInput = brandingSection.querySelector('#branding-desc');
+
+        const newBranding = {
+          companyName: (nameInput.value || '').trim() || 'Frigorífico Pampa',
+          slogan: (sloganInput.value || '').trim(),
+          description: (descInput.value || '').trim(),
+          branches: updatedBranches
+        };
+
+        saveBrandingBtn.disabled = true;
+        saveBrandingBtn.textContent = 'Guardando...';
+        try {
+          if (options.onSaveCompanyConfig) {
+            await options.onSaveCompanyConfig(newBranding);
+            branchesList = updatedBranches;
+            showMsg('Portada institucional y sucursales actualizadas con éxito.');
+          }
+        } catch (e) {
+          showMsg('Error al guardar datos de portada: ' + e.message, true);
+        } finally {
+          saveBrandingBtn.disabled = false;
+          saveBrandingBtn.innerHTML = '<span>💾 Guardar Portada & Sucursales</span>';
+        }
+      };
     }
   }
 

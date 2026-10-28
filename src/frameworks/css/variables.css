@@ -117,6 +117,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Modo Público (No Autenticado) */
+body:not(.authenticated) {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "header"
+    "main";
+}
+
+body:not(.authenticated) .sidebar,
+body:not(.authenticated) .sidebar-backdrop,
+body:not(.authenticated) #btn-command-palette,
+body:not(.authenticated) #export-pdf {
+  display: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   body {
     transition: none;

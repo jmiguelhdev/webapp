@@ -2,15 +2,31 @@ import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 import Afip from '@afipsdk/afip.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
 const PORT = process.env.PORT || 3000;
+
+// ==========================================================================
+// CACHÉ DE PRECIOS PÚBLICOS POR SUCURSAL (ZERO FIREBASE READS PARA VISITANTES)
+// ==========================================================================
+const PRICING_CACHE_FILE = path.join(__dirname, 'data', 'public_pricing_cache.json');
+let publicPricingMemoryCache = null;
+
+try {
+  if (fs.existsSync(PRICING_CACHE_FILE)) {
+    publicPricingMemoryCache = JSON.parse(fs.readFileSync(PRICING_CACHE_FILE, 'utf8'));
+    console.log(`[Cache Precios] Caché local cargado desde disco: ${publicPricingMemoryCache.length} sucursales.`);
+  }
+} catch (err) {
+  console.warn('[Cache Precios] Error leyendo caché local desde disco:', err.message);
+}
 
 // Inicialización de Afip SDK (ARCA)
 const afipCuit = process.env.AFIP_CUIT ? Number(process.env.AFIP_CUIT) : 20409378472;
@@ -204,6 +220,65 @@ app.get('/api/pipeline-emitidos', async (req, res) => {
   }
 });
 
+
+// ==========================================================================
+// ENDPOINTS DE CACHÉ DE PRECIOS POR SUCURSAL
+// ==========================================================================
+
+// Endpoint 1: Servir a visitantes públicos y celulares (0 lecturas a Firebase Firestore)
+app.get('/api/public-pricing', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
+  if (publicPricingMemoryCache && Array.isArray(publicPricingMemoryCache) && publicPricingMemoryCache.length > 0) {
+    return res.json({
+      success: true,
+      fromCache: true,
+      count: publicPricingMemoryCache.length,
+      data: publicPricingMemoryCache
+    });
+  }
+
+  // Si no está en RAM pero existe en disco
+  try {
+    if (fs.existsSync(PRICING_CACHE_FILE)) {
+      publicPricingMemoryCache = JSON.parse(fs.readFileSync(PRICING_CACHE_FILE, 'utf8'));
+      return res.json({
+        success: true,
+        fromCache: true,
+        count: publicPricingMemoryCache.length,
+        data: publicPricingMemoryCache
+      });
+    }
+  } catch (e) {
+    console.warn('[Cache Precios] Error leyendo disco en GET:', e.message);
+  }
+
+  res.json({ success: false, data: [] });
+});
+
+// Endpoint 2: Actualizar la caché del servidor desde el panel administrativo
+app.post('/api/public-pricing', async (req, res) => {
+  const { branches } = req.body;
+  if (!Array.isArray(branches) || branches.length === 0) {
+    return res.status(400).json({ success: false, error: 'Colección de sucursales requerida en formato Array.' });
+  }
+
+  publicPricingMemoryCache = branches;
+  try {
+    const dataDir = path.join(__dirname, 'data');
+    await fs.promises.mkdir(dataDir, { recursive: true });
+    await fs.promises.writeFile(PRICING_CACHE_FILE, JSON.stringify(branches, null, 2), 'utf8');
+    console.log(`[Cache Precios] Caché local actualizado exitosamente: ${branches.length} sucursales.`);
+  } catch (err) {
+    console.error('[Cache Precios] Error al persistir en disco:', err);
+  }
+
+  res.json({
+    success: true,
+    message: 'Caché de precios del servidor actualizado con éxito.',
+    count: branches.length,
+    timestamp: Date.now()
+  });
+});
 
 // Serve static files from dist
 app.use(express.static(path.join(__dirname, 'dist')));

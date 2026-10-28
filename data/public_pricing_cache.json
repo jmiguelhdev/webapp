@@ -1,0 +1,404 @@
+[
+  {
+    "id": "PAwkVZfoL1QMKwvpFHSL",
+    "name": "Pampa siria",
+    "address": "Av Siria 1800",
+    "hours": "08:00 a 21:30 hs",
+    "phone": "+54 9 381 456-7890",
+    "priceListId": "PL_1786649221697",
+    "priceListName": "pampa siria",
+    "items": [
+      {
+        "productId": "1781120511806",
+        "name": "ALITA",
+        "price": 10390,
+        "plu": "00002",
+        "visible": true
+      },
+      {
+        "productId": "1781124693552",
+        "name": "ASADO DE TIRA",
+        "price": 11390,
+        "plu": "00010",
+        "visible": true
+      },
+      {
+        "productId": "1781120559064",
+        "name": "CHOQUIZUELA",
+        "price": 14590,
+        "plu": "00003",
+        "visible": true
+      },
+      {
+        "productId": "1781120593553",
+        "name": "COLITA DE CUADRIL",
+        "price": 15590,
+        "plu": "00004",
+        "visible": true
+      },
+      {
+        "productId": "1781120394484",
+        "name": "FALDA GRUESA",
+        "price": 14100,
+        "plu": "00001",
+        "visible": true
+      },
+      {
+        "productId": "1781124085961",
+        "name": "LOMO VACUNO",
+        "price": 14200,
+        "plu": "00015",
+        "visible": true
+      },
+      {
+        "productId": "1781123989432",
+        "name": "MATAMBRE",
+        "price": 13600,
+        "plu": "00018",
+        "visible": true
+      },
+      {
+        "productId": "1781124239827",
+        "name": "NALGA DE PRIMERA",
+        "price": 11900,
+        "plu": "00020",
+        "visible": true
+      },
+      {
+        "productId": "1781123503599",
+        "name": "PECHO CON MANTA",
+        "price": 13600,
+        "plu": "00012",
+        "visible": true
+      },
+      {
+        "productId": "1781123934809",
+        "name": "VACÍO ESPECIAL",
+        "price": 17590,
+        "plu": "00025",
+        "visible": true
+      },
+      {
+        "productId": "1781105587387",
+        "name": "VERIJA",
+        "price": 14590,
+        "plu": "00039",
+        "visible": true
+      }
+    ]
+  },
+  {
+    "id": "3iiPeevb3rd8lpeMSVaR",
+    "name": "Poblacion",
+    "address": "Colombia 920",
+    "hours": "07:00 a 19:00 hs",
+    "phone": "+54 9 381 423-4567",
+    "priceListId": "PL_1781551838780",
+    "priceListName": "la poblacion",
+    "items": [
+      {
+        "productId": "1781124693552",
+        "name": "ASADO DE TIRA",
+        "price": 12169.5,
+        "plu": "00010",
+        "visible": true
+      },
+      {
+        "productId": "1781120593553",
+        "name": "COLITA DE CUADRIL",
+        "price": 12390,
+        "plu": "00004",
+        "visible": true
+      },
+      {
+        "productId": "1781120394484",
+        "name": "FALDA GRUESA",
+        "price": 11655,
+        "plu": "00001",
+        "visible": true
+      },
+      {
+        "productId": "1781124085961",
+        "name": "LOMO VACUNO",
+        "price": 14269.5,
+        "plu": "00015",
+        "visible": true
+      },
+      {
+        "productId": "1781123989432",
+        "name": "MATAMBRE",
+        "price": 13340.25,
+        "plu": "00018",
+        "visible": true
+      },
+      {
+        "productId": "1781124239827",
+        "name": "NALGA DE PRIMERA",
+        "price": 11090,
+        "plu": "00020",
+        "visible": true
+      },
+      {
+        "productId": "1781123934809",
+        "name": "VACÍO ESPECIAL",
+        "price": 15545.25,
+        "plu": "00025",
+        "visible": true
+      }
+    ]
+  },
+  {
+    "id": "j3MvSAiRogprgOJwBDDA",
+    "name": "Frigorifico Pampa Esq. Norte",
+    "address": "Av. Sarmiento y Av. Juan B. Justo",
+    "hours": "08:00 a 21:00 hs",
+    "phone": "+54 9 381 489-0123",
+    "priceListId": "PL_1783623354426",
+    "priceListName": "Frigorifico Pampa Esq. Norte",
+    "items": [
+      {
+        "productId": "1781124693552",
+        "name": "ASADO DE TIRA",
+        "price": 12500,
+        "plu": "00010",
+        "visible": true
+      },
+      {
+        "productId": "1781120593553",
+        "name": "COLITA DE CUADRIL",
+        "price": 15800,
+        "plu": "00004",
+        "visible": true
+      },
+      {
+        "productId": "1781124085961",
+        "name": "LOMO VACUNO",
+        "price": 14500,
+        "plu": "00015",
+        "visible": true
+      },
+      {
+        "productId": "1781123989432",
+        "name": "MATAMBRE",
+        "price": 13900,
+        "plu": "00018",
+        "visible": true
+      },
+      {
+        "productId": "1781123934809",
+        "name": "VACÍO ESPECIAL",
+        "price": 17200,
+        "plu": "00025",
+        "visible": true
+      }
+    ]
+  },
+  {
+    "id": "sRNhnXqRNNYmFfgFe8Hc",
+    "name": "Belgrano",
+    "address": "Av. Belgrano 2267",
+    "hours": "08:00 a 20:30 hs",
+    "phone": "+54 9 381 433-2211",
+    "priceListId": "PL_1787335745896",
+    "priceListName": "pampa belgrano",
+    "items": [
+      {
+        "productId": "1781124693552",
+        "name": "ASADO DE TIRA",
+        "price": 11800,
+        "plu": "00010",
+        "visible": true
+      },
+      {
+        "productId": "1781120593553",
+        "name": "COLITA DE CUADRIL",
+        "price": 15200,
+        "plu": "00004",
+        "visible": true
+      },
+      {
+        "productId": "1781124085961",
+        "name": "LOMO VACUNO",
+        "price": 14100,
+        "plu": "00015",
+        "visible": true
+      },
+      {
+        "productId": "1781123934809",
+        "name": "VACÍO ESPECIAL",
+        "price": 16900,
+        "plu": "00025",
+        "visible": true
+      }
+    ]
+  },
+  {
+    "id": "a1FtXbmGX1FI6QgVuP7W",
+    "name": "Pampa roca",
+    "address": "AV. NESTOR KIRCHNER 2310",
+    "hours": "08:00 a 21:00 hs",
+    "phone": "+54 9 381 465-8899",
+    "priceListId": "PL_1792014687573",
+    "priceListName": "pampa roca",
+    "items": [
+      {
+        "productId": "1781124693552",
+        "name": "ASADO DE TIRA",
+        "price": 11950,
+        "plu": "00010",
+        "visible": true
+      },
+      {
+        "productId": "1781120593553",
+        "name": "COLITA DE CUADRIL",
+        "price": 15400,
+        "plu": "00004",
+        "visible": true
+      },
+      {
+        "productId": "1781124085961",
+        "name": "LOMO VACUNO",
+        "price": 14200,
+        "plu": "00015",
+        "visible": true
+      },
+      {
+        "productId": "1781123934809",
+        "name": "VACÍO ESPECIAL",
+        "price": 17100,
+        "plu": "00025",
+        "visible": true
+      }
+    ]
+  },
+  {
+    "id": "2BPooTSCM6UDHaOpSqzk",
+    "name": "Pampa colmenar",
+    "address": "Av. Juan B. Justo 3102",
+    "hours": "08:00 a 21:00 hs",
+    "phone": "+54 9 381 477-1234",
+    "priceListId": "PL_1786648871665",
+    "priceListName": "pampa colmenar",
+    "items": [
+      {
+        "productId": "1781124693552",
+        "name": "ASADO DE TIRA",
+        "price": 11900,
+        "plu": "00010",
+        "visible": true
+      },
+      {
+        "productId": "1781120593553",
+        "name": "COLITA DE CUADRIL",
+        "price": 15500,
+        "plu": "00004",
+        "visible": true
+      },
+      {
+        "productId": "1781124085961",
+        "name": "LOMO VACUNO",
+        "price": 14200,
+        "plu": "00015",
+        "visible": true
+      },
+      {
+        "productId": "1781123934809",
+        "name": "VACÍO ESPECIAL",
+        "price": 17200,
+        "plu": "00025",
+        "visible": true
+      }
+    ]
+  },
+  {
+    "id": "pampa_movil",
+    "name": "Frigorífico Pampa en tu Barrio",
+    "address": "Puntos de venta itinerantes y ferias barriales",
+    "hours": "08:30 a 14:00 hs",
+    "phone": "+54 9 381 400-BARRIO",
+    "isMobile": true,
+    "isPublished": true,
+    "priceListId": "PL_MOVIL",
+    "priceListName": "Precios Móviles en tu Barrio",
+    "schedule": [
+      {
+        "id": "stop_1",
+        "date": "2026-11-01",
+        "dateDisplay": "Sábado 1 de Noviembre",
+        "time": "09:00 a 14:00 hs",
+        "location": "Plaza San Martín (Barrio Sur)",
+        "reference": "Frente a la Parroquia",
+        "status": "CONFIRMADO"
+      },
+      {
+        "id": "stop_2",
+        "date": "2026-11-03",
+        "dateDisplay": "Lunes 3 de Noviembre",
+        "time": "08:30 a 13:30 hs",
+        "location": "Av. Belgrano y Av. Ejército del Norte",
+        "reference": "Plazoleta Los Decanos",
+        "status": "CONFIRMADO"
+      },
+      {
+        "id": "stop_3",
+        "date": "2026-11-07",
+        "dateDisplay": "Viernes 7 de Noviembre",
+        "time": "09:00 a 14:30 hs",
+        "location": "Parque Avellaneda",
+        "reference": "Frente al Monumento",
+        "status": "PROXIMO"
+      }
+    ],
+    "items": [
+      {
+        "productId": "1781124693552",
+        "name": "ASADO DE TIRA",
+        "price": 10990,
+        "plu": "00010",
+        "visible": true
+      },
+      {
+        "productId": "1781120593553",
+        "name": "COLITA DE CUADRIL",
+        "price": 14990,
+        "plu": "00004",
+        "visible": true
+      },
+      {
+        "productId": "1781120394484",
+        "name": "FALDA GRUESA",
+        "price": 11200,
+        "plu": "00001",
+        "visible": true
+      },
+      {
+        "productId": "1781124085961",
+        "name": "LOMO VACUNO",
+        "price": 13900,
+        "plu": "00015",
+        "visible": true
+      },
+      {
+        "productId": "1781123989432",
+        "name": "MATAMBRE",
+        "price": 12990,
+        "plu": "00018",
+        "visible": true
+      },
+      {
+        "productId": "1781124239827",
+        "name": "NALGA DE PRIMERA",
+        "price": 11500,
+        "plu": "00020",
+        "visible": true
+      },
+      {
+        "productId": "1781123934809",
+        "name": "VACÍO ESPECIAL",
+        "price": 16490,
+        "plu": "00025",
+        "visible": true
+      }
+    ]
+  }
+]

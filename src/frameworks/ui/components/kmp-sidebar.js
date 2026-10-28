@@ -94,7 +94,8 @@ export class KmpSidebar extends HTMLElement {
         title: 'HERRAMIENTAS & ANÁLISIS',
         items: [
           { id: 'simulator', icon: '🧮', label: 'Simulador de Costos', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
-          { id: 'price-share', icon: '📲', label: 'Placa de Precios', roles: ['ADMIN', 'OPERARIO'] }
+          { id: 'price-share', icon: '📲', label: 'Placa de Precios', roles: ['ADMIN', 'OPERARIO'] },
+          { id: 'branch-pricing', icon: '🏷️', label: 'Precios & Cartel QR', roles: ['ADMIN', 'OPERARIO'] }
         ]
       },
       {

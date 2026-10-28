@@ -831,4 +831,869 @@ canvas { width: 100% !important; height: 100% !important; }
   }
 }
 
+/* ==========================================================================
+   PORTADA INSTITUCIONAL / BIENVENIDA (FRIGORÍFICO PAMPA)
+   ========================================================================== */
+.welcome-container {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.75rem;
+}
+
+.welcome-hero-section {
+  text-align: center;
+}
+
+.welcome-hero-card {
+  padding: 3rem 2rem;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--elevation-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-hero-card::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(143, 0, 20, 0.18) 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.welcome-brand-badge {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 1.5rem;
+}
+
+.welcome-hero-logo {
+  height: 110px;
+  width: auto;
+  border-radius: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.3s ease;
+}
+
+.welcome-hero-logo:hover {
+  transform: scale(1.03);
+}
+
+.welcome-hero-title {
+  position: relative;
+  z-index: 1;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+.welcome-hero-slogan {
+  position: relative;
+  z-index: 1;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--primary);
+  max-width: 650px;
+  margin: 0 auto 1.25rem auto;
+  line-height: 1.4;
+}
+
+.welcome-hero-description {
+  position: relative;
+  z-index: 1;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  max-width: 680px;
+  margin: 0 auto 0.5rem auto;
+  line-height: 1.6;
+}
+
+.welcome-actions {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-welcome-access {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-welcome-access:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Pilares Operacionales */
+.pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.pillar-card {
+  padding: 1.85rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: var(--elevation-1);
+  transition: var(--transition);
+  display: flex;
+  flex-direction: column;
+}
+
+.pillar-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--primary);
+  box-shadow: var(--elevation-2);
+}
+
+.pillar-icon-box {
+  font-size: 2.2rem;
+  margin-bottom: 1rem;
+}
+
+.pillar-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.6rem;
+}
+
+.pillar-text {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* Sucursales & Horarios */
+.section-header-centered {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.section-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--primary);
+  background: rgba(143, 0, 20, 0.08);
+  border: 1px solid rgba(143, 0, 20, 0.2);
+  padding: 0.3rem 0.8rem;
+  border-radius: 100px;
+  display: inline-block;
+}
+
+.section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0.6rem 0 0.3rem 0;
+}
+
+.section-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.branches-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.branch-card {
+  padding: 1.75rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: var(--elevation-1);
+  transition: var(--transition);
+}
+
+.branch-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--elevation-2);
+}
+
+.branch-card-header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.branch-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 1px;
+}
+
+.branch-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0.25rem 0 0 0;
+}
+
+.branch-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.branch-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.branch-link {
+  color: var(--text-main);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.branch-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Pie Institucional */
+.welcome-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 2rem;
+  margin-top: 1.5rem;
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.footer-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.footer-brand {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.footer-copy {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.footer-link-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  transition: var(--transition);
+}
+
+.footer-link-btn:hover {
+  color: var(--text-main);
+  background: var(--surface-hover);
+}
+
+/* Adaptación Responsive para Móviles y Tablets (Portada Institucional) */
+@media (max-width: 768px) {
+  .welcome-container {
+    padding: 1rem 0.75rem 2.5rem 0.75rem;
+    gap: 2rem;
+  }
+
+  .welcome-hero-card {
+    padding: 2.25rem 1.25rem;
+    border-radius: 18px;
+  }
+
+  .welcome-hero-logo {
+    height: 85px;
+    border-radius: 16px;
+  }
+
+  .welcome-hero-title {
+    font-size: clamp(1.75rem, 6vw, 2.2rem);
+  }
+
+  .welcome-hero-slogan {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .welcome-hero-description {
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .pillars-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .pillar-card {
+    padding: 1.35rem;
+    border-radius: 16px;
+  }
+
+  .section-title {
+    font-size: 1.4rem;
+  }
+
+  .section-subtitle {
+    font-size: 0.84rem;
+  }
+
+  .branches-grid {
+    grid-template-columns: 1fr;
+    gap: 1.15rem;
+  }
+
+  .branch-card {
+    padding: 1.35rem 1.1rem;
+    border-radius: 16px;
+  }
+
+  .branch-name {
+    font-size: 1.15rem;
+  }
+
+  .btn-branch-view-prices,
+  .btn-branch-download-pdf {
+    min-height: 42px;
+  }
+
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 1.25rem;
+  }
+
+  .footer-left {
+    align-items: center;
+  }
+
+  .footer-link-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-main);
+  }
+}
+
+@media (max-width: 480px) {
+  .welcome-hero-card {
+    padding: 1.75rem 1rem;
+  }
+
+  .welcome-hero-logo {
+    height: 72px;
+  }
+
+  .welcome-hero-title {
+    font-size: 1.55rem;
+  }
+
+  .branch-card {
+    padding: 1.15rem 0.85rem;
+  }
+
+  .branch-card-actions {
+    flex-direction: column !important;
+  }
+
+  .btn-branch-view-prices,
+  .btn-branch-download-pdf {
+    width: 100% !important;
+    min-height: 44px;
+    font-size: 0.88rem;
+  }
+
+  .auth-modal-overlay {
+    padding: 0.5rem;
+  }
+
+  .auth-modal-card {
+    padding: 1.5rem 1rem;
+    border-radius: 18px;
+  }
+
+  #branch-price-modal .auth-modal-card {
+    max-height: 94vh;
+  }
+}
+
+/* ==========================================================================
+   MODAL DE AUTENTICACIÓN EN 2 PASOS
+   ========================================================================== */
+.auth-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.auth-modal-card {
+  width: 100%;
+  max-width: 440px;
+  padding: 2.25rem 2rem;
+  border-radius: 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  animation: modalPop 0.25s var(--ease-spring);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.auth-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.75rem;
+}
+
+.auth-modal-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.auth-modal-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.auth-modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-main);
+}
+
+.auth-modal-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0.2rem 0 0 0;
+}
+
+.auth-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: var(--transition);
+}
+
+.auth-close-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+/* Stepper Visual */
+.auth-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+  padding: 0.5rem;
+  background: var(--bg-main);
+  border-radius: 100px;
+  border: 1px solid var(--border);
+}
+
+.stepper-step {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+
+.stepper-step.active {
+  color: var(--primary);
+}
+
+.stepper-step.completed {
+  color: var(--success);
+}
+
+.step-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  transition: var(--transition);
+}
+
+.stepper-step.active .step-badge {
+  background: var(--primary);
+  color: #fff;
+}
+
+.stepper-step.completed .step-badge {
+  background: var(--success);
+  color: #fff;
+}
+
+.stepper-connector {
+  width: 26px;
+  height: 2px;
+  background: var(--border);
+  transition: background 0.3s ease;
+}
+
+.stepper-connector.completed {
+  background: var(--success);
+}
+
+.auth-instruction {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 1.25rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.auth-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.auth-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+  letter-spacing: 0.1px;
+}
+
+.auth-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.auth-input-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.15rem;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#auth-two-step-modal .auth-input,
+.auth-input {
+  width: 100% !important;
+  height: 48px !important;
+  padding: 0 2.85rem 0 3.1rem !important;
+  border-radius: 12px !important;
+  border: 1.5px solid var(--border) !important;
+  background: var(--bg-main) !important;
+  color: var(--text-main) !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  font-family: inherit !important;
+  outline: none !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+  box-sizing: border-box !important;
+}
+
+/* Modo claro: fondo blanco nítido y borde gris sutil */
+body:not(.dark) #auth-two-step-modal .auth-input {
+  background: #ffffff !important;
+  border: 1.5px solid #d1d5db !important;
+  color: #111827 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Modo oscuro: fondo oscuro profundo con borde gris grafito para alto contraste */
+body.dark #auth-two-step-modal .auth-input {
+  background: #111420 !important;
+  border: 1.5px solid #374151 !important;
+  color: #f9fafb !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35) !important;
+}
+
+#auth-two-step-modal .auth-input::placeholder,
+.auth-input::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.75 !important;
+  font-size: 0.9rem !important;
+}
+
+#auth-two-step-modal .auth-input:focus,
+.auth-input:focus {
+  border-color: var(--primary) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3.5px rgba(143, 0, 20, 0.22) !important;
+}
+
+body.dark #auth-two-step-modal .auth-input:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.25) !important;
+}
+
+.auth-input-toggle-btn,
+.input-action-btn {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: background 0.2s ease;
+  z-index: 2;
+}
+
+.auth-input-toggle-btn:hover,
+.input-action-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+/* Buscador en el modal de precios */
+.modal-search-input {
+  height: 44px;
+  font-size: 0.9rem;
+  background: var(--bg-main) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-main) !important;
+}
+
+.btn-auth-primary {
+  width: 100%;
+  padding: 0.85rem 1.5rem;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.92rem;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+  margin-top: 0.5rem;
+}
+
+.btn-auth-primary:hover:not(:disabled) {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(143, 0, 20, 0.25);
+}
+
+.btn-auth-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-alert {
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.auth-alert.error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #f87171;
+}
+
+/* Paso 2: Google Box */
+.auth-success-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  margin-bottom: 1.5rem;
+}
+
+.auth-success-badge .success-icon {
+  background: var(--success);
+  color: #fff;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.auth-success-badge strong {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--success);
+  margin-bottom: 0.2rem;
+}
+
+.auth-success-badge p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.google-auth-box {
+  margin: 1.5rem 0 0.5rem 0;
+}
+
+.btn-google-auth {
+  width: 100%;
+  padding: 0.85rem 1.5rem;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: var(--transition);
+}
+
+.btn-google-auth:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  background: #f9fafb;
+}
+
+.btn-google-auth:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.auth-modal-footer-nav {
+  margin-top: 1.25rem;
+  text-align: center;
+}
+
+.btn-auth-link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.btn-auth-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+
 

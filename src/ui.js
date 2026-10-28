@@ -23,6 +23,8 @@ import { renderLogisticsMaster } from './frameworks/ui/screens/LogisticsMastersU
 import { renderLiquidations } from './frameworks/ui/screens/LiquidationsUI.js';
 import { renderFuelEfficiency } from './frameworks/ui/screens/FuelEfficiencyUI.js';
 import { renderEstablishmentManager } from './frameworks/ui/screens/EstablishmentUI.js';
+import { WelcomeUI } from './frameworks/ui/screens/WelcomeUI.js';
+import { BranchPricingUI } from './frameworks/ui/screens/BranchPricingUI.js';
 
 /**
  * Aggregator module for the UI layer.
@@ -56,5 +58,7 @@ export {
   renderLogisticsMaster,
   renderLiquidations,
   renderFuelEfficiency,
-  renderEstablishmentManager
+  renderEstablishmentManager,
+  WelcomeUI,
+  BranchPricingUI
 };

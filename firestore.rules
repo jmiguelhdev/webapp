@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funciones auxiliares de seguridad
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Configuración del sistema, portada institucional, seguridad y sucursal móvil
+    match /system_config/{document} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Sucursales, listas de precios y catálogo de productos para consulta pública de precios
+    match /establishments/{document} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /price_lists/{document} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /master_data/{document} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Puntos de venta móviles generados por la app de fábrica
+    match /mobile_points_of_sale/{document} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Colecciones de la aplicación: Requieren usuario autenticado (Email/Password o Token Google)
+    match /clientes/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /proveedores/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /transacciones/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /sales/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /fiscal_invoices/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /raw_material_batches/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /production_batches/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /employees/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /time_logs/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /cash_sessions/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /cash_extractions/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /desktop_users/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /products/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /raw_material_products/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /performance_reports/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Regla de respaldo: Requiere autenticación
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

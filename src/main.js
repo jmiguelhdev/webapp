@@ -9,6 +9,8 @@ import { onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from
 import * as userApi from './adapters/api/UserApi.js';
 import * as clientApi from './adapters/api/ClientApi.js';
 import * as securityConfigApi from './adapters/api/SecurityConfigApi.js';
+import * as companyConfigApi from './adapters/api/CompanyConfigApi.js';
+import * as publicBranchPricingApi from './adapters/api/PublicBranchPricingApi.js';
 import * as uiLib from './ui.js';
 import { FirebaseTravelRepository } from './adapters/repositories/TravelRepository.js';
 import { TravelPresenter } from './adapters/presenters/TravelPresenter.js';
@@ -399,9 +401,7 @@ onAuthStateChanged(auth, async (user) => {
     SyncService.startAutoSync(SHARED_DATA_SOURCE_UID);
   } else {
     currentUser = null;
-    document.body.classList.remove('authenticated');
-    updateUserProfileUI(null, null);
-    showLogin();
+    showPublicWelcome();
   }
 });
 
@@ -455,28 +455,41 @@ window.addEventListener('app:logout', () => {
   });
 });
 
-function showLogin() {
-  content.innerHTML = `
-    <div class="login-container glass-card">
-      <img src="/logo.jpg" alt="Logo" class="login-logo" />
-      <h2>Gestor de Viajes KMP</h2>
-      <p>Inicia sesión mediante Google para continuar.</p>
-      
-      <button id="google-login-btn" class="btn-google">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
-        Continuar con Google
-      </button>
+let cachedCompanyConfig = null;
+let cachedBranchPricing = null;
 
-      <p id="login-error" class="text-danger" style="margin-top: 1rem;"></p>
-    </div>
-  `;
+async function showPublicWelcome() {
+  currentUser = null;
+  document.body.classList.remove('authenticated');
+  updateUserProfileUI(null, null);
 
-  document.getElementById('google-login-btn').addEventListener('click', async () => {
-    const provider = new GoogleAuthProvider();
-    try {
+  // Cargar configuración de sucursales, imagen institucional y precios
+  try {
+    const [compCfg, pricingData] = await Promise.all([
+      cachedCompanyConfig ? Promise.resolve(cachedCompanyConfig) : companyConfigApi.fetchCompanyConfig(db),
+      cachedBranchPricing ? Promise.resolve(cachedBranchPricing) : publicBranchPricingApi.fetchBranchPricingData(db)
+    ]);
+    cachedCompanyConfig = compCfg;
+    cachedBranchPricing = pricingData;
+  } catch (e) {
+    console.warn("No se pudo cargar la configuración de portada o precios desde Firestore:", e);
+  }
+
+  uiLib.WelcomeUI.render(content, {
+    companyConfig: cachedCompanyConfig,
+    branchesPricing: cachedBranchPricing || [],
+    onOpenLogin: () => openAuthModal()
+  });
+}
+
+function openAuthModal() {
+  uiLib.WelcomeUI.renderAuthModal({
+    onVerifyGatekeeper: async (user, pass) => {
+      return await securityConfigApi.verifyGatekeeperCredentials(db, user, pass);
+    },
+    onGoogleLogin: async () => {
+      const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-    } catch (e) {
-      document.getElementById('login-error').textContent = e.message;
     }
   });
 }
@@ -491,9 +504,9 @@ function getAllowedViews(role, allowedViews = currentUserAllowedViews) {
   }
 
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'branch-pricing', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'branch-pricing', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
   } else {
     // VISOR
     return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
@@ -525,7 +538,7 @@ const navigateTo = (view, role = currentUserRole) => {
     return;
   }
 
-  if (!currentUser && view !== 'simulator') return showLogin();
+  if (!currentUser && view !== 'simulator') return showPublicWelcome();
   
   const allowed = getAllowedViews(role);
   if (!allowed.includes(view)) {
@@ -603,15 +616,24 @@ const navigateTo = (view, role = currentUserRole) => {
         
         let usersList = [];
         let currentMasterPin = '180283';
+        let currentSecurityConfig = null;
+        let currentCompanyConfig = null;
         if (currentUserRole === 'ADMIN') {
           if (!usersListCache) {
             usersListCache = await userApi.fetchAllUsersRoles(db);
           }
           usersList = usersListCache;
           try {
-            currentMasterPin = await securityConfigApi.fetchMasterPin(db);
+            currentSecurityConfig = await securityConfigApi.fetchSecurityConfig(db);
+            currentMasterPin = currentSecurityConfig?.masterPin || '180283';
           } catch (e) {
-            console.warn('Could not fetch master PIN:', e);
+            console.warn('Could not fetch security config:', e);
+          }
+          try {
+            currentCompanyConfig = await companyConfigApi.fetchCompanyConfig(db);
+            cachedCompanyConfig = currentCompanyConfig;
+          } catch (e) {
+            console.warn('Could not fetch company config:', e);
           }
         }
 
@@ -624,12 +646,21 @@ const navigateTo = (view, role = currentUserRole) => {
           userRole: currentUserRole,
           usersList: usersList,
           currentMasterPin: currentMasterPin,
+          securityConfig: currentSecurityConfig,
+          companyConfig: currentCompanyConfig,
           currentUserUid: currentUser ? currentUser.uid : null,
           onSavePrices: (newPrices) => clientRepository.saveCategoryPrices(newPrices),
           onSaveClient: (client) => clientRepository.saveClient(client),
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
           onSaveMasterPin: async (newPin) => {
             await securityConfigApi.updateMasterPin(db, newPin, currentUser?.email || 'ADMIN');
+          },
+          onSaveGatekeeperCredentials: async (user, pass) => {
+            await securityConfigApi.updateGatekeeperCredentials(db, user, pass, currentUser?.email || 'ADMIN');
+          },
+          onSaveCompanyConfig: async (newBranding) => {
+            await companyConfigApi.updateCompanyConfig(db, newBranding, currentUser?.email || 'ADMIN');
+            cachedCompanyConfig = newBranding;
           },
           onSaveUserRole: async (uid, role, allowedViews) => {
             await userApi.saveUserRole(db, uid, role, allowedViews);
@@ -771,6 +802,37 @@ const navigateTo = (view, role = currentUserRole) => {
         });
       };
       loadPriceData();
+      break;
+    }
+
+    case 'branch-pricing': {
+      uiInterface.showLoading(true);
+      const loadPricingView = async () => {
+        try {
+          const pricingData = await publicBranchPricingApi.fetchBranchPricingData(db);
+          uiInterface.hideLoading();
+          uiLib.BranchPricingUI.render(content, {
+            branchesData: pricingData,
+            onSavePrices: async (priceListId, pricesMap, hiddenIds) => {
+              await publicBranchPricingApi.saveBranchPrices(db, priceListId, pricesMap, hiddenIds, currentUser?.email || 'ADMIN');
+              cachedBranchPricing = null; // Invalida caché local
+            },
+            onSaveMobileBranch: async (mobileData) => {
+              await publicBranchPricingApi.saveMobileBranchData(db, mobileData, currentUser?.email || 'ADMIN');
+              cachedBranchPricing = null;
+            },
+            onSaveVisibility: async (branchId, isPublished) => {
+              await publicBranchPricingApi.saveBranchVisibility(db, branchId, isPublished, currentUser?.email || 'ADMIN');
+              cachedBranchPricing = null;
+            },
+            onBack: () => navigateTo('dashboard')
+          });
+        } catch (err) {
+          uiInterface.hideLoading();
+          ToastService.error('Error al cargar datos de precios: ' + err.message);
+        }
+      };
+      loadPricingView();
       break;
     }
     case 'contact': {
