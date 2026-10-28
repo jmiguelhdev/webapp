@@ -27,6 +27,7 @@ export const DEFAULT_MOBILE_BRANCH = {
   phone: '+54 9 381 555-1234',
   hours: 'Consultar cronograma de paradas',
   address: 'Puntos itinerantes en barrios y plazas de la provincia',
+  imageUrl: '',
   priceListId: 'PL_MOVIL',
   priceListName: 'Frigorífico Pampa en tu Barrio',
   schedule: [
@@ -133,19 +134,39 @@ export async function fetchBranchPricingData(db, forceFirestore = false) {
     }
   }
 
-  // 3. Consulta a Firestore
+  // 3. Consulta a Firestore (lecturas en paralelo para minimizar latencia)
   try {
+    const prodQuery = query(collection(db, 'master_data'), where('type', '==', 'PRODUCT'));
+
+    const [
+      estabSnap,
+      priceListsSnap,
+      prodSnap,
+      visDoc,
+      futureCollSnap,
+      mobDoc
+    ] = await Promise.all([
+      getDocs(collection(db, 'establishments')),
+      getDocs(collection(db, 'price_lists')),
+      getDocs(prodQuery),
+      getDoc(doc(db, 'system_config', 'branch_visibility')).catch(e => {
+        console.warn("No se pudo cargar branch_visibility:", e.message);
+        return null;
+      }),
+      getDocs(collection(db, FUTURE_APP_FABRICA_MOBILE_COLLECTION)).catch(() => null),
+      getDoc(doc(db, 'system_config', 'mobile_branch')).catch(e => {
+        console.warn("No se pudo cargar system_config/mobile_branch:", e.message);
+        return null;
+      })
+    ]);
+
     // 3.1 Sucursales fijas (establishments)
-    const estabSnap = await getDocs(collection(db, 'establishments'));
     const establishments = estabSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     // 3.2 Listas de precios (price_lists)
-    const priceListsSnap = await getDocs(collection(db, 'price_lists'));
     const priceLists = priceListsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     // 3.3 Catálogo de productos de master_data
-    const prodQuery = query(collection(db, 'master_data'), where('type', '==', 'PRODUCT'));
-    const prodSnap = await getDocs(prodQuery);
     const productsMap = new Map();
 
     prodSnap.docs.forEach(docSnap => {
@@ -164,15 +185,7 @@ export async function fetchBranchPricingData(db, forceFirestore = false) {
     });
 
     // 3.4 Visibilidades guardadas en Firestore (system_config/branch_visibility)
-    let visibilityMap = {};
-    try {
-      const visDoc = await getDoc(doc(db, 'system_config', 'branch_visibility'));
-      if (visDoc.exists()) {
-        visibilityMap = visDoc.data() || {};
-      }
-    } catch (e) {
-      console.warn("No se pudo cargar branch_visibility:", e.message);
-    }
+    const visibilityMap = (visDoc && visDoc.exists()) ? (visDoc.data() || {}) : {};
 
     // 3.5 Mapear sucursales fijas
     const physicalBranches = establishments.map(est => {
@@ -236,6 +249,7 @@ export async function fetchBranchPricingData(db, forceFirestore = false) {
         address: est.address || 'Consultar dirección en planta',
         phone: est.phone || '',
         hours: hoursDisplay,
+        imageUrl: String(est.imageUrl || '').trim(),
         isMobile: false,
         isPublished,
         priceListId: matchedList ? matchedList.id : (est.priceListId || null),
@@ -252,41 +266,31 @@ export async function fetchBranchPricingData(db, forceFirestore = false) {
       items: []
     };
 
-    // Intentar leer de la futura colección de la app fábrica (Hook preparado)
-    try {
-      const futureCollSnap = await getDocs(collection(db, FUTURE_APP_FABRICA_MOBILE_COLLECTION));
-      if (!futureCollSnap.empty) {
-        const points = futureCollSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        console.log(`[App Fábrica Hook] Puntos de venta móviles detectados en ${FUTURE_APP_FABRICA_MOBILE_COLLECTION}:`, points.length);
-        if (points.length > 0) {
-          mobileBranch.schedule = points.map(p => ({
-            id: p.id,
-            date: p.date || p.fecha || '',
-            dateDisplay: p.dateDisplay || p.fechaDisplay || p.date || '',
-            time: p.time || p.horario || '09:00 a 14:00 hs',
-            location: p.location || p.direccion || p.punto || '',
-            reference: p.reference || p.referencia || '',
-            status: p.status || 'PROXIMO'
-          }));
-        }
+    // Procesar colección de la app fábrica (Hook preparado)
+    if (futureCollSnap && !futureCollSnap.empty) {
+      const points = futureCollSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log(`[App Fábrica Hook] Puntos de venta móviles detectados en ${FUTURE_APP_FABRICA_MOBILE_COLLECTION}:`, points.length);
+      if (points.length > 0) {
+        mobileBranch.schedule = points.map(p => ({
+          id: p.id,
+          date: p.date || p.fecha || '',
+          dateDisplay: p.dateDisplay || p.fechaDisplay || p.date || '',
+          time: p.time || p.horario || '09:00 a 14:00 hs',
+          location: p.location || p.direccion || p.punto || '',
+          reference: p.reference || p.referencia || '',
+          status: p.status || 'PROXIMO'
+        }));
       }
-    } catch (e) {
-      // La colección aún no existe en Firebase; se usará la configuración local/system_config
     }
 
-    // Leer configuración personalizada de la carnicería móvil de system_config/mobile_branch
-    try {
-      const mobDoc = await getDoc(doc(db, 'system_config', 'mobile_branch'));
-      if (mobDoc.exists()) {
-        const data = mobDoc.data() || {};
-        mobileBranch = {
-          ...mobileBranch,
-          ...data,
-          schedule: Array.isArray(data.schedule) ? data.schedule : mobileBranch.schedule
-        };
-      }
-    } catch (e) {
-      console.warn("No se pudo cargar system_config/mobile_branch:", e.message);
+    // Procesar configuración personalizada de la carnicería móvil de system_config/mobile_branch
+    if (mobDoc && mobDoc.exists()) {
+      const data = mobDoc.data() || {};
+      mobileBranch = {
+        ...mobileBranch,
+        ...data,
+        schedule: Array.isArray(data.schedule) ? data.schedule : mobileBranch.schedule
+      };
     }
 
     // Resolver precios de la carnicería móvil
@@ -399,6 +403,7 @@ export async function saveMobileBranchData(db, mobileData, userEmail = '') {
     isMobile: true,
     isPublished: mobileData.isPublished !== false,
     phone: String(mobileData.phone || '').trim(),
+    imageUrl: String(mobileData.imageUrl || '').trim(),
     schedule: Array.isArray(mobileData.schedule) ? mobileData.schedule : [],
     priceListId: mobileData.priceListId || 'PL_MOVIL',
     updatedAt: Date.now(),
@@ -470,6 +475,81 @@ export async function saveBranchVisibility(db, branchId, isPublished, userEmail 
     } catch (e) {
       // Silencioso
     }
+  }
+
+  return { success: true };
+}
+
+/**
+ * Guarda o actualiza la foto (imageUrl) de una sucursal física o móvil.
+ * Si es móvil, actualiza system_config/mobile_branch.
+ * Si es establecimiento físico, actualiza establishments/{branchId} y sincroniza system_config/company_info si aplica.
+ * @param {Object} db - Instancia de Firestore.
+ * @param {string} branchId - ID de la sucursal.
+ * @param {string} imageUrl - URL o DataURL de la foto.
+ * @param {string} userEmail - Email del usuario que ejecuta la acción.
+ * @returns {Promise<{success: boolean}>}
+ */
+export async function saveBranchPhoto(db, branchId, imageUrl = '', userEmail = '') {
+  if (!branchId) return { success: false };
+
+  const cleanUrl = String(imageUrl || '').trim();
+
+  if (branchId === MOBILE_BRANCH_ID || branchId === 'pampa_movil') {
+    const mobRef = doc(db, 'system_config', 'mobile_branch');
+    await setDoc(mobRef, {
+      imageUrl: cleanUrl,
+      updatedAt: Date.now(),
+      updatedBy: userEmail || 'ADMIN'
+    }, { merge: true });
+  } else {
+    // 1. Guardar en establishments/{branchId}
+    try {
+      const estabRef = doc(db, 'establishments', branchId);
+      await setDoc(estabRef, {
+        imageUrl: cleanUrl,
+        updatedAt: Date.now(),
+        updatedBy: userEmail || 'ADMIN'
+      }, { merge: true });
+      _invalidateCached('establishments');
+    } catch (e) {
+      console.warn(`Error al guardar foto en establishment ${branchId}:`, e?.message || e);
+    }
+
+    // 2. Sincronizar en system_config/company_info si existe en el array branches
+    try {
+      const compRef = doc(db, 'system_config', 'company_info');
+      const compSnap = await getDoc(compRef);
+      if (compSnap.exists()) {
+        const compData = compSnap.data() || {};
+        if (Array.isArray(compData.branches)) {
+          let modified = false;
+          const updatedBranches = compData.branches.map(b => {
+            if (b.id === branchId) {
+              modified = true;
+              return { ...b, imageUrl: cleanUrl };
+            }
+            return b;
+          });
+          if (modified) {
+            await setDoc(compRef, { branches: updatedBranches, updatedAt: Date.now(), updatedBy: userEmail || 'ADMIN' }, { merge: true });
+            _invalidateCached('system_config:company_info');
+          }
+        }
+      }
+    } catch (e) {
+      // Silencioso
+    }
+  }
+
+  _invalidateCached(CACHE_KEY);
+
+  // Sincronizar snapshot con servidor
+  try {
+    const updatedBranches = await fetchBranchPricingData(db, true);
+    await syncServerPricingCache(updatedBranches);
+  } catch (e) {
+    // Silencioso
   }
 
   return { success: true };

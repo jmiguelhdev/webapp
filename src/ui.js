@@ -25,6 +25,7 @@ import { renderFuelEfficiency } from './frameworks/ui/screens/FuelEfficiencyUI.j
 import { renderEstablishmentManager } from './frameworks/ui/screens/EstablishmentUI.js';
 import { WelcomeUI } from './frameworks/ui/screens/WelcomeUI.js';
 import { BranchPricingUI } from './frameworks/ui/screens/BranchPricingUI.js';
+import { WelcomeConfigUI } from './frameworks/ui/screens/WelcomeConfigUI.js';
 
 /**
  * Aggregator module for the UI layer.
@@ -60,5 +61,6 @@ export {
   renderFuelEfficiency,
   renderEstablishmentManager,
   WelcomeUI,
-  BranchPricingUI
+  BranchPricingUI,
+  WelcomeConfigUI
 };

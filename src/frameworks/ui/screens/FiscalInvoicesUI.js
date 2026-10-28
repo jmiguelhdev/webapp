@@ -37,7 +37,11 @@ export class FiscalInvoicesUI {
    * Inicializa y renderiza la pantalla de comprobantes.
    */
   async render() {
-    this.renderSkeleton();
+    if (Array.isArray(this.allInvoices) && this.allInvoices.length > 0) {
+      this.applyFiltersAndRender();
+    } else {
+      this.renderSkeleton();
+    }
 
     try {
       const [invoices, clients] = await Promise.all([

@@ -106,6 +106,7 @@ export class KmpSidebar extends HTMLElement {
           { id: 'clients', icon: '👥', label: 'Clientes y Cuentas', roles: ['ADMIN'] },
           { id: 'establishments', icon: '🏭', label: 'Sucursales y Personal', roles: ['ADMIN'] },
           { id: 'settings', icon: '⚙️', label: 'Configuración', roles: ['ADMIN'] },
+          { id: 'welcome-config', icon: '🎨', label: 'Diseño de Portada', roles: ['ADMIN'] },
           { id: 'contact', icon: '📖', label: 'Info y Contacto', roles: ['ADMIN', 'OPERARIO', 'VISOR'] }
         ]
       }

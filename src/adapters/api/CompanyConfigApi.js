@@ -9,10 +9,35 @@ import { _getCached, _setCached, _invalidateCached, TTL_10MIN } from './common.j
 
 const CACHE_KEY = 'system_config:company_info';
 
+export const DEFAULT_PILLARS = [
+  {
+    id: 'faena-desposte',
+    title: 'Faena & Desposte Certificado',
+    description: 'Procesos sanitarios bajo estrictas normas de bioseguridad, tipificación de reses y trazabilidad integral de lotes de hacienda.',
+    icon: '🥩',
+    imageUrl: ''
+  },
+  {
+    id: 'cadena-frio',
+    title: 'Cadena de Frío & Acopio',
+    description: 'Cámaras de maduración y conservación con monitoreo telemétrico continuo para preservar el valor cárnico y frescura.',
+    icon: '❄️',
+    imageUrl: ''
+  },
+  {
+    id: 'logistica-despacho',
+    title: 'Logística & Despacho',
+    description: 'Coordinación de jaulas de transporte, control de mermas y rendimientos ganaderos con conexión directa a los principales mercados.',
+    icon: '🚚',
+    imageUrl: ''
+  }
+];
+
 export const DEFAULT_COMPANY_CONFIG = {
   companyName: 'Frigorífico Pampa',
   slogan: 'Calidad, Trazabilidad y Excelencia en la Industria Cárnica',
   description: 'Instalaciones de faena, desposte y logística frigorífica de última generación. Garantizamos la máxima frescura y sanidad desde el origen ganadero hasta su mesa.',
+  pillars: DEFAULT_PILLARS,
   branches: [
     {
       id: 'central',
@@ -20,7 +45,8 @@ export const DEFAULT_COMPANY_CONFIG = {
       address: 'Ruta Nacional N° 5 Km 600, La Pampa',
       phone: '+54 9 2954 456789',
       email: 'contacto@frigorificopampa.tech',
-      hours: 'Lunes a Viernes: 06:00 a 16:00 hs — Sábados: 07:00 a 12:00 hs'
+      hours: 'Lunes a Viernes: 06:00 a 16:00 hs — Sábados: 07:00 a 12:00 hs',
+      imageUrl: ''
     },
     {
       id: 'distribucion',
@@ -28,7 +54,8 @@ export const DEFAULT_COMPANY_CONFIG = {
       address: 'Parque Industrial, Calle 4 y 102, La Pampa',
       phone: '+54 9 2954 987654',
       email: 'logistica@frigorificopampa.tech',
-      hours: 'Lunes a Viernes: 05:00 a 18:00 hs — Guardias operativas 24hs'
+      hours: 'Lunes a Viernes: 05:00 a 18:00 hs — Guardias operativas 24hs',
+      imageUrl: ''
     }
   ]
 };
@@ -54,6 +81,9 @@ export async function fetchCompanyConfig(db) {
         companyName: data.companyName || DEFAULT_COMPANY_CONFIG.companyName,
         slogan: data.slogan || DEFAULT_COMPANY_CONFIG.slogan,
         description: data.description || DEFAULT_COMPANY_CONFIG.description,
+        pillars: Array.isArray(data.pillars) && data.pillars.length > 0
+          ? data.pillars
+          : DEFAULT_PILLARS,
         branches: Array.isArray(data.branches) && data.branches.length > 0
           ? data.branches
           : DEFAULT_COMPANY_CONFIG.branches,
@@ -84,6 +114,7 @@ export async function updateCompanyConfig(db, config, userEmail = '') {
     companyName: String(config.companyName || DEFAULT_COMPANY_CONFIG.companyName).trim(),
     slogan: String(config.slogan || DEFAULT_COMPANY_CONFIG.slogan).trim(),
     description: String(config.description || DEFAULT_COMPANY_CONFIG.description).trim(),
+    pillars: Array.isArray(config.pillars) ? config.pillars : DEFAULT_PILLARS,
     branches: Array.isArray(config.branches) ? config.branches : DEFAULT_COMPANY_CONFIG.branches,
     updatedAt: Date.now(),
     updatedBy: userEmail || 'ADMIN'

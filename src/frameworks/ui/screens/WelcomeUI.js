@@ -6,6 +6,7 @@
 import { el } from '../../utils/dom.js';
 import { BranchPricePdfService } from '../reports/BranchPricePdfService.js';
 import { filterUpcomingStops } from '../../../adapters/api/PublicBranchPricingApi.js';
+import { DEFAULT_PILLARS } from '../../../adapters/api/CompanyConfigApi.js';
 
 /**
  * Formatea un número como moneda argentina ($ / kg).
@@ -35,7 +36,7 @@ export class WelcomeUI {
    * @param {Array<Object>} [options.branchesPricing] - Listado de sucursales con precios resueltos.
    * @param {function} options.onOpenLogin - Callback para desplegar el modal de acceso.
    */
-  static render(container, { companyConfig, branchesPricing = [], onOpenLogin }) {
+  static render(container, { companyConfig, branchesPricing = [], onOpenLogin, onBackToAdmin }) {
     if (!container) return;
 
     const config = companyConfig || {
@@ -55,6 +56,7 @@ export class WelcomeUI {
       return {
         ...cb,
         id: pricingMatch?.id || cb.id,
+        imageUrl: pricingMatch?.imageUrl || cb.imageUrl || '',
         isMobile: Boolean(pricingMatch?.isMobile || cb.isMobile),
         isPublished: pricingMatch?.isPublished !== undefined ? pricingMatch.isPublished : (cb.isPublished !== false),
         schedule: pricingMatch?.schedule || cb.schedule || [],
@@ -71,6 +73,7 @@ export class WelcomeUI {
           address: pb.address,
           hours: pb.hours,
           phone: pb.phone,
+          imageUrl: pb.imageUrl || '',
           isMobile: Boolean(pb.isMobile),
           isPublished: pb.isPublished !== false,
           schedule: pb.schedule || [],
@@ -103,6 +106,11 @@ export class WelcomeUI {
 
       return `
         <div class="branch-card glass-card ${isMobile ? 'branch-card-mobile' : ''}" data-branch-id="${escapeHtml(b.id)}" style="${isMobile ? 'border: 2px solid rgba(143, 0, 20, 0.35); background: linear-gradient(180deg, rgba(143, 0, 20, 0.03) 0%, var(--card-bg) 100%);' : ''}">
+          ${b.imageUrl ? `
+            <div class="branch-card-media">
+              <img src="${escapeHtml(b.imageUrl)}" alt="${escapeHtml(b.name || 'Sucursal')}" loading="lazy" class="branch-card-img" />
+            </div>
+          ` : ''}
           <div class="branch-card-header">
             ${badgeHtml}
             <h4 class="branch-name">${escapeHtml(b.name || 'Sucursal')}</h4>
@@ -167,7 +175,41 @@ export class WelcomeUI {
       `;
     }).join('');
 
+    // Resolver tarjetas principales / pilares dinámicos
+    const pillarsList = Array.isArray(config.pillars) && config.pillars.length > 0
+      ? config.pillars
+      : DEFAULT_PILLARS;
+
+    const pillarsHtml = pillarsList.map(p => `
+      <div class="pillar-card glass-card">
+        ${p.imageUrl ? `
+          <div class="pillar-media">
+            <img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.title || 'Pilar')}" loading="lazy" class="pillar-img" />
+          </div>
+        ` : ''}
+        ${p.icon ? `<div class="pillar-icon-box">${escapeHtml(p.icon)}</div>` : ''}
+        <h3 class="pillar-title">${escapeHtml(p.title || '')}</h3>
+        <p class="pillar-text">${escapeHtml(p.description || '')}</p>
+      </div>
+    `).join('');
+
     container.innerHTML = `
+      ${onBackToAdmin ? `
+        <div class="admin-preview-top-bar glass-card" style="position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.5rem; background: rgba(25, 25, 25, 0.95); backdrop-filter: blur(12px); border-bottom: 2px solid var(--primary); box-shadow: 0 4px 18px rgba(0,0,0,0.5); margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.6rem; color: #fff; font-size: 0.88rem;">
+            <span style="font-size: 1.2rem;">🛡️</span>
+            <span><strong>Modo Previsualización</strong> — Vista pública de clientes (Sesión activa)</span>
+          </div>
+          <div style="display: flex; gap: 0.6rem; align-items: center;">
+            <button type="button" id="btn-back-to-welcome-config" style="padding: 0.55rem 1.1rem; border-radius: 8px; background: var(--primary); color: #fff; border: none; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: var(--transition);">
+              <span>🎨 Volver a Diseño de Portada</span>
+            </button>
+            <button type="button" id="btn-back-to-dashboard" style="padding: 0.55rem 0.9rem; border-radius: 8px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.25); font-weight: 600; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: var(--transition);">
+              <span>📊 Dashboard</span>
+            </button>
+          </div>
+        </div>
+      ` : ''}
       <div class="welcome-container fade-in">
         <!-- Hero Principal -->
         <section class="welcome-hero-section">
@@ -184,21 +226,7 @@ export class WelcomeUI {
         <!-- Pilares Operacionales -->
         <section class="welcome-pillars-section">
           <div class="pillars-grid">
-            <div class="pillar-card glass-card">
-              <div class="pillar-icon-box">🥩</div>
-              <h3 class="pillar-title">Faena & Desposte Certificado</h3>
-              <p class="pillar-text">Procesos sanitarios bajo estrictas normas de bioseguridad, tipificación de reses y trazabilidad integral de lotes de hacienda.</p>
-            </div>
-            <div class="pillar-card glass-card">
-              <div class="pillar-icon-box">❄️</div>
-              <h3 class="pillar-title">Cadena de Frío & Acopio</h3>
-              <p class="pillar-text">Cámaras de maduración y conservación con monitoreo telemétrico continuo para preservar el valor cárnico y frescura.</p>
-            </div>
-            <div class="pillar-card glass-card">
-              <div class="pillar-icon-box">🚚</div>
-              <h3 class="pillar-title">Logística & Despacho</h3>
-              <p class="pillar-text">Coordinación de jaulas de transporte, control de mermas y rendimientos ganaderos con conexión directa a los principales mercados.</p>
-            </div>
+            ${pillarsHtml}
           </div>
         </section>
 
@@ -235,6 +263,14 @@ export class WelcomeUI {
     // Conectar único evento discreto de apertura de login institucional
     const footerBtn = container.querySelector('#footer-staff-login-btn');
     if (footerBtn && onOpenLogin) footerBtn.onclick = onOpenLogin;
+
+    // Conectar botones de retorno para sesión de administrador en modo previsualización
+    if (onBackToAdmin) {
+      const btnBackConfig = container.querySelector('#btn-back-to-welcome-config');
+      if (btnBackConfig) btnBackConfig.onclick = () => onBackToAdmin('welcome-config');
+      const btnBackDash = container.querySelector('#btn-back-to-dashboard');
+      if (btnBackDash) btnBackDash.onclick = () => onBackToAdmin('dashboard');
+    }
 
     // Conectar eventos de "Ver Precios"
     container.querySelectorAll('.btn-branch-view-prices').forEach(btn => {

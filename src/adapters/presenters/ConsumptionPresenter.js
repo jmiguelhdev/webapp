@@ -61,14 +61,35 @@ export class ConsumptionPresenter {
 
   async loadFaenas(uid, silent = false) {
     this.currentUid = uid;
+    const hasMemoryCache = Array.isArray(this.allFaenas) && this.allFaenas.length > 0;
+    if (hasMemoryCache && !silent) {
+      this.updateView();
+      silent = true;
+    }
     if (!silent) this.ui.showLoading();
     try {
-      this.allFaenas = await this.travelRepository.getFaenaStock(uid);
-      this.clients = await this.clientRepository.getClients();
-      this.categoryPrices = await this.clientRepository.getCategoryPrices();
-      this.camarasList = await this.clientRepository.getCamaras() || [];
-      this.achurasItems = await this.travelRepository.fetchAchurasStock(uid);
-      this.travels = await this.travelRepository.fetchTravels(uid).catch(() => []);
+      const [
+        allFaenas,
+        clients,
+        categoryPrices,
+        camarasList,
+        achurasItems,
+        travels
+      ] = await Promise.all([
+        this.travelRepository.getFaenaStock(uid),
+        this.clientRepository.getClients(),
+        this.clientRepository.getCategoryPrices(),
+        this.clientRepository.getCamaras().then(res => res || []),
+        this.travelRepository.fetchAchurasStock(uid),
+        this.travelRepository.fetchTravels(uid).catch(() => [])
+      ]);
+
+      this.allFaenas = allFaenas;
+      this.clients = clients;
+      this.categoryPrices = categoryPrices;
+      this.camarasList = camarasList;
+      this.achurasItems = achurasItems;
+      this.travels = travels;
       
       // Sort desc by creation/faena date
       this.allFaenas.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

@@ -82,13 +82,15 @@ export class LogisticsRepository {
 
   /**
    * Obtiene los camiones resolviendo los choferes y jaulas asignados.
+   * @param {Array<Driver>|null} [preloadedDrivers=null]
+   * @param {Array<Trailer>|null} [preloadedTrailers=null]
    * @returns {Promise<Array<Truck>>} Lista de camiones.
    */
-  async getTrucks() {
+  async getTrucks(preloadedDrivers = null, preloadedTrailers = null) {
     const [trucksData, drivers, trailers] = await Promise.all([
       api.fetchTrucks(),
-      this.getDrivers(),
-      this.getTrailers()
+      preloadedDrivers ? Promise.resolve(preloadedDrivers) : this.getDrivers(),
+      preloadedTrailers ? Promise.resolve(preloadedTrailers) : this.getTrailers()
     ]);
 
     return trucksData.map(t => {
@@ -146,15 +148,19 @@ export class LogisticsRepository {
 
   /**
    * Obtiene la lista de viajes resolviendo las relaciones de camión, chofer y jaula.
+   * @param {Array<Truck>|null} [preloadedTrucks=null]
+   * @param {Array<Driver>|null} [preloadedDrivers=null]
+   * @param {Array<Trailer>|null} [preloadedTrailers=null]
    * @returns {Promise<Array<Travel>>} Lista de viajes.
    */
-  async getTravels() {
-    const [travelsData, trucks, drivers, trailers] = await Promise.all([
+  async getTravels(preloadedTrucks = null, preloadedDrivers = null, preloadedTrailers = null) {
+    const [travelsData, drivers, trailers] = await Promise.all([
       api.fetchTravels(),
-      this.getTrucks(),
-      this.getDrivers(),
-      this.getTrailers()
+      preloadedDrivers ? Promise.resolve(preloadedDrivers) : this.getDrivers(),
+      preloadedTrailers ? Promise.resolve(preloadedTrailers) : this.getTrailers()
     ]);
+
+    const trucks = preloadedTrucks || await this.getTrucks(drivers, trailers);
 
     return travelsData.map(t => {
       const travel = new Travel(t);

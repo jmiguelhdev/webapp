@@ -274,7 +274,7 @@ export class BranchPricingUI {
               <div>
                 <h4 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main);">Cortes & Precios por Kg</h4>
                 <p style="margin: 0.2rem 0 0 0; font-size: 0.82rem; color: var(--text-muted);">
-                  Lista: <strong>${branch.priceListName || branch.priceListId || 'Por Defecto'}</strong> (${(branch.items || []).length} productos)
+                  Lista: <strong>${branch.priceListName || branch.priceListId || 'Por Defecto'}</strong> (<span id="visible-cuts-count">${(branch.items || []).filter(i => i.visible !== false).length}</span> de ${(branch.items || []).length} visibles)
                 </p>
               </div>
               <input type="text" id="input-search-cuts" class="form-input" placeholder="🔍 Buscar corte..." style="border-radius: 8px; padding: 0.45rem 0.8rem; font-size: 0.85rem; width: 180px;">
@@ -287,7 +287,12 @@ export class BranchPricingUI {
                   <tr>
                     <th style="padding: 0.75rem; text-align: left; color: var(--text-muted); font-weight: 600;">Corte / Producto</th>
                     <th style="padding: 0.75rem; text-align: right; color: var(--text-muted); font-weight: 600; width: 140px;">Precio $/kg</th>
-                    <th style="padding: 0.75rem; text-align: center; color: var(--text-muted); font-weight: 600; width: 90px;" title="Mostrar en web y PDF">Visible</th>
+                    <th style="padding: 0.75rem; text-align: center; color: var(--text-muted); font-weight: 600; width: 110px;" title="Seleccionar o deseleccionar todos los cortes">
+                      <div style="display: flex; align-items: center; justify-content: center; gap: 0.4rem; cursor: pointer;">
+                        <input type="checkbox" id="check-toggle-all-cuts" style="width: 17px; height: 17px; cursor: pointer;" title="Seleccionar o deseleccionar todos">
+                        <label for="check-toggle-all-cuts" style="cursor: pointer; user-select: none; font-size: 0.82rem;">Visible</label>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="pricing-table-body">
@@ -439,6 +444,50 @@ export class BranchPricingUI {
       // Renderizar filas de la tabla de precios
       const tbody = mainContent.querySelector('#pricing-table-body');
       const searchInput = mainContent.querySelector('#input-search-cuts');
+      const checkToggleAll = mainContent.querySelector('#check-toggle-all-cuts');
+      const visibleCutsCountEl = mainContent.querySelector('#visible-cuts-count');
+
+      const updateMasterCheckboxState = () => {
+        const items = branch.items || [];
+        const visibleCount = items.filter(i => i.visible !== false).length;
+        if (visibleCutsCountEl) {
+          visibleCutsCountEl.textContent = `${visibleCount}`;
+        }
+        if (!checkToggleAll) return;
+        if (items.length === 0) {
+          checkToggleAll.checked = false;
+          checkToggleAll.indeterminate = false;
+          checkToggleAll.disabled = true;
+          return;
+        }
+        checkToggleAll.disabled = false;
+        if (visibleCount === items.length) {
+          checkToggleAll.checked = true;
+          checkToggleAll.indeterminate = false;
+        } else if (visibleCount === 0) {
+          checkToggleAll.checked = false;
+          checkToggleAll.indeterminate = false;
+        } else {
+          checkToggleAll.checked = false;
+          checkToggleAll.indeterminate = true;
+        }
+      };
+
+      if (checkToggleAll) {
+        checkToggleAll.onchange = () => {
+          const newStatus = checkToggleAll.checked;
+          const items = branch.items || [];
+          const filter = (currentFilterText || '').toLowerCase();
+
+          items.forEach(i => {
+            if (!filter || i.name.toLowerCase().includes(filter) || (i.plu && i.plu.includes(filter))) {
+              i.visible = newStatus;
+            }
+          });
+
+          renderTableRows();
+        };
+      }
 
       const renderTableRows = () => {
         const items = branch.items || [];
@@ -456,6 +505,7 @@ export class BranchPricingUI {
               </td>
             </tr>
           `;
+          updateMasterCheckboxState();
           return;
         }
 
@@ -494,9 +544,12 @@ export class BranchPricingUI {
           if (visibleCheckbox) {
             visibleCheckbox.onchange = () => {
               itemObj.visible = Boolean(visibleCheckbox.checked);
+              updateMasterCheckboxState();
             };
           }
         });
+
+        updateMasterCheckboxState();
       };
 
       renderTableRows();

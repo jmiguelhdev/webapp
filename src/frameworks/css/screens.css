@@ -975,6 +975,26 @@ canvas { width: 100% !important; height: 100% !important; }
   box-shadow: var(--elevation-2);
 }
 
+.pillar-media {
+  width: 100%;
+  height: 160px;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.pillar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.pillar-card:hover .pillar-img {
+  transform: scale(1.04);
+}
+
 .pillar-icon-box {
   font-size: 2.2rem;
   margin-bottom: 1rem;
@@ -1043,6 +1063,30 @@ canvas { width: 100% !important; height: 100% !important; }
 .branch-card:hover {
   border-color: var(--primary);
   box-shadow: var(--elevation-2);
+}
+
+.branch-card-media {
+  width: calc(100% + 3.5rem);
+  margin-top: -1.75rem;
+  margin-left: -1.75rem;
+  margin-right: -1.75rem;
+  margin-bottom: 1.25rem;
+  height: 180px;
+  overflow: hidden;
+  border-top-left-radius: 19px;
+  border-top-right-radius: 19px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.branch-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.branch-card:hover .branch-card-img {
+  transform: scale(1.04);
 }
 
 .branch-card-header {
@@ -1196,6 +1240,16 @@ canvas { width: 100% !important; height: 100% !important; }
   .branch-card {
     padding: 1.35rem 1.1rem;
     border-radius: 16px;
+  }
+
+  .branch-card-media {
+    width: calc(100% + 2.2rem);
+    margin-top: -1.35rem;
+    margin-left: -1.1rem;
+    margin-right: -1.1rem;
+    height: 155px;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
   }
 
   .branch-name {
@@ -1694,6 +1748,91 @@ body.dark #auth-two-step-modal .auth-input:focus {
   color: var(--primary);
   text-decoration: underline;
 }
+
+/* ==========================================================================
+   Configuración de Portada & Tarjetas (WelcomeConfigUI)
+   ========================================================================== */
+.welcome-config-wrapper .tab-btn:hover {
+  color: var(--primary) !important;
+}
+
+.welcome-config-wrapper .btn-upload-label:hover {
+  background: var(--card-bg) !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+.pillar-editor-card:hover,
+.branch-photo-card:hover {
+  border-color: rgba(143, 0, 20, 0.4) !important;
+  box-shadow: var(--elevation-2);
+}
+
+.config-floating-bar {
+  animation: slideUpFloating 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpFloating {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .welcome-config-header {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .config-tabs-bar {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 0.25rem;
+  }
+  .config-floating-bar {
+    flex-direction: column;
+    gap: 0.75rem;
+    text-align: center;
+  }
+  .config-floating-bar button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.admin-preview-top-bar {
+  animation: slideDownBar 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDownBar {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-preview-top-bar {
+    flex-direction: column;
+    gap: 0.6rem;
+    align-items: stretch !important;
+    padding: 0.75rem 1rem !important;
+  }
+  .admin-preview-top-bar button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+
 
 
 

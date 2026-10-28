@@ -365,13 +365,14 @@ export function renderSettings(container, options) {
         { id: 'logistics-liquidations', name: 'Liquidaciones Fletes' },
         { id: 'logistics-fuel', name: 'Rendimiento Combustible' },
         { id: 'branch-pricing', name: 'Precios & Cartel QR' },
+        { id: 'welcome-config', name: 'Diseño de Portada' },
         { id: 'simulator', name: 'Simulador' },
         { id: 'settings', name: 'Configuración' }
       ];
 
       const defaultViewsForRole = (role) => {
         if (role === 'ADMIN') {
-          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'branch-pricing', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
+          return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'welcome-config', 'price-share', 'branch-pricing', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
         } else if (role === 'OPERARIO') {
           return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'branch-pricing', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
         } else {

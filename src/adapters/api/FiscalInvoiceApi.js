@@ -5,6 +5,9 @@
  */
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import * as clientApi from './ClientApi.js';
+import { _getCached, _setCached, TTL_5MIN } from './common.js';
+
+const FISCAL_INVOICES_CACHE_KEY = 'fiscal_invoices_all';
 
 /**
  * Obtiene comprobantes fiscales y ventas exclusivas desde Firestore.
@@ -13,44 +16,57 @@ import * as clientApi from './ClientApi.js';
  * @returns {Promise<Array<Object>>} Lista unificada de comprobantes de ventas.
  */
 export async function fetchFiscalInvoices(db) {
+  const cached = _getCached(FISCAL_INVOICES_CACHE_KEY);
+  if (cached) return cached;
+
   const resultInvoices = [];
   const invoiceIds = new Set();
 
-  // 1. Intentar consultar colecciones 'fiscal_invoices' en Firestore (Solo Comprobantes ARCA)
-  try {
-    const invoicesRef = collection(db, 'fiscal_invoices');
-    let q;
-    try {
-      q = query(invoicesRef, orderBy('updatedAt', 'desc'), limit(500));
-    } catch (e) {
-      q = query(invoicesRef, limit(500));
-    }
-    const snapshot = await getDocs(q);
+  // Ejecutar las 3 fuentes en paralelo
+  const [snapshot, clients, rawTxs] = await Promise.all([
+    (async () => {
+      try {
+        const invoicesRef = collection(db, 'fiscal_invoices');
+        let q;
+        try {
+          q = query(invoicesRef, orderBy('updatedAt', 'desc'), limit(500));
+        } catch (e) {
+          q = query(invoicesRef, limit(500));
+        }
+        return await getDocs(q);
+      } catch (err) {
+        console.warn('[FiscalInvoiceApi] Nota: No se pudo consultar fiscal_invoices de Firestore:', err.message);
+        return null;
+      }
+    })(),
+    clientApi.fetchClients(db).catch(e => {
+      console.warn('[FiscalInvoiceApi] Error al obtener clientes:', e.message);
+      return [];
+    }),
+    clientApi.fetchAllTransactions(db).catch(errTx => {
+      console.warn('[FiscalInvoiceApi] Error al sintetizar comprobantes desde transactions:', errTx.message);
+      return [];
+    })
+  ]);
+
+  // 1. Procesar colecciones 'fiscal_invoices' en Firestore (Solo Comprobantes ARCA)
+  if (snapshot && snapshot.docs) {
     snapshot.docs.forEach(docSnap => {
       const data = docSnap.data();
       const id = docSnap.id;
       invoiceIds.add(id);
       resultInvoices.push({ id, ...data });
     });
-  } catch (err) {
-    console.warn('[FiscalInvoiceApi] Nota: No se pudo consultar fiscal_invoices de Firestore:', err.message);
   }
 
-  // 2. Consultar clientes para resolver nombres de receptores
-  let clientsMap = {};
-  try {
-    const clients = await clientApi.fetchClients(db);
-    clientsMap = clients.reduce((acc, c) => {
-      if (c.id) acc[c.id] = c;
-      return acc;
-    }, {});
-  } catch (e) {
-    console.warn('[FiscalInvoiceApi] Error al obtener clientes:', e.message);
-  }
+  // 2. Mapear clientes para resolver nombres de receptores
+  const clientsMap = clients.reduce((acc, c) => {
+    if (c && c.id) acc[c.id] = c;
+    return acc;
+  }, {});
 
-  // 3. Consultar transacciones de ventas ('transactions'), EXCLUYENDO operaciones de cheques y cobros
+  // 3. Procesar transacciones de ventas ('transactions'), EXCLUYENDO operaciones de cheques y cobros
   try {
-    const rawTxs = await clientApi.fetchAllTransactions(db);
     rawTxs.forEach((tx, idx) => {
       const concept = String(tx.concept || tx.description || tx.type || '').toUpperCase();
       const amount = Math.abs(Number(tx.amount || tx.total || 0));
@@ -155,5 +171,7 @@ export async function fetchFiscalInvoices(db) {
     console.warn('[FiscalInvoiceApi] Error al sintetizar comprobantes desde transactions:', errTx.message);
   }
 
-  return resultInvoices.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const sorted = resultInvoices.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  _setCached(FISCAL_INVOICES_CACHE_KEY, sorted, TTL_5MIN);
+  return sorted;
 }

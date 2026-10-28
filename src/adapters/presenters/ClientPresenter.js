@@ -32,16 +32,41 @@ export class ClientPresenter {
   /**
    * Carga de forma asíncrona todos los clientes, operadores y transacciones.
    * Calcula balances y estados de bloqueo financiero de manera reactiva.
+   * @param {boolean} [silent=false]
    * @returns {Promise<void>}
    */
-  async loadClients() {
-    this.ui.showLoading();
+  async loadClients(silent = false) {
+    const hasMemoryCache = Array.isArray(this.clients) && this.clients.length > 0;
+    if (hasMemoryCache && !silent) {
+      this.render();
+      silent = true;
+    }
+    if (!silent) this.ui.showLoading();
     try {
-      this.clients = await this.clientRepository.getClients();
-      const allClientTxs = await this.clientRepository.getAllTransactions();
-      
+      const [clients, allClientTxs, operators, allOpTxs] = await Promise.all([
+        this.clientRepository.getClients(),
+        this.clientRepository.getAllTransactions(),
+        this.operatorRepository ? this.operatorRepository.getOperators() : Promise.resolve([]),
+        this.operatorRepository ? this.operatorRepository.getAllTransactions() : Promise.resolve([])
+      ]);
+
+      this.clients = clients;
+
+      // Indexar transacciones por clientId en O(M) para evitar filtrado O(N*M)
+      const clientTxsMap = new Map();
+      for (const tx of allClientTxs) {
+        const cid = tx.clientId;
+        if (!cid) continue;
+        let list = clientTxsMap.get(cid);
+        if (!list) {
+          list = [];
+          clientTxsMap.set(cid, list);
+        }
+        list.push(tx);
+      }
+
       for (const client of this.clients) {
-        const txs = allClientTxs.filter(t => t.clientId === client.id);
+        const txs = clientTxsMap.get(client.id) || [];
         const account = new ClientAccount(client, txs);
         client.balance = account.getBalance();
         
@@ -63,11 +88,21 @@ export class ClientPresenter {
       }
       
       if (this.operatorRepository) {
-        this.operators = await this.operatorRepository.getOperators();
-        const allOpTxs = await this.operatorRepository.getAllTransactions();
+        this.operators = operators;
+        const opTxsMap = new Map();
+        for (const tx of allOpTxs) {
+          const oid = tx.operatorId;
+          if (!oid) continue;
+          let list = opTxsMap.get(oid);
+          if (!list) {
+            list = [];
+            opTxsMap.set(oid, list);
+          }
+          list.push(tx);
+        }
         
         for (const op of this.operators) {
-          const txs = allOpTxs.filter(t => t.operatorId === op.id);
+          const txs = opTxsMap.get(op.id) || [];
           const account = new ClientAccount(op, txs);
           op.balance = account.getBalance();
           
@@ -88,12 +123,11 @@ export class ClientPresenter {
         }
       }
 
-
       this.render();
     } catch (e) {
       this.ui.showError("Error al cargar clientes: " + e.message);
     } finally {
-      this.ui.hideLoading();
+      if (!silent) this.ui.hideLoading();
     }
   }
 

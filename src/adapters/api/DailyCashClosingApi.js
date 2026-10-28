@@ -4,6 +4,7 @@
  * @module adapters/api/DailyCashClosingApi
  */
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { _getCached, _setCached, TTL_5MIN, TTL_10MIN } from './common.js';
 
 /**
  * Obtiene los documentos raíz de cierres de caja en un rango de fechas.
@@ -16,6 +17,10 @@ import { collection, getDocs, query, where, orderBy, limit } from 'firebase/fire
  * @returns {Promise<Array<Object>>} Lista de documentos DailyCashClosingDto.
  */
 export async function fetchClosingsByDateRange(db, startMs, endMs, butcheryName = 'ALL') {
+  const cacheKey = `daily_cash_closings_${startMs || 0}_${endMs || 0}_${butcheryName || 'ALL'}`;
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
+
   const closingsRef = collection(db, 'daily_cash_closings');
   const results = [];
 
@@ -79,6 +84,7 @@ export async function fetchClosingsByDateRange(db, startMs, endMs, butcheryName 
     results.sort((a, b) => (b.closedAt || 0) - (a.closedAt || 0));
   }
 
+  _setCached(cacheKey, results, TTL_5MIN);
   return results;
 }
 
@@ -94,13 +100,19 @@ export async function fetchClosingsByDateRange(db, startMs, endMs, butcheryName 
 export async function fetchClosingSubcollection(db, closingId, subcollectionName) {
   if (!closingId || !subcollectionName) return [];
 
+  const cacheKey = `closing_sub_${closingId}_${subcollectionName}`;
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
+
   try {
     const subRef = collection(db, `daily_cash_closings/${closingId}/${subcollectionName}`);
     const snapshot = await getDocs(subRef);
-    return snapshot.docs.map(docSnap => ({
+    const items = snapshot.docs.map(docSnap => ({
       id: docSnap.id,
       ...docSnap.data()
     }));
+    _setCached(cacheKey, items, TTL_10MIN);
+    return items;
   } catch (err) {
     console.error(`[DailyCashClosingApi] Error descargando ${subcollectionName} de ${closingId}:`, err);
     return [];

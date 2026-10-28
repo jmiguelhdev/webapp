@@ -1,6 +1,7 @@
 // src/api/LogisticsApi.js
 import { collection, getDocs, doc, setDoc, deleteDoc, getDoc, query, where, limit, startAfter } from 'firebase/firestore';
 import { db, auth } from '../../firebase.js';
+import { _getCached, _setCached, _invalidateCached, TTL_5MIN, TTL_10MIN } from './common.js';
 
 const MASTER_DATA_COLLECTION = 'master_data';
 const TRAVELS_COLLECTION = 'travels';
@@ -51,6 +52,10 @@ function createTravelPayload(domainObject) {
 // -- MASTER DATA (Drivers, Trailers, Trucks, Config) --
 
 export async function fetchMasterDataByType(type) {
+  const cacheKey = `master_data_${type}`;
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
+
   const colRef = collection(db, MASTER_DATA_COLLECTION);
   const q = query(colRef, where('type', '==', type));
   const snapshot = await getDocs(q);
@@ -59,6 +64,7 @@ export async function fetchMasterDataByType(type) {
     const parsed = parseData(docSnap);
     if (parsed) results.push(parsed);
   });
+  _setCached(cacheKey, results, TTL_5MIN);
   return results;
 }
 
@@ -102,25 +108,37 @@ export async function saveMasterData(id, type, domainObject) {
   const docId = `${type}_${id}`;
   const payload = createMasterDataPayload(id, type, domainObject);
   await setDoc(doc(db, MASTER_DATA_COLLECTION, docId), payload);
+  _invalidateCached(`master_data_${type}`);
+  if (type === 'APP_CONFIG') {
+    _invalidateCached('logistics_app_config');
+  }
   return domainObject;
 }
 
 export async function deleteMasterData(id, type) {
   const docId = `${type}_${id}`;
   await deleteDoc(doc(db, MASTER_DATA_COLLECTION, docId));
+  _invalidateCached(`master_data_${type}`);
 }
 
 // -- CONFIGURATION --
 
 export async function getAppConfig() {
+  const cacheKey = 'logistics_app_config';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
+
   const docRef = doc(db, MASTER_DATA_COLLECTION, 'APP_CONFIG_default');
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
     const config = parseData(docSnap);
-    if (config) return config;
+    if (config) {
+      _setCached(cacheKey, config, TTL_10MIN);
+      return config;
+    }
   }
   // Return default values if not found
-  return {
+  const defaultConfig = {
     id: 'default',
     defaultDriverPricePerKmSimple: 150.0,
     defaultDriverPricePerKmDouble: 200.0,
@@ -129,11 +147,17 @@ export async function getAppConfig() {
     simulationFreightPriceSimple: 2500.0,
     simulationFreightPriceDouble: 3100.0
   };
+  _setCached(cacheKey, defaultConfig, TTL_10MIN);
+  return defaultConfig;
 }
 
 // -- TRAVELS --
 
 export async function fetchTravels() {
+  const cacheKey = 'logistics_travels';
+  const cached = _getCached(cacheKey);
+  if (cached) return cached;
+
   const colRef = collection(db, TRAVELS_COLLECTION);
   const snapshot = await getDocs(colRef);
   const results = [];
@@ -141,15 +165,18 @@ export async function fetchTravels() {
     const parsed = parseData(docSnap);
     if (parsed) results.push(parsed);
   });
+  _setCached(cacheKey, results, TTL_5MIN);
   return results;
 }
 
 export async function saveTravel(domainObject) {
   const payload = createTravelPayload(domainObject);
   await setDoc(doc(db, TRAVELS_COLLECTION, payload.id), payload);
+  _invalidateCached('logistics_travels');
   return domainObject;
 }
 
 export async function deleteTravel(id) {
   await deleteDoc(doc(db, TRAVELS_COLLECTION, String(id)));
+  _invalidateCached('logistics_travels');
 }

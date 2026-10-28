@@ -58,6 +58,11 @@ export class CheckPresenter {
    * @returns {Promise<void>}
    */
   async loadData(silent = false) {
+    const hasMemoryCache = Array.isArray(this.checks) && this.checks.length > 0;
+    if (hasMemoryCache && !silent && !this.isBatchBuyActive) {
+      this.render();
+      silent = true;
+    }
     if (!silent && !this.isBatchBuyActive) {
       this.ui.showLoading();
     }
@@ -66,14 +71,14 @@ export class CheckPresenter {
       localStorage.removeItem('checks_contacts');
     }
     try {
-      const clients = await this.checkRepository.getContacts();
-      const travels = await this.checkRepository.getTravels(this.currentUserUid);
+      const [clients, travels, operators, checksList] = await Promise.all([
+        this.checkRepository.getContacts(),
+        this.checkRepository.getTravels(this.currentUserUid),
+        this.operatorRepository ? this.operatorRepository.getOperators() : Promise.resolve([]),
+        this.checkRepository.fetchChecks(this.currentUserUid)
+      ]);
+
       const producers = this.extractUniqueProducers(travels);
-      
-      let operators = [];
-      if (this.operatorRepository) {
-        operators = await this.operatorRepository.getOperators();
-      }
       this.operators = operators.map(o => ({ ...o, isOperator: true }));
       this.buyContacts = [...this.operators].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
 
@@ -92,9 +97,6 @@ export class CheckPresenter {
         }
       });
       this.contacts = Array.from(unifiedContactsMap.values()).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-
-      // Real Local-First: query local checks on every navigation/reload
-      const checksList = await this.checkRepository.fetchChecks(this.currentUserUid);
       
       let hasChanges = false;
       if (!this.checks || this.checks.length !== checksList.length) {
@@ -113,11 +115,11 @@ export class CheckPresenter {
       if (hasChanges || !this.checks) {
         this.checks = checksList;
       }
-      this.ui.hideLoading();
+      if (!silent) this.ui.hideLoading();
       this.render();
     } catch (e) {
       this.ui.showError("Error al cargar cheques: " + e.message);
-      this.ui.hideLoading();
+      if (!silent) this.ui.hideLoading();
     }
   }
 

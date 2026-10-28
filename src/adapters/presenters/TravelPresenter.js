@@ -137,8 +137,13 @@ export class TravelPresenter {
     this.processTravelEntities(raw);
   }
 
-  async loadTravels(uid) {
-    this.ui.showLoading();
+  async loadTravels(uid, silent = false) {
+    const hasMemoryCache = Array.isArray(this.allTravels) && this.allTravels.length > 0;
+    if (hasMemoryCache && !silent) {
+      this.refresh();
+      silent = true;
+    }
+    if (!silent) this.ui.showLoading();
     try {
       this.invalidateDashboardCache();
       
@@ -149,12 +154,12 @@ export class TravelPresenter {
         sort: this.state.sort
       });
       this.processTravelEntities(travels);
-      this.ui.hideLoading();
+      if (!silent) this.ui.hideLoading();
       this.refresh();
     } catch (error) {
       console.error("Critical error in loadTravels setup:", error);
       this.ui.showError(error.message);
-      this.ui.hideLoading();
+      if (!silent) this.ui.hideLoading();
     }
   }
 

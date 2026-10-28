@@ -59,7 +59,11 @@ export class DailyCashClosingsUI {
    * Punto de entrada principal para renderizar la vista.
    */
   async render() {
-    this.renderSkeleton();
+    if (Array.isArray(this.rawClosings) && this.rawClosings.length > 0) {
+      this.processAndRender();
+    } else {
+      this.renderSkeleton();
+    }
 
     try {
       const { startMs, endMs } = this._getDateRangeEpochMs(this.filters.dateFrom, this.filters.dateTo);

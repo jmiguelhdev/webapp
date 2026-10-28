@@ -64,10 +64,16 @@ export class AccountingPresenter {
   /**
    * Carga del repositorio asientos contables, clientes, productores, establecimientos y extracciones de carnicerías.
    * Ordena cronológicamente descendente y renderiza la pantalla.
+   * @param {boolean} [silent=false]
    * @returns {Promise<void>}
    */
-  async loadData() {
-    this.ui.showLoading();
+  async loadData(silent = false) {
+    const hasMemoryCache = Array.isArray(this.entries) && this.entries.length > 0;
+    if (hasMemoryCache && !silent) {
+      this.render();
+      silent = true;
+    }
+    if (!silent) this.ui.showLoading();
     try {
       // 1. Fetch entries, clients, travels, establishments, and extractions in parallel
       const [entries, clients, travels, establishments, extractions] = await Promise.all([
@@ -102,7 +108,7 @@ export class AccountingPresenter {
     } catch (e) {
       this.ui.showError("Error al cargar datos contables: " + e.message);
     } finally {
-      this.ui.hideLoading();
+      if (!silent) this.ui.hideLoading();
     }
   }
 

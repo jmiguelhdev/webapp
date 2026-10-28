@@ -457,28 +457,48 @@ window.addEventListener('app:logout', () => {
 
 let cachedCompanyConfig = null;
 let cachedBranchPricing = null;
+let cachedSecurityConfig = null;
+let fiscalInvoicesUIInstance = null;
+let dailyCashClosingsUIInstance = null;
 
-async function showPublicWelcome() {
-  currentUser = null;
-  document.body.classList.remove('authenticated');
-  updateUserProfileUI(null, null);
+async function showPublicWelcome(isPreview = false) {
+  if (!isPreview) {
+    currentUser = null;
+    document.body.classList.remove('authenticated');
+    updateUserProfileUI(null, null);
+  }
 
-  // Cargar configuración de sucursales, imagen institucional y precios
+  // Si ya tenemos los datos en memoria, renderizar de forma instantánea (0ms)
+  if (cachedCompanyConfig && Array.isArray(cachedBranchPricing) && cachedBranchPricing.length > 0) {
+    uiLib.WelcomeUI.render(content, {
+      companyConfig: cachedCompanyConfig,
+      branchesPricing: cachedBranchPricing,
+      onOpenLogin: () => openAuthModal(),
+      onBackToAdmin: (isPreview || currentUser) ? (viewId) => navigateTo(viewId || 'welcome-config') : null
+    });
+    return;
+  }
+
+  // Si no están en caché, mostrar loader sutil y cargar con Express Server Cache (rápido en ~20ms)
+  uiInterface.showLoading(true);
   try {
     const [compCfg, pricingData] = await Promise.all([
       cachedCompanyConfig ? Promise.resolve(cachedCompanyConfig) : companyConfigApi.fetchCompanyConfig(db),
-      cachedBranchPricing ? Promise.resolve(cachedBranchPricing) : publicBranchPricingApi.fetchBranchPricingData(db)
+      cachedBranchPricing ? Promise.resolve(cachedBranchPricing) : publicBranchPricingApi.fetchBranchPricingData(db, false)
     ]);
     cachedCompanyConfig = compCfg;
     cachedBranchPricing = pricingData;
   } catch (e) {
     console.warn("No se pudo cargar la configuración de portada o precios desde Firestore:", e);
+  } finally {
+    uiInterface.hideLoading();
   }
 
   uiLib.WelcomeUI.render(content, {
     companyConfig: cachedCompanyConfig,
     branchesPricing: cachedBranchPricing || [],
-    onOpenLogin: () => openAuthModal()
+    onOpenLogin: () => openAuthModal(),
+    onBackToAdmin: (isPreview || currentUser) ? (viewId) => navigateTo(viewId || 'welcome-config') : null
   });
 }
 
@@ -499,17 +519,18 @@ function getAllowedViews(role, allowedViews = currentUserAllowedViews) {
     const list = [...allowedViews];
     if (!list.includes('logout')) list.push('logout');
     if (!list.includes('dashboard')) list.push('dashboard');
+    if (!list.includes('welcome')) list.push('welcome');
     if (role === 'ADMIN' && !list.includes('daily-cash-closings')) list.push('daily-cash-closings');
     return list;
   }
 
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'price-share', 'branch-pricing', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'welcome-config', 'welcome', 'price-share', 'branch-pricing', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'branch-pricing', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
+    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'branch-pricing', 'welcome', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
   } else {
     // VISOR
-    return ['dashboard', 'simulator', 'price-share', 'contact', 'logout'];
+    return ['dashboard', 'simulator', 'price-share', 'welcome', 'contact', 'logout'];
   }
 }
 
@@ -538,6 +559,12 @@ const navigateTo = (view, role = currentUserRole) => {
     return;
   }
 
+  if (view === 'welcome') {
+    document.body.classList.remove('sidebar-open');
+    showPublicWelcome(Boolean(currentUser));
+    return;
+  }
+
   if (!currentUser && view !== 'simulator') return showPublicWelcome();
   
   const allowed = getAllowedViews(role);
@@ -551,10 +578,7 @@ const navigateTo = (view, role = currentUserRole) => {
 
   const performNavigationRender = () => {
     content.classList.remove('view-enter-anim');
-    // Force reflow for fallback CSS animation
-    void content.offsetWidth;
     content.classList.add('view-enter-anim');
-    content.innerHTML = '';
     switch (view) {
       case 'travels': 
         travelPresenter.updateView();
@@ -578,13 +602,17 @@ const navigateTo = (view, role = currentUserRole) => {
       frigorificoPresenter.loadData();
       break;
     case 'fiscal-invoices': {
-      const fiscalUI = new FiscalInvoicesUI('content');
-      fiscalUI.render();
+      if (!fiscalInvoicesUIInstance) {
+        fiscalInvoicesUIInstance = new FiscalInvoicesUI('content');
+      }
+      fiscalInvoicesUIInstance.render();
       break;
     }
     case 'daily-cash-closings': {
-      const closingsUI = new DailyCashClosingsUI('content');
-      closingsUI.render();
+      if (!dailyCashClosingsUIInstance) {
+        dailyCashClosingsUIInstance = new DailyCashClosingsUI('content');
+      }
+      dailyCashClosingsUIInstance.render();
       break;
     }
     case 'establishments':
@@ -610,32 +638,43 @@ const navigateTo = (view, role = currentUserRole) => {
     case 'settings': {
       uiInterface.showLoading(true);
       const loadSettingsData = async () => {
-        const prices = await clientRepository.getCategoryPrices();
-        const clients = await clientRepository.getClients();
-        const camaras = await clientRepository.getCamaras() || [];
-        
-        let usersList = [];
-        let currentMasterPin = '180283';
-        let currentSecurityConfig = null;
-        let currentCompanyConfig = null;
-        if (currentUserRole === 'ADMIN') {
-          if (!usersListCache) {
-            usersListCache = await userApi.fetchAllUsersRoles(db);
-          }
-          usersList = usersListCache;
-          try {
-            currentSecurityConfig = await securityConfigApi.fetchSecurityConfig(db);
-            currentMasterPin = currentSecurityConfig?.masterPin || '180283';
-          } catch (e) {
-            console.warn('Could not fetch security config:', e);
-          }
-          try {
-            currentCompanyConfig = await companyConfigApi.fetchCompanyConfig(db);
-            cachedCompanyConfig = currentCompanyConfig;
-          } catch (e) {
-            console.warn('Could not fetch company config:', e);
-          }
+        const isAdmin = currentUserRole === 'ADMIN';
+        const [
+          prices,
+          clients,
+          camaras,
+          usersList,
+          secConfig,
+          compConfig
+        ] = await Promise.all([
+          clientRepository.getCategoryPrices(),
+          clientRepository.getClients(),
+          clientRepository.getCamaras().then(res => res || []),
+          isAdmin
+            ? (usersListCache ? Promise.resolve(usersListCache) : userApi.fetchAllUsersRoles(db))
+            : Promise.resolve([]),
+          isAdmin
+            ? (cachedSecurityConfig ? Promise.resolve(cachedSecurityConfig) : securityConfigApi.fetchSecurityConfig(db).catch(e => {
+                console.warn('Could not fetch security config:', e);
+                return null;
+              }))
+            : Promise.resolve(null),
+          isAdmin
+            ? (cachedCompanyConfig ? Promise.resolve(cachedCompanyConfig) : companyConfigApi.fetchCompanyConfig(db).catch(e => {
+                console.warn('Could not fetch company config:', e);
+                return null;
+              }))
+            : Promise.resolve(null)
+        ]);
+
+        if (isAdmin) {
+          usersListCache = usersList;
+          if (secConfig) cachedSecurityConfig = secConfig;
+          if (compConfig) cachedCompanyConfig = compConfig;
         }
+        const currentSecurityConfig = secConfig;
+        const currentMasterPin = currentSecurityConfig?.masterPin || '180283';
+        const currentCompanyConfig = compConfig;
 
         uiInterface.hideLoading();
 
@@ -654,9 +693,11 @@ const navigateTo = (view, role = currentUserRole) => {
           onSaveCamaras: (list) => clientRepository.saveCamaras(list),
           onSaveMasterPin: async (newPin) => {
             await securityConfigApi.updateMasterPin(db, newPin, currentUser?.email || 'ADMIN');
+            if (cachedSecurityConfig) cachedSecurityConfig.masterPin = newPin;
           },
           onSaveGatekeeperCredentials: async (user, pass) => {
             await securityConfigApi.updateGatekeeperCredentials(db, user, pass, currentUser?.email || 'ADMIN');
+            cachedSecurityConfig = null;
           },
           onSaveCompanyConfig: async (newBranding) => {
             await companyConfigApi.updateCompanyConfig(db, newBranding, currentUser?.email || 'ADMIN');
@@ -806,33 +847,98 @@ const navigateTo = (view, role = currentUserRole) => {
     }
 
     case 'branch-pricing': {
+      const renderPricingScreen = (pricingData) => {
+        uiLib.BranchPricingUI.render(content, {
+          branchesData: pricingData,
+          onSavePrices: async (priceListId, pricesMap, hiddenIds) => {
+            await publicBranchPricingApi.saveBranchPrices(db, priceListId, pricesMap, hiddenIds, currentUser?.email || 'ADMIN');
+            cachedBranchPricing = await publicBranchPricingApi.fetchBranchPricingData(db);
+          },
+          onSaveMobileBranch: async (mobileData) => {
+            await publicBranchPricingApi.saveMobileBranchData(db, mobileData, currentUser?.email || 'ADMIN');
+            cachedBranchPricing = await publicBranchPricingApi.fetchBranchPricingData(db);
+          },
+          onSaveVisibility: async (branchId, isPublished) => {
+            await publicBranchPricingApi.saveBranchVisibility(db, branchId, isPublished, currentUser?.email || 'ADMIN');
+            cachedBranchPricing = await publicBranchPricingApi.fetchBranchPricingData(db);
+          },
+          onBack: () => navigateTo('dashboard')
+        });
+      };
+
+      if (Array.isArray(cachedBranchPricing) && cachedBranchPricing.length > 0) {
+        renderPricingScreen(cachedBranchPricing);
+        break;
+      }
+
       uiInterface.showLoading(true);
       const loadPricingView = async () => {
         try {
-          const pricingData = await publicBranchPricingApi.fetchBranchPricingData(db);
+          const pricingData = await publicBranchPricingApi.fetchBranchPricingData(db, false);
+          cachedBranchPricing = pricingData;
           uiInterface.hideLoading();
-          uiLib.BranchPricingUI.render(content, {
-            branchesData: pricingData,
-            onSavePrices: async (priceListId, pricesMap, hiddenIds) => {
-              await publicBranchPricingApi.saveBranchPrices(db, priceListId, pricesMap, hiddenIds, currentUser?.email || 'ADMIN');
-              cachedBranchPricing = null; // Invalida caché local
-            },
-            onSaveMobileBranch: async (mobileData) => {
-              await publicBranchPricingApi.saveMobileBranchData(db, mobileData, currentUser?.email || 'ADMIN');
-              cachedBranchPricing = null;
-            },
-            onSaveVisibility: async (branchId, isPublished) => {
-              await publicBranchPricingApi.saveBranchVisibility(db, branchId, isPublished, currentUser?.email || 'ADMIN');
-              cachedBranchPricing = null;
-            },
-            onBack: () => navigateTo('dashboard')
-          });
+          renderPricingScreen(pricingData);
         } catch (err) {
           uiInterface.hideLoading();
           ToastService.error('Error al cargar datos de precios: ' + err.message);
         }
       };
       loadPricingView();
+      break;
+    }
+    case 'welcome': {
+      showPublicWelcome(Boolean(currentUser));
+      break;
+    }
+    case 'welcome-config': {
+      const renderWelcomeConfigScreen = (compConfig, pricingData) => {
+        uiLib.WelcomeConfigUI.render(content, {
+          companyConfig: compConfig,
+          branches: pricingData,
+          onSaveCompanyConfig: async (newBranding) => {
+            await companyConfigApi.updateCompanyConfig(db, newBranding, currentUser?.email || 'ADMIN');
+            cachedCompanyConfig = newBranding;
+          },
+          onSaveBranchPhoto: async (branchId, imageUrl) => {
+            await publicBranchPricingApi.saveBranchPhoto(db, branchId, imageUrl, currentUser?.email || 'ADMIN');
+            if (Array.isArray(cachedBranchPricing)) {
+              const b = cachedBranchPricing.find(x => x.id === branchId);
+              if (b) b.imageUrl = imageUrl;
+            }
+          },
+          onNavigateWelcome: (currentConfig, currentBranches) => {
+            if (currentConfig) cachedCompanyConfig = currentConfig;
+            if (currentBranches) cachedBranchPricing = currentBranches;
+            navigateTo('welcome');
+          }
+        });
+      };
+
+      if (cachedCompanyConfig && Array.isArray(cachedBranchPricing) && cachedBranchPricing.length > 0) {
+        renderWelcomeConfigScreen(cachedCompanyConfig, cachedBranchPricing);
+        break;
+      }
+
+      uiInterface.showLoading(true);
+      const loadWelcomeConfigView = async () => {
+        try {
+          const [compConfig, pricingData] = await Promise.all([
+            cachedCompanyConfig ? Promise.resolve(cachedCompanyConfig) : companyConfigApi.fetchCompanyConfig(db),
+            (Array.isArray(cachedBranchPricing) && cachedBranchPricing.length > 0)
+              ? Promise.resolve(cachedBranchPricing)
+              : publicBranchPricingApi.fetchBranchPricingData(db, false)
+          ]);
+          cachedCompanyConfig = compConfig;
+          cachedBranchPricing = pricingData;
+
+          uiInterface.hideLoading();
+          renderWelcomeConfigScreen(compConfig, pricingData);
+        } catch (err) {
+          uiInterface.hideLoading();
+          ToastService.error('Error al cargar configuración de portada: ' + err.message);
+        }
+      };
+      loadWelcomeConfigView();
       break;
     }
     case 'contact': {
@@ -1087,38 +1193,12 @@ const navigateTo = (view, role = currentUserRole) => {
       });
       break;
     }
-
-
-      // Interacción de Acordeones
-      content.querySelectorAll('.accordion-header').forEach(header => {
-        header.addEventListener('click', () => {
-          const item = header.parentElement;
-          const isActive = item.classList.contains('active');
-          
-          // Cerrar otros
-          content.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('active'));
-          
-          if (!isActive) item.classList.add('active');
-        });
-      });
-      break;
     case 'logout': signOut(auth); break;
     default: content.textContent = 'Vista no encontrada';
     }
   };
 
-  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (document.startViewTransition && !prefersReducedMotion) {
-    try {
-      document.startViewTransition(() => {
-        performNavigationRender();
-      });
-    } catch {
-      performNavigationRender();
-    }
-  } else {
-    performNavigationRender();
-  }
+  performNavigationRender();
 }
 
 
