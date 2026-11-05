@@ -16,7 +16,7 @@ let recentDispatchedCacheTime = 0;
 const RECENT_DISPATCHED_CACHE_DURATION = 2 * 60 * 1000; 
 
 /** Initialize active faenas listener globally (AVAILABLE and DRAFT) */
-export function initActiveFaenasListener(db, uid) {
+export function initActiveFaenasListener(db, uid, onUpdate) {
   if (activeFaenasListenerUnsubscribe) return;
   if (!uid) return;
 
@@ -26,9 +26,40 @@ export function initActiveFaenasListener(db, uid) {
   console.log("[Firebase Sync] Initializing global listener for AVAILABLE and DRAFT faenas...");
   activeFaenasPromise = new Promise((resolve, reject) => {
     let resolved = false;
-    activeFaenasListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+    activeFaenasListenerUnsubscribe = onSnapshot(q, async (snapshot) => {
       activeFaenasCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       console.log(`[Firebase Sync] Active faenas updated in cache. Count: ${activeFaenasCache.length}`);
+      
+      try {
+        if (activeFaenasCache.length > 0) {
+          await localDb.faenas_detalle.bulkPut(activeFaenasCache);
+        }
+
+        // Handle items that left AVAILABLE / DRAFT (e.g. dispatched or cancelled)
+        const removedChanges = snapshot.docChanges().filter(c => c.type === 'removed');
+        for (const change of removedChanges) {
+          const docId = change.doc.id;
+          try {
+            const freshDoc = await getDoc(change.doc.ref);
+            if (freshDoc.exists()) {
+              await localDb.faenas_detalle.put({ id: freshDoc.id, ...freshDoc.data() });
+            } else {
+              await localDb.faenas_detalle.delete(docId);
+            }
+          } catch (e) {
+            console.warn("[FaenaListener] Could not refresh removed doc:", docId, e);
+          }
+        }
+      } catch (err) {
+        console.error("[FaenaListener] Error syncing active faenas into localDb:", err);
+      }
+
+      // Notify UI reactively
+      window.dispatchEvent(new CustomEvent('app:stock-updated'));
+      if (typeof onUpdate === 'function') {
+        onUpdate();
+      }
+
       if (!resolved) {
         resolved = true;
         resolve(activeFaenasCache);
@@ -41,6 +72,17 @@ export function initActiveFaenasListener(db, uid) {
       }
     });
   });
+}
+
+/** Stop active faenas listener globally */
+export function stopActiveFaenasListener() {
+  if (activeFaenasListenerUnsubscribe) {
+    activeFaenasListenerUnsubscribe();
+    activeFaenasListenerUnsubscribe = null;
+    activeFaenasPromise = null;
+    activeFaenasCache = null;
+    console.log("[Firebase Sync] Active faenas listener stopped.");
+  }
 }
 
 /**

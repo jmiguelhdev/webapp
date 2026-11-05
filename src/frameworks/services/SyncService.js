@@ -15,8 +15,8 @@ export const SyncService = {
   },
 
   async getLastSyncTime() {
-    const lastLog = await localDb.sync_logs.where('status').equals('SUCCESS').reverse().sortBy('timestamp');
-    return lastLog.length > 0 ? lastLog[0].timestamp : 0;
+    const logs = await localDb.sync_logs.where('status').equals('SUCCESS').sortBy('timestamp');
+    return logs.length > 0 ? logs[logs.length - 1].timestamp : 0;
   },
 
   async syncAll(uid) {

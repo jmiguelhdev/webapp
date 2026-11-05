@@ -8,6 +8,7 @@ import { SettingsService } from './frameworks/services/SettingsService.js';
 import { onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import * as userApi from './adapters/api/UserApi.js';
 import * as clientApi from './adapters/api/ClientApi.js';
+import * as faenaApi from './adapters/api/FaenaApi.js';
 import * as securityConfigApi from './adapters/api/SecurityConfigApi.js';
 import * as companyConfigApi from './adapters/api/CompanyConfigApi.js';
 import * as publicBranchPricingApi from './adapters/api/PublicBranchPricingApi.js';
@@ -399,9 +400,23 @@ onAuthStateChanged(auth, async (user) => {
     // Auto-load main data and start delta auto sync
     travelPresenter.loadTravels(SHARED_DATA_SOURCE_UID);
     SyncService.startAutoSync(SHARED_DATA_SOURCE_UID);
+    faenaApi.initActiveFaenasListener(db, SHARED_DATA_SOURCE_UID);
   } else {
     currentUser = null;
+    faenaApi.stopActiveFaenasListener();
     showPublicWelcome();
+  }
+});
+
+// Refresh UI when real-time stock updates occur (instant, reactive, silent)
+window.addEventListener('app:stock-updated', () => {
+  console.log("[StockEvent] Real-time stock change detected. Auto-refreshing views...");
+  const activeView = kmpSidebar ? kmpSidebar.getAttribute('active') : 'dashboard';
+  if (activeView === 'consumption') {
+    consumptionPresenter.loadFaenas(SHARED_DATA_SOURCE_UID, true);
+  } else if (activeView === 'dashboard') {
+    travelPresenter.invalidateDashboardCache();
+    travelPresenter.showDashboard();
   }
 });
 

@@ -258,16 +258,19 @@ export function showMovementsHistoryModal(item) {
 
   const events = [];
 
-  // 1. Ingreso a Frigorífico
-  const entryDate = item.createdAt ? new Date(item.createdAt) : null;
-  events.push({
-    title: '🟢 Ingreso a Frigorífico',
-    desc: `Tropa: ${item.tropa} | Garrón: #${item.garron} | Categoría: ${item.standardizedCategory || item.category} | Peso: ${item.kg.toFixed(1)} kg`,
-    date: entryDate ? entryDate.getTime() : (item.pdfDate ? new Date(item.pdfDate + 'T12:00:00').getTime() : 0),
-    dateStr: item.pdfDate || (entryDate ? entryDate.toLocaleDateString() : 'N/A')
-  });
+  // 1. Ingreso a Frigorífico (si no viene ya explícito en movements)
+  const hasIngresoEvent = (item.movements || []).some(m => m.type === 'INGRESO_FAENA');
+  if (!hasIngresoEvent) {
+    const entryDate = item.createdAt ? new Date(item.createdAt) : null;
+    events.push({
+      title: '🟢 Ingreso a Frigorífico',
+      desc: `Tropa: ${item.tropa} | Garrón: #${item.garron} | Categoría: ${item.standardizedCategory || item.category} | Peso: ${item.kg.toFixed(1)} kg`,
+      date: entryDate ? entryDate.getTime() : (item.pdfDate ? new Date(item.pdfDate + 'T12:00:00').getTime() : 0),
+      dateStr: item.pdfDate || (entryDate ? entryDate.toLocaleDateString() : 'N/A')
+    });
+  }
 
-  // 2. Movimientos de Cámara y Destino
+  // 2. Movimientos de Cámara, Despacho, Tipificación y Borradores
   (item.movements || []).forEach(m => {
     if (m.type === 'DESTINATION') {
       events.push({
@@ -276,10 +279,39 @@ export function showMovementsHistoryModal(item) {
         date: m.date,
         dateStr: new Date(m.date).toLocaleString()
       });
-    } else if (m.type === 'DISPATCH') {
+    } else if (m.type === 'DISPATCH' || m.type === 'CONFIRMACION_DESPACHO') {
+      const priceText = m.price ? `<br>Precio: $${m.price}/kg | Total: $${(item.kg * m.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '';
       events.push({
         title: '🚚 Salida / Despacho',
-        desc: `Despachado a <strong>"${m.to}"</strong><br>Precio: $${m.price}/kg | Total: $${(item.kg * m.price).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        desc: `Despachado a <strong>"${m.to || item.destination || 'Destino'}"</strong>${priceText}`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
+    } else if (m.type === 'TIPIFICACION') {
+      events.push({
+        title: '🏷️ Tipificación de Categoría',
+        desc: m.description || `Categoría actualizada a <strong>"${m.to || item.standardizedCategory || ''}"</strong>`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
+    } else if (m.type === 'PREPARACION_BORRADOR') {
+      events.push({
+        title: '📋 Preparación de Despacho',
+        desc: m.description || `Asignada a borrador de despacho para <strong>"${m.to || item.destination || ''}"</strong>`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
+    } else if (m.type === 'CANCELACION_BORRADOR') {
+      events.push({
+        title: '❌ Cancelación de Borrador',
+        desc: m.description || `Retirada del borrador de despacho. Vuelve a stock disponible.`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
+    } else if (m.type === 'INGRESO_FAENA') {
+      events.push({
+        title: '🟢 Ingreso a Frigorífico',
+        desc: m.description || `Tropa: ${item.tropa} | Garrón: #${item.garron} | Categoría: ${item.standardizedCategory || item.category} | Peso: ${item.kg.toFixed(1)} kg`,
         date: m.date,
         dateStr: new Date(m.date).toLocaleString()
       });
