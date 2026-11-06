@@ -301,6 +301,20 @@ export function showMovementsHistoryModal(item) {
         date: m.date,
         dateStr: new Date(m.date).toLocaleString()
       });
+    } else if (m.type === 'ANULACION_DESPACHO' || m.type === 'REVERSION_DESPACHO') {
+      events.push({
+        title: '↩️ Anulación de Despacho',
+        desc: m.description || `Despacho anulado. Restituida a stock disponible.`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
+    } else if (m.type === 'EDICION_DESPACHO') {
+      events.push({
+        title: '✏️ Edición de Despacho',
+        desc: m.description || `Despacho modificado.`,
+        date: m.date,
+        dateStr: new Date(m.date).toLocaleString()
+      });
     } else if (m.type === 'CANCELACION_BORRADOR') {
       events.push({
         title: '❌ Cancelación de Borrador',
