@@ -35,6 +35,7 @@ import {
   Travel,
   TravelStatus,
   Truck,
+  createAgent,
   createBill,
   createBuy,
   createDefaultConfig,
