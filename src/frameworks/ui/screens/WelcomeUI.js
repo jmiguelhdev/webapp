@@ -36,7 +36,7 @@ export class WelcomeUI {
    * @param {Array<Object>} [options.branchesPricing] - Listado de sucursales con precios resueltos.
    * @param {function} options.onOpenLogin - Callback para desplegar el modal de acceso.
    */
-  static render(container, { companyConfig, branchesPricing = [], onOpenLogin, onBackToAdmin }) {
+  static render(container, { companyConfig, branchesPricing = [], onOpenLogin, onOpenFletes, onBackToAdmin }) {
     if (!container) return;
 
     const config = companyConfig || {
@@ -250,7 +250,10 @@ export class WelcomeUI {
               <span class="footer-brand">${config.companyName}</span>
               <span class="footer-copy">© ${new Date().getFullYear()} — Plataforma de Gestión y Operaciones Cárnicas.</span>
             </div>
-            <div class="footer-right">
+            <div class="footer-right" style="display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center;">
+              <button id="footer-fletes-app-btn" class="footer-link-btn" style="border-color: rgba(0, 229, 255, 0.35); color: #00e5ff;" title="Ingresar a la Terminal de Fletes (PWA)">
+                <span>🚛 Acceso App Fletes</span>
+              </button>
               <button id="footer-staff-login-btn" class="footer-link-btn" title="Acceso al sistema">
                 <span>Acceso Operadores</span>
               </button>
@@ -263,6 +266,18 @@ export class WelcomeUI {
     // Conectar único evento discreto de apertura de login institucional
     const footerBtn = container.querySelector('#footer-staff-login-btn');
     if (footerBtn && onOpenLogin) footerBtn.onclick = onOpenLogin;
+
+    const fletesBtn = container.querySelector('#footer-fletes-app-btn');
+    if (fletesBtn) {
+      fletesBtn.onclick = () => {
+        if (onOpenFletes) {
+          onOpenFletes();
+        } else if (onOpenLogin) {
+          try { localStorage.setItem('kmp_login_target_app', 'fletes'); } catch {}
+          onOpenLogin();
+        }
+      };
+    }
 
     // Conectar botones de retorno para sesión de administrador en modo previsualización
     if (onBackToAdmin) {
@@ -471,9 +486,20 @@ export class WelcomeUI {
   /**
    * Abre el diálogo modal de autenticación de dos pasos.
    */
-  static renderAuthModal({ onVerifyGatekeeper, onGoogleLogin, onClose }) {
+  static renderAuthModal({ onVerifyGatekeeper, onGoogleLogin, onClose, initialTarget }) {
     const existing = document.getElementById('auth-two-step-modal');
     if (existing) existing.remove();
+
+    let savedTarget = 'frigorifico';
+    try {
+      savedTarget = initialTarget || localStorage.getItem('kmp_login_target_app') || 'frigorifico';
+    } catch {
+      savedTarget = initialTarget || 'frigorifico';
+    }
+    if (savedTarget !== 'fletes' && savedTarget !== 'frigorifico') {
+      savedTarget = 'frigorifico';
+    }
+    let selectedTarget = savedTarget;
 
     const overlay = el('div', {
       attrs: { id: 'auth-two-step-modal' },
@@ -491,6 +517,23 @@ export class WelcomeUI {
             </div>
           </div>
           <button id="auth-modal-close-btn" class="auth-close-btn" title="Cerrar">✕</button>
+        </div>
+
+        <!-- Selector de Destino al Ingresar -->
+        <div style="margin-bottom: 1rem;">
+          <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.45rem;">
+            Destino al iniciar sesión
+          </div>
+          <div id="auth-target-selector" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <button type="button" class="auth-target-btn" data-target="frigorifico" style="padding: 0.55rem 0.65rem; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg-main); color: var(--text-main); font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.18s ease;">
+              <span>🏢</span>
+              <span>Panel Frigorífico</span>
+            </button>
+            <button type="button" class="auth-target-btn" data-target="fletes" style="padding: 0.55rem 0.65rem; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg-main); color: var(--text-main); font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem; transition: all 0.18s ease;">
+              <span>📟</span>
+              <span>App Fletes (PWA)</span>
+            </button>
+          </div>
         </div>
 
         <!-- Indicador de Pasos -->
@@ -691,6 +734,36 @@ export class WelcomeUI {
       };
     }
 
+    const targetBtns = overlay.querySelectorAll('.auth-target-btn');
+    const syncTargetButtons = () => {
+      targetBtns.forEach(btn => {
+        const isSelected = btn.getAttribute('data-target') === selectedTarget;
+        if (selectedTarget === 'fletes' && isSelected) {
+          btn.style.borderColor = '#00E5FF';
+          btn.style.background = 'rgba(0, 229, 255, 0.12)';
+          btn.style.color = '#00E5FF';
+        } else if (isSelected) {
+          btn.style.borderColor = 'var(--primary, #b91c1c)';
+          btn.style.background = 'rgba(185, 28, 28, 0.14)';
+          btn.style.color = '#fca5a5';
+        } else {
+          btn.style.borderColor = 'var(--border)';
+          btn.style.background = 'var(--bg-main)';
+          btn.style.color = 'var(--text-muted)';
+        }
+      });
+    };
+    syncTargetButtons();
+    targetBtns.forEach(btn => {
+      btn.onclick = () => {
+        selectedTarget = btn.getAttribute('data-target') || 'frigorifico';
+        try {
+          localStorage.setItem('kmp_login_target_app', selectedTarget);
+        } catch {}
+        syncTargetButtons();
+      };
+    });
+
     const googleBtn = overlay.querySelector('#btn-trigger-google-auth');
     const googleError = overlay.querySelector('#google-error-msg');
     if (googleBtn) {
@@ -700,8 +773,18 @@ export class WelcomeUI {
         googleBtn.innerHTML = `<span>Iniciando sesión con Google...</span>`;
 
         try {
+          const urlWantsFletes = new URLSearchParams(window.location.search).get('app') === 'fletes';
+          const shouldGoFletes = selectedTarget === 'fletes' || urlWantsFletes;
+          if (shouldGoFletes) {
+            try { sessionStorage.setItem('kmp_redirect_to_fletes', 'true'); } catch {}
+          } else {
+            try { sessionStorage.removeItem('kmp_redirect_to_fletes'); } catch {}
+          }
           await onGoogleLogin();
           close();
+          if (shouldGoFletes) {
+            window.location.href = '/fletes/';
+          }
         } catch (err) {
           console.error("Google Auth Error:", err);
           let msg = 'No se pudo completar el inicio con Google: ' + (err?.message || err);

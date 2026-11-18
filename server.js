@@ -314,6 +314,20 @@ app.get('/api/mag-prices', async (req, res) => {
   }
 });
 
+// Support SPA routing for Fletes PWA (/fletes/)
+app.get('/fletes', (req, res) => {
+  if (!req.path.endsWith('/')) {
+    const queryIndex = req.originalUrl.indexOf('?');
+    const qs = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : '';
+    return res.redirect(301, '/fletes/' + qs);
+  }
+  res.sendFile(path.join(__dirname, 'dist', 'fletes', 'index.html'));
+});
+
+app.get('/fletes/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'fletes', 'index.html'));
+});
+
 // Support SPA routing (redirect all non-file requests to index.html)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));

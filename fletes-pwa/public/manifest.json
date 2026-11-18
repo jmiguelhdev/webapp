@@ -1,0 +1,27 @@
+{
+  "id": "/fletes/",
+  "name": "IosFletes — Sistema de Gestión Logística y Hacienda",
+  "short_name": "IosFletes",
+  "description": "Terminal industrial retro-terminal para gestión de fletes ganaderos, flota, liquidaciones a choferes, hacienda y rendimiento frigorífico.",
+  "start_url": "/fletes/",
+  "scope": "/fletes/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["business", "logistics", "finance"],
+  "icons": [
+    {
+      "src": "/fletes/app-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/fletes/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

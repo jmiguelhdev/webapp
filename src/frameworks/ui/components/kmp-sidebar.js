@@ -73,6 +73,7 @@ export class KmpSidebar extends HTMLElement {
         items: [
           { id: 'dashboard', icon: '📊', label: 'Dashboard', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
           { id: 'travels', icon: '🚛', label: 'Gestión de Viajes', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
+          { id: 'fletes-pwa', icon: '📟', label: 'App Fletes (Terminal PWA)', roles: ['ADMIN', 'OPERARIO', 'VISOR'] },
           { id: 'logistics-liquidations', icon: '💵', label: 'Liquidación Choferes', roles: ['ADMIN', 'OPERARIO'] },
           { id: 'logistics-fuel', icon: '⛽', label: 'Rendimiento Combustible', roles: ['ADMIN', 'OPERARIO'] },
           { id: 'consumption', icon: '🥩', label: 'Despacho y Stock', roles: ['ADMIN', 'OPERARIO'] }

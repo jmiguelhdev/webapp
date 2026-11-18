@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "dev:fletes": "vite --config fletes-pwa/vite.config.js",
+    "build:main": "vite build",
+    "build:fletes": "vite build --config fletes-pwa/vite.config.js",
+    "build": "vite build && vite build --config fletes-pwa/vite.config.js",
     "preview": "vite preview",
     "start": "node server.js"
   },
@@ -22,6 +25,8 @@
     "node-fetch": "^3.3.2",
     "pdfjs-dist": "^5.6.205",
     "qrcode": "^1.5.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

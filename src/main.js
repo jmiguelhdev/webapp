@@ -164,6 +164,7 @@ function initCommandPalette() {
     { id: 'daily-cash-closings', title: 'Cierres de Sucursales (Multi-PC)', category: 'Finanzas', icon: '🏪' },
     { id: 'fiscal-invoices', title: 'Comprobantes ARCA', category: 'Finanzas', icon: '📄' },
     { id: 'travels', title: 'Gestión de Viajes', category: 'Operaciones', icon: '🚛' },
+    { id: 'fletes-pwa', title: 'App Fletes (Terminal iOS PWA)', category: 'Operaciones', icon: '📟' },
     { id: 'consumption', title: 'Despacho y Stock (Faenas)', category: 'Operaciones', icon: '🥩' },
     { id: 'accounting', title: 'Caja General', category: 'Finanzas', icon: '💰' },
     { id: 'frigorifico', title: 'Caja Frigorífico', category: 'Finanzas', icon: '🏢' },
@@ -358,6 +359,21 @@ const establishmentPresenter = new EstablishmentPresenter(establishmentRepositor
 // Auth Global Watcher
 onAuthStateChanged(auth, async (user) => {
   if (user) {
+    let wantsFletes = false;
+    try {
+      const urlWantsFletes = new URLSearchParams(window.location.search).get('app') === 'fletes';
+      const sessionWantsFletes = sessionStorage.getItem('kmp_redirect_to_fletes') === 'true';
+      wantsFletes = urlWantsFletes || sessionWantsFletes;
+      if (sessionWantsFletes) {
+        sessionStorage.removeItem('kmp_redirect_to_fletes');
+      }
+    } catch {}
+
+    if (wantsFletes) {
+      window.location.href = '/fletes/';
+      return;
+    }
+
     currentUser = user;
     document.body.classList.add('authenticated');
     
@@ -489,6 +505,14 @@ async function showPublicWelcome(isPreview = false) {
       companyConfig: cachedCompanyConfig,
       branchesPricing: cachedBranchPricing,
       onOpenLogin: () => openAuthModal(),
+      onOpenFletes: () => {
+        if (currentUser) {
+          window.location.href = '/fletes/';
+        } else {
+          try { localStorage.setItem('kmp_login_target_app', 'fletes'); } catch {}
+          openAuthModal('fletes');
+        }
+      },
       onBackToAdmin: (isPreview || currentUser) ? (viewId) => navigateTo(viewId || 'welcome-config') : null
     });
     return;
@@ -513,12 +537,21 @@ async function showPublicWelcome(isPreview = false) {
     companyConfig: cachedCompanyConfig,
     branchesPricing: cachedBranchPricing || [],
     onOpenLogin: () => openAuthModal(),
+    onOpenFletes: () => {
+      if (currentUser) {
+        window.location.href = '/fletes/';
+      } else {
+        try { localStorage.setItem('kmp_login_target_app', 'fletes'); } catch {}
+        openAuthModal('fletes');
+      }
+    },
     onBackToAdmin: (isPreview || currentUser) ? (viewId) => navigateTo(viewId || 'welcome-config') : null
   });
 }
 
-function openAuthModal() {
+function openAuthModal(initialTarget) {
   uiLib.WelcomeUI.renderAuthModal({
+    initialTarget,
     onVerifyGatekeeper: async (user, pass) => {
       return await securityConfigApi.verifyGatekeeperCredentials(db, user, pass);
     },
@@ -535,17 +568,18 @@ function getAllowedViews(role, allowedViews = currentUserAllowedViews) {
     if (!list.includes('logout')) list.push('logout');
     if (!list.includes('dashboard')) list.push('dashboard');
     if (!list.includes('welcome')) list.push('welcome');
+    if (!list.includes('fletes-pwa')) list.push('fletes-pwa');
     if (role === 'ADMIN' && !list.includes('daily-cash-closings')) list.push('daily-cash-closings');
     return list;
   }
 
   if (role === 'ADMIN') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'welcome-config', 'welcome', 'price-share', 'branch-pricing', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
+    return ['travels', 'fletes-pwa', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'frigorifico', 'settings', 'welcome-config', 'welcome', 'price-share', 'branch-pricing', 'contact', 'logout', 'master-data', 'logistics-liquidations', 'logistics-fuel', 'establishments', 'fiscal-invoices', 'daily-cash-closings'];
   } else if (role === 'OPERARIO') {
-    return ['travels', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'branch-pricing', 'welcome', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
+    return ['travels', 'fletes-pwa', 'dashboard', 'consumption', 'clients', 'simulator', 'checks', 'accounting', 'price-share', 'branch-pricing', 'welcome', 'contact', 'logout', 'logistics-liquidations', 'logistics-fuel', 'fiscal-invoices', 'daily-cash-closings'];
   } else {
     // VISOR
-    return ['dashboard', 'simulator', 'price-share', 'welcome', 'contact', 'logout'];
+    return ['dashboard', 'fletes-pwa', 'simulator', 'price-share', 'welcome', 'contact', 'logout'];
   }
 }
 
@@ -569,6 +603,12 @@ const navigateTo = (view, role = currentUserRole) => {
     kmpSidebar.setAttribute('active', view);
   }
   
+  if (view === 'fletes-pwa') {
+    document.body.classList.remove('sidebar-open');
+    window.location.href = '/fletes/';
+    return;
+  }
+
   if (view === 'logout') {
     window.dispatchEvent(new Event('app:logout'));
     return;
