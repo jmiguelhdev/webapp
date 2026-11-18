@@ -12,17 +12,17 @@ export const MetricCard: React.FC<{
   value: string;
   subtitle?: string;
   tint?: string;
-}> = ({ title, value, subtitle, tint = 'var(--t-cyan)' }) => (
+}> = ({ title, value, subtitle, tint = 'var(--t-text-primary)' }) => (
   <div className="metric-card">
     <span className="metric-card-label">{title}</span>
-    <span className="metric-card-value" style={{ color: tint }} title={value}>
+    <span className="metric-card-value tabular-nums" style={{ color: tint }} title={value}>
       {value}
     </span>
     {subtitle && (
       <span
-        className="mono"
+        className="tabular-nums"
         style={{
-          fontSize: '0.62rem',
+          fontSize: '0.68rem',
           color: 'var(--t-text-muted)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
@@ -36,15 +36,38 @@ export const MetricCard: React.FC<{
 );
 
 export const StatusBadge: React.FC<{ status: TravelStatus }> = ({ status }) => {
-  const color =
+  const config =
     status === 'ACTIVE'
-      ? 'var(--t-green)'
+      ? {
+          bg: 'var(--t-emerald-bg)',
+          color: 'var(--t-emerald-text)',
+          border: 'var(--t-emerald-border)',
+          label: 'Activo',
+        }
       : status === 'FLETE'
-      ? 'var(--t-purple)'
-      : 'var(--t-amber)';
+      ? {
+          bg: 'var(--t-indigo-bg)',
+          color: 'var(--t-indigo-text)',
+          border: 'var(--t-indigo-border)',
+          label: 'Solo Flete',
+        }
+      : {
+          bg: 'var(--t-amber-bg)',
+          color: 'var(--t-amber-text)',
+          border: 'var(--t-amber-border)',
+          label: 'Borrador',
+        };
+
   return (
-    <span className="t-badge" style={{ color }}>
-      [{getTravelStatusDisplayName(status).toUpperCase()}]
+    <span
+      className="t-badge tabular-nums"
+      style={{
+        background: config.bg,
+        color: config.color,
+        borderColor: config.border,
+      }}
+    >
+      {config.label}
     </span>
   );
 };
@@ -70,12 +93,14 @@ export const ModalSheet: React.FC<{
         <button
           type="button"
           className="t-btn t-btn-muted t-btn-sm"
+          style={{ minHeight: 28, padding: '2px 8px', borderRadius: 6 }}
           onClick={() => {
             TerminalHaptics.click();
             onClose();
           }}
+          aria-label="Cerrar"
         >
-          [✕]
+          ✕
         </button>
       </div>
       <div className="t-modal-body">{children}</div>
@@ -146,13 +171,13 @@ export function SearchablePicker<T extends { id: number }>({
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {selectedItem ? getTitle(selectedItem) : allowClear ? emptyLabel : placeholder}
         </span>
-        <span style={{ color: 'var(--t-cyan)', marginLeft: 8 }}>▾</span>
+        <span style={{ color: 'var(--t-text-muted)', marginLeft: 8, fontSize: '0.75rem' }}>▾</span>
       </button>
 
       {open && (
-        <ModalSheet title={`// SELECCIONAR ${label.toUpperCase()}`} onClose={() => setOpen(false)}>
+        <ModalSheet title={`Seleccionar ${label}`} onClose={() => setOpen(false)}>
           <div className="t-search-wrap">
-            <span className="t-search-prefix">&gt;</span>
+            <span className="t-search-icon">🔍</span>
             <input
               type="text"
               className="t-input t-search-input"
@@ -169,8 +194,9 @@ export function SearchablePicker<T extends { id: number }>({
               className="t-card t-card-clickable"
               style={{
                 textAlign: 'left',
-                color: selectedId === null ? 'var(--t-cyan)' : 'var(--t-text-secondary)',
-                borderColor: selectedId === null ? 'var(--t-cyan)' : 'var(--t-border)',
+                borderColor: selectedId === null ? 'var(--t-border-focus)' : 'var(--t-border)',
+                background: selectedId === null ? 'rgba(255, 255, 255, 0.05)' : 'var(--t-surface)',
+                padding: '10px 14px',
               }}
               onClick={() => {
                 TerminalHaptics.selection();
@@ -178,15 +204,15 @@ export function SearchablePicker<T extends { id: number }>({
                 setOpen(false);
               }}
             >
-              <div className="mono" style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+              <div style={{ fontWeight: 500, fontSize: '0.84rem', color: 'var(--t-text-secondary)' }}>
                 {emptyLabel}
               </div>
             </button>
           )}
 
           {filtered.length === 0 ? (
-            <div className="t-card mono" style={{ color: 'var(--t-text-muted)', textAlign: 'center' }}>
-              &gt; Sin resultados para "{search}"
+            <div className="t-card" style={{ color: 'var(--t-text-muted)', textAlign: 'center', fontSize: '0.82rem' }}>
+              Sin resultados para "{search}"
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -200,7 +226,9 @@ export function SearchablePicker<T extends { id: number }>({
                     className="t-card t-card-clickable"
                     style={{
                       textAlign: 'left',
-                      borderColor: isSelected ? 'var(--t-cyan)' : 'var(--t-border)',
+                      borderColor: isSelected ? 'var(--t-border-focus)' : 'var(--t-border)',
+                      background: isSelected ? 'rgba(255, 255, 255, 0.05)' : 'var(--t-surface)',
+                      padding: '10px 14px',
                     }}
                     onClick={() => {
                       TerminalHaptics.selection();
@@ -210,25 +238,32 @@ export function SearchablePicker<T extends { id: number }>({
                   >
                     <div className="t-row-between">
                       <span
-                        className="mono"
                         style={{
-                          fontWeight: 700,
+                          fontWeight: isSelected ? 600 : 500,
                           fontSize: '0.86rem',
-                          color: isSelected ? 'var(--t-cyan)' : 'var(--t-text-primary)',
+                          color: isSelected ? 'var(--t-text-primary)' : 'var(--t-text-secondary)',
                         }}
                       >
                         {getTitle(item)}
                       </span>
                       {isSelected && (
-                        <span className="mono" style={{ color: 'var(--t-cyan)', fontSize: '0.75rem' }}>
-                          [OK]
+                        <span
+                          className="t-badge tabular-nums"
+                          style={{
+                            background: 'var(--t-emerald-bg)',
+                            color: 'var(--t-emerald-text)',
+                            borderColor: 'var(--t-emerald-border)',
+                            fontSize: '0.68rem',
+                          }}
+                        >
+                          Seleccionado ✓
                         </span>
                       )}
                     </div>
                     {sub && (
                       <div
-                        className="mono"
-                        style={{ fontSize: '0.72rem', color: 'var(--t-text-secondary)', marginTop: 3 }}
+                        className="tabular-nums"
+                        style={{ fontSize: '0.74rem', color: 'var(--t-text-muted)', marginTop: 3 }}
                       >
                         {sub}
                       </div>
@@ -252,15 +287,26 @@ export const DocumentAlertBanner: React.FC<{
   if (alerts.length === 0) return null;
 
   const urgentCount = alerts.filter((a) => a.daysRemaining <= 0).length;
-  const borderColor = urgentCount > 0 ? 'var(--t-red)' : 'var(--t-amber)';
+  const isUrgent = urgentCount > 0;
+  const config = isUrgent
+    ? {
+        bg: 'var(--t-rose-bg)',
+        color: 'var(--t-rose-text)',
+        border: 'var(--t-rose-border)',
+      }
+    : {
+        bg: 'var(--t-amber-bg)',
+        color: 'var(--t-amber-text)',
+        border: 'var(--t-amber-border)',
+      };
 
   return (
     <div
       className="t-card"
       style={{
-        borderColor,
-        background: urgentCount > 0 ? 'rgba(255, 69, 58, 0.08)' : 'rgba(255, 179, 0, 0.08)',
-        padding: '10px 12px',
+        borderColor: config.border,
+        background: config.bg,
+        padding: '10px 14px',
       }}
     >
       <div
@@ -271,43 +317,51 @@ export const DocumentAlertBanner: React.FC<{
           setExpanded((v) => !v);
         }}
       >
-        <div className="mono" style={{ fontSize: '0.78rem', fontWeight: 800, color: borderColor }}>
-          ⚠️ {alerts.length} DOCUMENTO{alerts.length > 1 ? 'S' : ''} POR VENCER / VENCIDO
-          {alerts.length > 1 ? 'S' : ''}
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: config.color, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>⚠️</span>
+          <span>
+            {alerts.length} documento{alerts.length > 1 ? 's' : ''} {isUrgent ? 'vencido o por vencer' : 'próximo a vencer'}
+          </span>
         </div>
-        <span className="mono" style={{ fontSize: '0.72rem', color: borderColor }}>
-          {expanded ? '[OCULTAR]' : '[VER]'}
+        <span style={{ fontSize: '0.74rem', color: config.color, fontWeight: 500 }}>
+          {expanded ? 'Ocultar ↑' : 'Ver detalle ↓'}
         </span>
       </div>
 
       {expanded && (
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {alerts.map((a, idx) => (
             <div
               key={`${a.entityName}_${a.documentName}_${idx}`}
-              className="t-row-between mono"
-              style={{ fontSize: '0.74rem', color: 'var(--t-text-primary)' }}
+              className="t-row-between"
+              style={{ fontSize: '0.76rem', color: 'var(--t-text-primary)' }}
             >
               <span>
-                [{a.entityType}] {a.entityName} — {a.documentName}
+                <strong style={{ color: 'var(--t-text-secondary)', fontWeight: 500 }}>[{a.entityType}]</strong> {a.entityName} — {a.documentName}
               </span>
               <span
+                className="tabular-nums"
                 style={{
-                  color: a.daysRemaining <= 0 ? 'var(--t-red)' : 'var(--t-amber)',
-                  fontWeight: 800,
+                  color: a.daysRemaining <= 0 ? 'var(--t-rose-text)' : 'var(--t-amber-text)',
+                  fontWeight: 600,
                 }}
               >
                 {a.daysRemaining <= 0
-                  ? `VENCIDO (${Formatters.displayDate(a.expirationDate)})`
-                  : `En ${a.daysRemaining}d`}
+                  ? `Vencido (${Formatters.displayDate(a.expirationDate)})`
+                  : `En ${a.daysRemaining} días`}
               </span>
             </div>
           ))}
           {onNavigateFleet && (
             <button
               type="button"
-              className="t-btn t-btn-amber t-btn-sm"
-              style={{ marginTop: 4, alignSelf: 'flex-end' }}
+              className="t-btn t-btn-sm"
+              style={{
+                marginTop: 6,
+                alignSelf: 'flex-end',
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: 'var(--t-text-primary)',
+              }}
               onClick={() => {
                 TerminalHaptics.click();
                 onNavigateFleet();
@@ -347,7 +401,7 @@ export const OdometerScanModal: React.FC<{
       setCandidates(res.candidates);
       setRawLines(res.recognizedLines);
       if (res.candidates.length === 0) {
-        setErrorMsg('No se detectaron cifras numéricas claras. Podés ingresarlo abajo.');
+        setErrorMsg('No se detectaron cifras numéricas claras. Podés ingresarlo abajo manualmente.');
       } else {
         TerminalHaptics.success();
       }
@@ -360,14 +414,14 @@ export const OdometerScanModal: React.FC<{
   };
 
   return (
-    <ModalSheet title={`📷 ESCÁNER OCR — ${title.toUpperCase()}`} onClose={onClose}>
-      <p className="mono" style={{ margin: 0, fontSize: '0.76rem', color: 'var(--t-text-secondary)' }}>
-        &gt; Sacá una foto al tablero o elegí de galería. El motor prioriza valores totales (&gt;= 1.000 km).
+    <ModalSheet title={`Escáner de Odómetro — ${title}`} onClose={onClose}>
+      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--t-text-secondary)', lineHeight: 1.5 }}>
+        Fotografiá el odómetro del tablero. El motor prioriza valores totales de kilometraje (≥ 1.000 km).
       </p>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <label className="t-btn t-btn-filled" style={{ flex: 1 }}>
-          <span>📸 Cámara</span>
+          <span>Tomar Foto 📷</span>
           <input
             type="file"
             accept="image/*"
@@ -377,7 +431,7 @@ export const OdometerScanModal: React.FC<{
           />
         </label>
         <label className="t-btn" style={{ flex: 1 }}>
-          <span>🖼️ Galería</span>
+          <span>Galería 🖼️</span>
           <input
             type="file"
             accept="image/*"
@@ -395,35 +449,45 @@ export const OdometerScanModal: React.FC<{
             width: '100%',
             maxHeight: 200,
             objectFit: 'contain',
-            borderRadius: 6,
+            borderRadius: 8,
             border: '1px solid var(--t-border)',
-            background: '#05080b',
+            background: 'var(--t-surface-elevated)',
           }}
         />
       )}
 
       {scanning && (
-        <div className="t-card mono" style={{ color: 'var(--t-cyan)', textAlign: 'center' }}>
-          &gt; Analizando dígitos con Tesseract.js...
+        <div className="t-card" style={{ color: 'var(--t-text-secondary)', textAlign: 'center', fontSize: '0.84rem' }}>
+          Analizando dígitos con Tesseract OCR...
         </div>
       )}
 
       {errorMsg && (
-        <div className="t-card mono" style={{ borderColor: 'var(--t-amber)', color: 'var(--t-amber)', fontSize: '0.76rem' }}>
+        <div
+          className="t-card"
+          style={{
+            borderColor: 'var(--t-amber-border)',
+            background: 'var(--t-amber-bg)',
+            color: 'var(--t-amber-text)',
+            fontSize: '0.8rem',
+          }}
+        >
           ⚠️ {errorMsg}
         </div>
       )}
 
       {candidates.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div className="t-section-label">// CANDIDATOS DETECTADOS (TOCAR PARA APLICAR)</div>
+          <div className="t-section-label">Candidatos detectados (tocar para aplicar)</div>
           {candidates.map((c) => (
             <button
               key={c.id}
               type="button"
               className="t-card t-card-clickable"
               style={{
-                borderColor: c.isLikelyTotalOdometer ? 'var(--t-green)' : 'var(--t-border)',
+                borderColor: c.isLikelyTotalOdometer ? 'var(--t-emerald-border)' : 'var(--t-border)',
+                background: c.isLikelyTotalOdometer ? 'var(--t-emerald-bg)' : 'var(--t-surface)',
+                padding: '12px 14px',
               }}
               onClick={() => {
                 TerminalHaptics.success();
@@ -433,20 +497,26 @@ export const OdometerScanModal: React.FC<{
             >
               <div className="t-row-between">
                 <span
-                  className="mono"
+                  className="tabular-nums"
                   style={{
-                    fontSize: '1.05rem',
-                    fontWeight: 800,
-                    color: c.isLikelyTotalOdometer ? 'var(--t-green)' : 'var(--t-text-primary)',
+                    fontSize: '1.1rem',
+                    fontWeight: 600,
+                    color: c.isLikelyTotalOdometer ? 'var(--t-emerald-text)' : 'var(--t-text-primary)',
                   }}
                 >
                   {c.formattedValue} km
                 </span>
-                <span className="t-badge" style={{ color: c.isLikelyTotalOdometer ? 'var(--t-green)' : 'var(--t-text-secondary)' }}>
-                  {c.isLikelyTotalOdometer ? 'ODÓMETRO TOTAL' : 'PARCIAL / OTRO'}
+                <span
+                  className="t-badge"
+                  style={{
+                    background: c.isLikelyTotalOdometer ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                    color: c.isLikelyTotalOdometer ? 'var(--t-emerald-text)' : 'var(--t-text-secondary)',
+                  }}
+                >
+                  {c.isLikelyTotalOdometer ? 'Odómetro Total' : 'Parcial'}
                 </span>
               </div>
-              <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--t-text-muted)', marginTop: 3 }}>
+              <div className="tabular-nums" style={{ fontSize: '0.72rem', color: 'var(--t-text-muted)', marginTop: 4 }}>
                 Texto: "{c.rawText}" • Confianza: {Math.round(c.confidence * 100)}%
               </div>
             </button>
@@ -455,25 +525,25 @@ export const OdometerScanModal: React.FC<{
       )}
 
       {rawLines.length > 0 && (
-        <div className="t-card mono" style={{ fontSize: '0.68rem', color: 'var(--t-text-muted)' }}>
+        <div className="t-card tabular-nums" style={{ fontSize: '0.72rem', color: 'var(--t-text-muted)' }}>
           Líneas leídas: {rawLines.join(' | ')}
         </div>
       )}
 
       <div className="t-divider" />
       <div className="t-field">
-        <label className="t-label">Ingreso rápido manual</label>
+        <label className="t-label">Ingreso manual directo</label>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             type="text"
-            className="t-input"
+            className="t-input tabular-nums"
             placeholder="Ej: 154.200"
             value={manualText}
             onChange={(e) => setManualText(e.target.value)}
           />
           <button
             type="button"
-            className="t-btn t-btn-green"
+            className="t-btn t-btn-filled"
             onClick={() => {
               const parsed = OdometerOCRScanner.parseNumber(manualText);
               if (parsed && parsed > 0) {

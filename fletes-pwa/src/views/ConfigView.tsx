@@ -53,7 +53,7 @@ export const ConfigView: React.FC<{
     a.download = `IosFletes_Backup_${Formatters.isoDate(new Date())}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    onToast('Respaldo JSON exportado.');
+    onToast('Copia de respaldo JSON exportada.');
   };
 
   const handleImportJson = async (file?: File | null) => {
@@ -62,10 +62,10 @@ export const ConfigView: React.FC<{
       const text = await file.text();
       const res = await persistence.importBackupJson(text);
       TerminalHaptics.success();
-      onToast(`Backup importado (${res.travelsCount} viajes).`);
+      onToast(`Backup restaurado correctamente (${res.travelsCount} viajes).`);
     } catch {
       TerminalHaptics.error();
-      onToast('Archivo JSON inválido.');
+      onToast('El archivo JSON no tiene un formato válido.');
     }
   };
 
@@ -82,25 +82,25 @@ export const ConfigView: React.FC<{
     });
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="t-row-between">
           <button type="button" className="t-btn t-btn-muted t-btn-sm" onClick={() => setSection('MAIN')}>
-            ← Ajustes
+            ← Volver a Ajustes
           </button>
-          <span className="mono" style={{ fontWeight: 800, color: 'var(--t-cyan)' }}>
-            PRODUCTORES ({store.producers.length})
+          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--t-text-primary)' }}>
+            Productores de Ganado ({store.producers.length})
           </span>
           <button
             type="button"
             className="t-btn t-btn-filled t-btn-sm"
             onClick={() => setProducerModal('NEW')}
           >
-            + Nuevo
+            + Nuevo Productor
           </button>
         </div>
 
         <div className="t-search-wrap">
-          <span className="t-search-prefix">&gt;</span>
+          <span className="t-search-icon">🔍</span>
           <input
             type="text"
             className="t-input t-search-input"
@@ -110,70 +110,91 @@ export const ConfigView: React.FC<{
           />
         </div>
 
-        {filteredProducers.map((prod) => {
-          const cbuInfo = CBUHelper.decode(prod.cbu);
-          return (
-            <div key={prod.id} className="t-card">
-              <div className="t-row-between">
-                <strong className="mono" style={{ fontSize: '0.9rem', color: 'var(--t-cyan)' }}>
-                  {prod.name}
-                </strong>
-                {cbuInfo.isValidLength && (
-                  <span className="t-badge" style={{ color: 'var(--t-green)' }}>
-                    {cbuInfo.bankName}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {filteredProducers.map((prod) => {
+            const cbuInfo = CBUHelper.decode(prod.cbu);
+            return (
+              <div key={prod.id} className="t-card">
+                <div className="t-row-between">
+                  <span style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--t-text-primary)' }}>
+                    {prod.name}
                   </span>
-                )}
-              </div>
-              <div className="mono" style={{ fontSize: '0.73rem', color: 'var(--t-text-secondary)', marginTop: 4 }}>
-                CUIT: {prod.cuit ? Formatters.cuit(prod.cuit) : 'Sin CUIT'} • Tel: {prod.phone || '-'}
-              </div>
-              {prod.cbu && (
-                <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--t-text-muted)', marginTop: 2 }}>
-                  CBU: {CBUHelper.formattedCBU(prod.cbu)}
-                  {cbuInfo.accountNumber ? ` • Cta: ${CBUHelper.accountDisplay(cbuInfo)}` : ''}
+                  {cbuInfo.isValidLength && (
+                    <span
+                      className="t-badge tabular-nums"
+                      style={{
+                        background: 'var(--t-emerald-bg)',
+                        color: 'var(--t-emerald-text)',
+                        borderColor: 'var(--t-emerald-border)',
+                      }}
+                    >
+                      {cbuInfo.bankName}
+                    </span>
+                  )}
                 </div>
-              )}
-              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="t-btn t-btn-amber t-btn-sm"
-                  onClick={() => setProducerModal(prod)}
-                >
-                  ✏️ Editar
-                </button>
-                <button
-                  type="button"
-                  className="t-btn t-btn-green t-btn-sm"
-                  onClick={() =>
-                    WhatsAppShareHelper.openWhatsApp(
-                      WhatsAppShareHelper.formatProducerPaymentDataMessage(prod)
-                    )
-                  }
-                >
-                  📲 Ficha Bancaria
-                </button>
-                <button
-                  type="button"
-                  className="t-btn t-btn-red t-btn-sm"
-                  onClick={async () => {
-                    if (window.confirm(`¿Eliminar productor ${prod.name}?`)) {
-                      await persistence.deleteProducer(prod.id);
-                      onToast('Productor eliminado.');
-                    }
+                <div className="tabular-nums" style={{ fontSize: '0.78rem', color: 'var(--t-text-secondary)', marginTop: 4 }}>
+                  CUIT: {prod.cuit ? Formatters.cuit(prod.cuit) : 'Sin CUIT'}
+                  <span style={{ margin: '0 6px', color: 'var(--t-text-muted)' }}>•</span>
+                  Tel: {prod.phone || '-'}
+                </div>
+                {prod.cbu && (
+                  <div className="tabular-nums" style={{ fontSize: '0.74rem', color: 'var(--t-text-muted)', marginTop: 2 }}>
+                    CBU: {CBUHelper.formattedCBU(prod.cbu)}
+                    {cbuInfo.accountNumber ? ` • Cuenta: ${CBUHelper.accountDisplay(cbuInfo)}` : ''}
+                  </div>
+                )}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    marginTop: 10,
+                    paddingTop: 8,
+                    borderTop: '1px solid var(--t-border-subtle)',
+                    flexWrap: 'wrap',
                   }}
                 >
-                  🗑️
-                </button>
+                  <button
+                    type="button"
+                    className="t-btn t-btn-sm"
+                    onClick={() => setProducerModal(prod)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="t-btn t-btn-sm t-btn-muted"
+                    onClick={() =>
+                      WhatsAppShareHelper.openWhatsApp(
+                        WhatsAppShareHelper.formatProducerPaymentDataMessage(prod)
+                      )
+                    }
+                  >
+                    Ficha Bancaria WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    className="t-btn t-btn-sm t-btn-red"
+                    style={{ marginLeft: 'auto' }}
+                    onClick={async () => {
+                      if (window.confirm(`¿Eliminar productor ${prod.name}?`)) {
+                        await persistence.deleteProducer(prod.id);
+                        onToast('Productor eliminado.');
+                      }
+                    }}
+                  >
+                    Eliminar
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
 
         {producerModal !== null && (
           <ProducerFormModal
             initial={producerModal === 'NEW' ? null : producerModal}
             onClose={() => setProducerModal(null)}
-            onSaved={() => onToast('Productor guardado.')}
+            onSaved={() => onToast('Productor guardado con éxito.')}
           />
         )}
       </div>
@@ -183,71 +204,75 @@ export const ConfigView: React.FC<{
   // --- SUB-SCREEN: AGENTS ---
   if (section === 'AGENTS') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="t-row-between">
           <button type="button" className="t-btn t-btn-muted t-btn-sm" onClick={() => setSection('MAIN')}>
-            ← Ajustes
+            ← Volver a Ajustes
           </button>
-          <span className="mono" style={{ fontWeight: 800, color: 'var(--t-cyan)' }}>
-            COMISIONISTAS ({store.agents.length})
+          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--t-text-primary)' }}>
+            Comisionistas Intermediarios ({store.agents.length})
           </span>
           <button
             type="button"
             className="t-btn t-btn-filled t-btn-sm"
             onClick={() => setAgentModal('NEW')}
           >
-            + Nuevo
+            + Nuevo Comisionista
           </button>
         </div>
 
-        {store.agents.map((ag) => (
-          <div key={ag.id} className="t-card">
-            <div className="t-row-between">
-              <div>
-                <strong className="mono" style={{ fontSize: '0.9rem', color: 'var(--t-purple)' }}>
-                  🤝 {ag.name}
-                </strong>
-                <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)', marginTop: 2 }}>
-                  Comisión: {Formatters.decimal(ag.percent, 1)}% • Tel: {ag.phone || '-'}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {store.agents.map((ag) => (
+            <div key={ag.id} className="t-card">
+              <div className="t-row-between">
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--t-text-primary)' }}>
+                    {ag.name}
+                  </div>
+                  <div className="tabular-nums" style={{ fontSize: '0.78rem', color: 'var(--t-text-secondary)', marginTop: 3 }}>
+                    Comisión: {Formatters.decimal(ag.percent, 1)}%
+                    <span style={{ margin: '0 6px', color: 'var(--t-text-muted)' }}>•</span>
+                    Tel: {ag.phone || '-'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="t-btn t-btn-sm t-btn-muted"
+                    onClick={() => setAgentAccount(ag)}
+                  >
+                    Cuenta Corriente
+                  </button>
+                  <button
+                    type="button"
+                    className="t-btn t-btn-sm"
+                    onClick={() => setAgentModal(ag)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="t-btn t-btn-sm t-btn-red"
+                    onClick={async () => {
+                      if (window.confirm(`¿Eliminar comisionista ${ag.name}?`)) {
+                        await persistence.deleteAgent(ag.id);
+                        onToast('Comisionista eliminado.');
+                      }
+                    }}
+                  >
+                    Eliminar
+                  </button>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  type="button"
-                  className="t-btn t-btn-sm"
-                  onClick={() => setAgentAccount(ag)}
-                >
-                  📒 Cta Cte
-                </button>
-                <button
-                  type="button"
-                  className="t-btn t-btn-amber t-btn-sm"
-                  onClick={() => setAgentModal(ag)}
-                >
-                  ✏️
-                </button>
-                <button
-                  type="button"
-                  className="t-btn t-btn-red t-btn-sm"
-                  onClick={async () => {
-                    if (window.confirm(`¿Eliminar comisionista ${ag.name}?`)) {
-                      await persistence.deleteAgent(ag.id);
-                      onToast('Comisionista eliminado.');
-                    }
-                  }}
-                >
-                  🗑️
-                </button>
-              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
 
         {agentModal !== null && (
           <AgentFormModal
             initial={agentModal === 'NEW' ? null : agentModal}
             onClose={() => setAgentModal(null)}
-            onSaved={() => onToast('Comisionista guardado.')}
+            onSaved={() => onToast('Comisionista guardado con éxito.')}
           />
         )}
 
@@ -269,43 +294,45 @@ export const ConfigView: React.FC<{
       e.preventDefault();
       await persistence.saveConfig(fiscalDraft);
       TerminalHaptics.success();
-      onToast('Parámetros fiscales actualizados.');
+      onToast('Parámetros fiscales y tarifas actualizados.');
       setSection('MAIN');
     };
 
     return (
-      <form onSubmit={handleSaveFiscal} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form onSubmit={handleSaveFiscal} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="t-row-between">
           <button type="button" className="t-btn t-btn-muted t-btn-sm" onClick={() => setSection('MAIN')}>
-            ← Ajustes
+            ← Volver a Ajustes
           </button>
-          <span className="mono" style={{ fontWeight: 800, color: 'var(--t-cyan)' }}>
-            TARIFAS E IMPUESTOS BASE
+          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--t-text-primary)' }}>
+            Tarifas e Impuestos Base
           </span>
-          <button type="submit" className="t-btn t-btn-green t-btn-filled t-btn-sm">
-            Guardar
+          <button type="submit" className="t-btn t-btn-filled t-btn-sm">
+            Guardar Cambios
           </button>
         </div>
 
-        <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-section-label">// IMPUESTOS AFIP / ARBA</div>
+        <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+            Alícuotas Impositivas (ARCA / AFIP)
+          </span>
           <div className="kpi-grid-2">
             <div className="t-field">
-              <label className="t-label">IVA (%)</label>
+              <label className="t-label">IVA Hacienda (%)</label>
               <input
                 type="number"
                 step="0.1"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.ivaRate}
                 onChange={(e) => setFiscalDraft({ ...fiscalDraft, ivaRate: Number(e.target.value) || 0 })}
               />
             </div>
             <div className="t-field">
-              <label className="t-label">Ganancias (%)</label>
+              <label className="t-label">Retención Ganancias (%)</label>
               <input
                 type="number"
                 step="0.1"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.gananciasRate}
                 onChange={(e) =>
                   setFiscalDraft({ ...fiscalDraft, gananciasRate: Number(e.target.value) || 0 })
@@ -313,11 +340,11 @@ export const ConfigView: React.FC<{
               />
             </div>
             <div className="t-field">
-              <label className="t-label">Mínimo No Imponible ($)</label>
+              <label className="t-label">Mínimo No Imponible Ganancias ($)</label>
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.gananciasMinThreshold}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -328,11 +355,11 @@ export const ConfigView: React.FC<{
               />
             </div>
             <div className="t-field">
-              <label className="t-label">IIBB Default (%)</label>
+              <label className="t-label">Alícuota IIBB Predeterminada (%)</label>
               <input
                 type="number"
                 step="0.1"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.defaultPorcentajeIIBB}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -345,15 +372,17 @@ export const ConfigView: React.FC<{
           </div>
         </div>
 
-        <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-section-label">// TARIFAS LOGÍSTICAS Y GASOIL</div>
+        <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+            Tarifas de Fletes y Combustible
+          </span>
           <div className="kpi-grid-2">
             <div className="t-field">
-              <label className="t-label">Gasoil ($/litro)</label>
+              <label className="t-label">Precio Gasoil ($/litro)</label>
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.fuelPrice}
                 onChange={(e) => setFiscalDraft({ ...fiscalDraft, fuelPrice: Number(e.target.value) || 0 })}
               />
@@ -363,7 +392,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.defaultFreightPricePerKm}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -378,7 +407,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.defaultDriverPricePerKmSimple}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -393,7 +422,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.defaultDriverPricePerKmDouble}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -408,7 +437,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.freightPriceSimple}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -423,7 +452,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.freightStartFeeSimple}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -438,7 +467,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.freightPriceDouble}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -453,7 +482,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.freightStartFeeDouble}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -468,7 +497,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.simulationFreightPriceSimple}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -483,7 +512,7 @@ export const ConfigView: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={fiscalDraft.simulationFreightPriceDouble}
                 onChange={(e) =>
                   setFiscalDraft({
@@ -503,39 +532,53 @@ export const ConfigView: React.FC<{
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Portal Navigation Card */}
-      <div className="t-card" style={{ borderColor: 'rgba(0, 229, 255, 0.35)' }}>
-        <div className="t-section-label">// ECOSISTEMA FRIGORÍFICO PAMPA</div>
-        <div className="t-row-between" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <div className="mono" style={{ fontSize: '0.76rem', color: 'var(--t-text-secondary)' }}>
-            Misma sesión y datos compartidos bajo frigorificopampa.tech
+      <div className="t-card">
+        <div className="t-row-between" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--t-text-primary)' }}>
+              Plataforma Central Frigorífico Pampa
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--t-text-muted)', marginTop: 2 }}>
+              Sesión unificada y sincronizada bajo frigorificopampa.tech
+            </div>
           </div>
-          <a href="/" className="t-btn t-btn-sm">
-            🏢 Ir a Panel Frigorífico Pampa (/)
+          <a href="/" className="t-btn t-btn-sm t-btn-muted">
+            Ir al Panel Principal
           </a>
         </div>
       </div>
 
       {/* Firebase Auth Account */}
-      <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div className="t-section-label">// CUENTA DE USUARIO & AUTENTICACIÓN</div>
+      <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+          Cuenta de Usuario & Sincronización
+        </span>
         {store.user ? (
           <>
             <div className="t-row-between">
               <div>
-                <div className="mono" style={{ fontWeight: 800, fontSize: '0.92rem' }}>
-                  &gt; {store.user.displayName || store.user.email}
+                <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--t-text-primary)' }}>
+                  {store.user.displayName || store.user.email}
                 </div>
-                <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)' }}>
-                  // {store.user.email}
+                <div style={{ fontSize: '0.76rem', color: 'var(--t-text-muted)', marginTop: 2 }}>
+                  {store.user.email}
                 </div>
               </div>
-              <span className="t-badge" style={{ color: 'var(--t-green)' }}>
-                [ACTIVO]
+              <span
+                className="t-badge"
+                style={{
+                  background: 'var(--t-emerald-bg)',
+                  color: 'var(--t-emerald-text)',
+                  borderColor: 'var(--t-emerald-border)',
+                }}
+              >
+                Sesión Activa ✓
               </span>
             </div>
             <button
               type="button"
               className="t-btn t-btn-red t-btn-sm"
+              style={{ alignSelf: 'flex-start' }}
               onClick={async () => {
                 await persistence.signOutUser();
                 onToast('Sesión cerrada.');
@@ -546,39 +589,44 @@ export const ConfigView: React.FC<{
           </>
         ) : (
           <>
-            <div className="mono" style={{ fontSize: '0.78rem', color: 'var(--t-text-secondary)' }}>
-              [SIN SESIÓN ACTIVA] — Iniciá sesión con Google para sincronizar con Firestore.
+            <div style={{ fontSize: '0.8rem', color: 'var(--t-text-secondary)', lineHeight: 1.5 }}>
+              Sin sesión activa. Iniciá sesión con tu cuenta de Google para habilitar la descarga y actualización de viajes de toda la empresa.
             </div>
             <button
               type="button"
               className="t-btn t-btn-filled"
+              style={{ alignSelf: 'flex-start' }}
               onClick={async () => {
                 try {
                   await persistence.signInWithGoogle();
-                  onToast('Sesión iniciada.');
+                  onToast('Sesión iniciada con Google.');
                 } catch (err) {
                   onToast(err instanceof Error ? err.message : 'Error al iniciar sesión');
                 }
               }}
             >
-              INICIAR SESIÓN CON GOOGLE
+              Iniciar Sesión con Google
             </button>
           </>
         )}
       </div>
 
-      {/* Cloud Sync */}
-      <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div className="t-section-label">// SINCRONIZACIÓN EN LA NUBE (FIRESTORE)</div>
-        <div className="t-row-between mono" style={{ fontSize: '0.78rem' }}>
-          <span>Estado: {store.syncStatus.toUpperCase()}</span>
+      {/* Cloud Sync Status */}
+      <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+          Sincronización Cloud Firestore
+        </span>
+        <div className="t-row-between" style={{ fontSize: '0.8rem' }}>
           <span style={{ color: 'var(--t-text-secondary)' }}>
-            {store.lastSyncTime ? Formatters.date(new Date(store.lastSyncTime)) : 'Sin sync reciente'}
+            Estado: <strong style={{ color: 'var(--t-text-primary)' }}>{store.syncStatus.toUpperCase()}</strong>
+          </span>
+          <span className="tabular-nums" style={{ color: 'var(--t-text-muted)' }}>
+            {store.lastSyncTime ? `Último sync: ${Formatters.date(new Date(store.lastSyncTime))}` : 'Sin sincronización reciente'}
           </span>
         </div>
 
-        <label className="t-row-between mono" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>
-          <span>Modo Empresa Compartida (sincronizar todos los viajes)</span>
+        <label className="t-row-between" style={{ fontSize: '0.8rem', color: 'var(--t-text-secondary)', cursor: 'pointer', padding: '4px 0' }}>
+          <span>Modo Empresa Compartida (sincronizar viajes de toda la flota)</span>
           <input
             type="checkbox"
             checked={store.sharedCompanyMode}
@@ -588,14 +636,13 @@ export const ConfigView: React.FC<{
 
         {store.lastSyncError && (
           <div
-            className="mono"
             style={{
-              fontSize: '0.72rem',
-              color: 'var(--t-amber)',
-              border: '1px solid var(--t-amber)',
-              borderRadius: 4,
-              padding: '6px 8px',
-              background: 'rgba(255, 179, 0, 0.08)',
+              fontSize: '0.76rem',
+              color: 'var(--t-amber-text)',
+              border: '1px solid var(--t-amber-border)',
+              borderRadius: 8,
+              padding: '8px 12px',
+              background: 'var(--t-amber-bg)',
             }}
           >
             ⚠️ {store.lastSyncError}
@@ -604,7 +651,8 @@ export const ConfigView: React.FC<{
 
         <button
           type="button"
-          className="t-btn"
+          className="t-btn t-btn-filled"
+          style={{ alignSelf: 'flex-start' }}
           disabled={store.isSyncing}
           onClick={async () => {
             TerminalHaptics.click();
@@ -620,67 +668,74 @@ export const ConfigView: React.FC<{
             }
           }}
         >
-          {store.isSyncing ? 'Sincronizando...' : '🔄 Sincronizar con Firestore Ahora'}
+          {store.isSyncing ? 'Sincronizando...' : 'Sincronizar con Firestore Ahora'}
         </button>
       </div>
 
       {/* Master Data Catalogs */}
-      <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div className="t-section-label">// DATOS MAESTROS Y PARÁMETROS</div>
+      <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+          Catálogos Maestros y Parámetros
+        </span>
 
         <button
           type="button"
-          className="t-card-elevated t-card-clickable t-row-between"
+          className="t-card t-card-clickable t-row-between"
+          style={{ padding: '12px 14px' }}
           onClick={() => setSection('PRODUCERS')}
         >
-          <span className="mono" style={{ fontWeight: 700, fontSize: '0.84rem' }}>
-            🏛️ Productores de Ganado
-          </span>
-          <span className="t-badge" style={{ color: 'var(--t-cyan)' }}>
-            [{store.producers.length}] →
+          <div style={{ fontWeight: 500, fontSize: '0.86rem' }}>
+            Productores de Ganado
+          </div>
+          <span className="t-badge tabular-nums" style={{ fontSize: '0.72rem' }}>
+            {store.producers.length} registrados →
           </span>
         </button>
 
         <button
           type="button"
-          className="t-card-elevated t-card-clickable t-row-between"
+          className="t-card t-card-clickable t-row-between"
+          style={{ padding: '12px 14px' }}
           onClick={() => setSection('AGENTS')}
         >
-          <span className="mono" style={{ fontWeight: 700, fontSize: '0.84rem' }}>
-            🤝 Comisionistas Intermediarios
-          </span>
-          <span className="t-badge" style={{ color: 'var(--t-cyan)' }}>
-            [{store.agents.length}] →
+          <div style={{ fontWeight: 500, fontSize: '0.86rem' }}>
+            Comisionistas Intermediarios
+          </div>
+          <span className="t-badge tabular-nums" style={{ fontSize: '0.72rem' }}>
+            {store.agents.length} registrados →
           </span>
         </button>
 
         <button
           type="button"
-          className="t-card-elevated t-card-clickable t-row-between"
+          className="t-card t-card-clickable t-row-between"
+          style={{ padding: '12px 14px' }}
           onClick={handleOpenFiscal}
         >
           <div style={{ textAlign: 'left' }}>
-            <div className="mono" style={{ fontWeight: 700, fontSize: '0.84rem' }}>
-              🎛️ Tarifas e Impuestos Base
+            <div style={{ fontWeight: 500, fontSize: '0.86rem' }}>
+              Tarifas e Impuestos Base
             </div>
-            <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--t-text-secondary)', marginTop: 2 }}>
+            <div className="tabular-nums" style={{ fontSize: '0.72rem', color: 'var(--t-text-muted)', marginTop: 2 }}>
               IVA {Formatters.decimal(store.config.ivaRate, 1)}% • Ganancias{' '}
               {Formatters.decimal(store.config.gananciasRate, 1)}% • Gasoil{' '}
               {Formatters.currency(store.config.fuelPrice)}/l
             </div>
           </div>
-          <span className="mono" style={{ color: 'var(--t-cyan)', fontSize: '0.75rem', fontWeight: 800 }}>
-            EDITAR →
+          <span style={{ fontSize: '0.76rem', color: 'var(--t-text-secondary)', fontWeight: 500 }}>
+            Configurar →
           </span>
         </button>
       </div>
 
-      {/* UX & Local Backup */}
-      <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div className="t-section-label">// RESPALDO Y PREFERENCIAS PWA</div>
+      {/* Respaldo y Preferencias */}
+      <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+          Respaldo y Base de Datos Local
+        </span>
 
-        <label className="t-row-between mono" style={{ fontSize: '0.76rem', cursor: 'pointer' }}>
-          <span>Clic mecánico sonoro (Web Audio en iPhone)</span>
+        <label className="t-row-between" style={{ fontSize: '0.8rem', color: 'var(--t-text-secondary)', cursor: 'pointer', padding: '2px 0' }}>
+          <span>Respuesta sonora háptica en iPhone</span>
           <input
             type="checkbox"
             checked={soundHaptics}
@@ -691,12 +746,12 @@ export const ConfigView: React.FC<{
           />
         </label>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="t-btn t-btn-sm" style={{ flex: 1 }} onClick={handleExportJson}>
-            💾 Exportar Backup .json
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" className="t-btn t-btn-sm t-btn-muted" style={{ flex: 1 }} onClick={handleExportJson}>
+            Exportar Respaldo (.json)
           </button>
-          <label className="t-btn t-btn-sm" style={{ flex: 1 }}>
-            <span>📂 Importar .json</span>
+          <label className="t-btn t-btn-sm t-btn-muted" style={{ flex: 1 }}>
+            <span>Importar Respaldo (.json)</span>
             <input
               type="file"
               accept="application/json,.json"
@@ -709,6 +764,7 @@ export const ConfigView: React.FC<{
         <button
           type="button"
           className="t-btn t-btn-red t-btn-sm"
+          style={{ alignSelf: 'flex-start', marginTop: 4 }}
           onClick={async () => {
             if (
               window.confirm(
@@ -716,11 +772,11 @@ export const ConfigView: React.FC<{
               )
             ) {
               await persistence.clearAllLocalData();
-              onToast('Base local limpiada.');
+              onToast('Base local restablecida.');
             }
           }}
         >
-          🗑️ Limpiar Datos Locales
+          Limpiar Datos Locales
         </button>
       </div>
     </div>
@@ -749,26 +805,27 @@ const ProducerFormModal: React.FC<{
 
   return (
     <ModalSheet
-      title={initial ? '// EDITAR PRODUCTOR' : '// NUEVO PRODUCTOR'}
+      title={initial ? 'Editar Productor' : 'Nuevo Productor'}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="t-btn t-btn-muted" onClick={onClose}>
             Cancelar
           </button>
-          <button type="submit" form="producer-form" className="t-btn t-btn-green t-btn-filled">
+          <button type="submit" form="producer-form" className="t-btn t-btn-filled">
             Guardar
           </button>
         </>
       }
     >
-      <form id="producer-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form id="producer-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="t-field">
           <label className="t-label">Nombre / Razón Social</label>
           <input
             type="text"
             className="t-input"
             required
+            placeholder="Ej: Cabaña Los Robles"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
@@ -778,15 +835,15 @@ const ProducerFormModal: React.FC<{
             <label className="t-label">
               <span>CUIT</span>
               {form.cuit && (
-                <span style={{ color: CBUHelper.isValidCUIT(form.cuit) ? 'var(--t-green)' : 'var(--t-amber)' }}>
-                  {CBUHelper.isValidCUIT(form.cuit) ? '11 dig OK' : 'Incompleto'}
+                <span style={{ color: CBUHelper.isValidCUIT(form.cuit) ? 'var(--t-emerald-text)' : 'var(--t-amber-text)' }}>
+                  {CBUHelper.isValidCUIT(form.cuit) ? '11 dígitos OK' : 'Incompleto'}
                 </span>
               )}
             </label>
             <input
               type="text"
-              className="t-input"
-              placeholder="20-12345678-9"
+              className="t-input tabular-nums"
+              placeholder="30-70894561-4"
               value={form.cuit}
               onChange={(e) => setForm({ ...form, cuit: e.target.value })}
             />
@@ -795,7 +852,8 @@ const ProducerFormModal: React.FC<{
             <label className="t-label">Teléfono / WhatsApp</label>
             <input
               type="text"
-              className="t-input"
+              className="t-input tabular-nums"
+              placeholder="Ej: 381 456 7890"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
             />
@@ -805,22 +863,22 @@ const ProducerFormModal: React.FC<{
           <label className="t-label">
             <span>CBU / CVU (22 dígitos)</span>
             {form.cbu && (
-              <span style={{ color: cbuInfo.isValidLength ? 'var(--t-green)' : 'var(--t-amber)' }}>
+              <span style={{ color: cbuInfo.isValidLength ? 'var(--t-emerald-text)' : 'var(--t-amber-text)' }}>
                 {cbuInfo.bankName}
               </span>
             )}
           </label>
           <input
             type="text"
-            className="t-input"
+            className="t-input tabular-nums"
             maxLength={26}
+            placeholder="0000000000000000000000"
             value={form.cbu}
             onChange={(e) => setForm({ ...form, cbu: e.target.value })}
           />
           {cbuInfo.isValidLength && (
-            <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--t-cyan)' }}>
-              {cbuInfo.isCVU ? 'Billetera CVU' : `Sucursal: ${cbuInfo.branchCode}`} • Cuenta:{' '}
-              {CBUHelper.accountDisplay(cbuInfo)}
+            <div className="tabular-nums" style={{ fontSize: '0.74rem', color: 'var(--t-text-muted)', marginTop: 2 }}>
+              {cbuInfo.isCVU ? 'Billetera Virtual CVU' : `Sucursal: ${cbuInfo.branchCode}`} • Cuenta: {CBUHelper.accountDisplay(cbuInfo)}
             </div>
           )}
         </div>
@@ -846,46 +904,49 @@ const AgentFormModal: React.FC<{
 
   return (
     <ModalSheet
-      title={initial ? '// EDITAR COMISIONISTA' : '// NUEVO COMISIONISTA'}
+      title={initial ? 'Editar Comisionista' : 'Nuevo Comisionista'}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="t-btn t-btn-muted" onClick={onClose}>
             Cancelar
           </button>
-          <button type="submit" form="agent-form" className="t-btn t-btn-green t-btn-filled">
+          <button type="submit" form="agent-form" className="t-btn t-btn-filled">
             Guardar
           </button>
         </>
       }
     >
-      <form id="agent-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form id="agent-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="t-field">
-          <label className="t-label">Nombre</label>
+          <label className="t-label">Nombre del Comisionista</label>
           <input
             type="text"
             className="t-input"
             required
+            placeholder="Ej: Consignataria Pampeana"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
         </div>
         <div className="kpi-grid-2">
           <div className="t-field">
-            <label className="t-label">Comisión (%)</label>
+            <label className="t-label">Porcentaje Comisión (%)</label>
             <input
               type="number"
               step="0.1"
-              className="t-input"
+              className="t-input tabular-nums"
+              placeholder="Ej: 1.5"
               value={form.percent}
               onChange={(e) => setForm({ ...form, percent: Number(e.target.value) || 0 })}
             />
           </div>
           <div className="t-field">
-            <label className="t-label">Teléfono</label>
+            <label className="t-label">Teléfono de Contacto</label>
             <input
               type="text"
-              className="t-input"
+              className="t-input tabular-nums"
+              placeholder="Ej: 381 456 7890"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
             />
@@ -971,60 +1032,71 @@ const AgentCurrentAccountModal: React.FC<{
   };
 
   return (
-    <ModalSheet title={`// CTA CTE: ${agent.name.toUpperCase()}`} onClose={onClose}>
+    <ModalSheet title={`Cuenta Corriente: ${agent.name}`} onClose={onClose}>
       <div className="kpi-grid-3">
-        <MetricCard title="Comisiones" value={Formatters.currency(totalCharges)} tint="var(--t-amber)" />
-        <MetricCard title="Pagos" value={Formatters.currency(totalPayments)} tint="var(--t-green)" />
+        <MetricCard title="Comisiones Acumuladas" value={Formatters.currency(totalCharges)} />
+        <MetricCard title="Pagos Registrados" value={Formatters.currency(totalPayments)} />
         <MetricCard
           title="Saldo Pendiente"
           value={Formatters.currency(balance)}
-          tint={balance > 0 ? 'var(--t-red)' : 'var(--t-green)'}
+          tint={balance > 0 ? 'var(--t-amber-text)' : 'var(--t-emerald-text)'}
         />
       </div>
 
-      <form onSubmit={handleAddPayment} className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div className="t-section-label">// REGISTRAR PAGO / ABONO</div>
+      <form onSubmit={handleAddPayment} className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+          Registrar Nuevo Pago / Abono
+        </span>
         <div className="kpi-grid-2">
           <input
             type="number"
             step="any"
-            className="t-input"
+            className="t-input tabular-nums"
             placeholder="Importe $"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             required
           />
-          <input type="date" className="t-input" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <input
+            type="date"
+            className="t-input tabular-nums"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+          />
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
           <input
             type="text"
             className="t-input"
-            placeholder="Concepto (Transferencia, Cheque...)"
+            placeholder="Concepto (Transferencia bancaria, cheque, etc.)"
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
           />
-          <button type="submit" className="t-btn t-btn-green t-btn-filled">
-            + Pago
+          <button type="submit" className="t-btn t-btn-filled" style={{ whiteSpace: 'nowrap' }}>
+            + Registrar
           </button>
         </div>
       </form>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {transactions.map((tx) => (
-          <div key={`${tx.isCharge ? 'c' : 'p'}_${tx.id}`} className="t-card-elevated t-row-between">
+          <div key={`${tx.isCharge ? 'c' : 'p'}_${tx.id}`} className="t-card t-row-between">
             <div>
-              <div className="mono" style={{ fontWeight: 700, fontSize: '0.8rem' }}>
+              <div style={{ fontWeight: 500, fontSize: '0.85rem', color: 'var(--t-text-primary)' }}>
                 {tx.title}
               </div>
-              <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--t-text-secondary)' }}>
+              <div className="tabular-nums" style={{ fontSize: '0.74rem', color: 'var(--t-text-muted)', marginTop: 2 }}>
                 {Formatters.displayDate(tx.date)} • {tx.subtitle}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <strong
-                className="mono"
-                style={{ color: tx.isCharge ? 'var(--t-amber)' : 'var(--t-green)', fontSize: '0.84rem' }}
+                className="tabular-nums"
+                style={{
+                  color: tx.isCharge ? 'var(--t-text-primary)' : 'var(--t-emerald-text)',
+                  fontSize: '0.9rem',
+                }}
               >
                 {tx.isCharge ? '+' : '-'}
                 {Formatters.currency(tx.amount)}
@@ -1032,8 +1104,10 @@ const AgentCurrentAccountModal: React.FC<{
               {tx.paymentId && (
                 <button
                   type="button"
-                  className="t-btn t-btn-red t-btn-sm"
+                  className="t-btn t-btn-sm t-btn-red"
+                  style={{ minHeight: 28, padding: '2px 8px' }}
                   onClick={() => void persistence.deleteAgentPayment(tx.paymentId!)}
+                  aria-label="Eliminar pago"
                 >
                   ✕
                 </button>

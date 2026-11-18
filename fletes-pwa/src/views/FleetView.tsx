@@ -15,7 +15,7 @@ import { TruckEfficiencyCalculator } from '../domain/engine';
 import { StoreSnapshot, persistence } from '../services/persistence';
 import { WhatsAppShareHelper, exportTruckSheetPdf } from '../services/exporters';
 import { Formatters, TerminalHaptics } from '../utils/formatters';
-import { MetricCard, ModalSheet } from '../components/TerminalUI';
+import { ModalSheet } from '../components/TerminalUI';
 
 type FleetTab = 'TRUCKS' | 'DRIVERS' | 'TRAILERS';
 type TelemetryWindow = '30D' | 'YEAR' | 'ALL';
@@ -86,10 +86,10 @@ export const FleetView: React.FC<{
   }, [telemetryPoints]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Top Action Bar */}
-      <div className="t-row-between" style={{ flexWrap: 'wrap' }}>
-        <div className="t-segmented" style={{ flex: 1 }}>
+      <div className="t-row-between" style={{ flexWrap: 'wrap', gap: 10 }}>
+        <div className="t-segmented" style={{ flex: 1, minWidth: 260 }}>
           <button
             type="button"
             className={`t-seg-item ${subTab === 'TRUCKS' ? 'active' : ''}`}
@@ -98,7 +98,7 @@ export const FleetView: React.FC<{
               setSubTab('TRUCKS');
             }}
           >
-            [CAMIONES: {store.trucks.length}]
+            Camiones ({store.trucks.length})
           </button>
           <button
             type="button"
@@ -108,7 +108,7 @@ export const FleetView: React.FC<{
               setSubTab('DRIVERS');
             }}
           >
-            [CHOFERES: {store.drivers.length}]
+            Choferes ({store.drivers.length})
           </button>
           <button
             type="button"
@@ -118,12 +118,13 @@ export const FleetView: React.FC<{
               setSubTab('TRAILERS');
             }}
           >
-            [JAULAS: {store.trailers.length}]
+            Jaulas ({store.trailers.length})
           </button>
         </div>
         <button
           type="button"
           className="t-btn t-btn-filled t-btn-sm"
+          style={{ whiteSpace: 'nowrap' }}
           onClick={() => {
             TerminalHaptics.click();
             if (subTab === 'TRUCKS') setTruckModal('NEW');
@@ -131,17 +132,28 @@ export const FleetView: React.FC<{
             else setTrailerModal('NEW');
           }}
         >
-          + NUEVO
+          <span>
+            + {subTab === 'TRUCKS' ? 'Nuevo Camión' : subTab === 'DRIVERS' ? 'Nuevo Chofer' : 'Nueva Jaula'}
+          </span>
         </button>
       </div>
 
       {/* Fuel Telemetry Panel (Visible on Trucks Tab) */}
       {subTab === 'TRUCKS' && (
-        <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-section-label">
-            <span>// TELEMETRÍA COMBUSTIBLE (KM/L)</span>
-            <span style={{ color: avgEfficiency >= 2.4 ? 'var(--t-green)' : 'var(--t-amber)' }}>
-              Prom: {Formatters.decimal(avgEfficiency, 2)} km/l
+        <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="t-row-between">
+            <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+              Telemetría de Combustible (km/l)
+            </span>
+            <span
+              className="t-badge tabular-nums"
+              style={{
+                background: avgEfficiency >= 2.4 ? 'var(--t-emerald-bg)' : 'var(--t-amber-bg)',
+                color: avgEfficiency >= 2.4 ? 'var(--t-emerald-text)' : 'var(--t-amber-text)',
+                borderColor: avgEfficiency >= 2.4 ? 'var(--t-emerald-border)' : 'var(--t-amber-border)',
+              }}
+            >
+              Promedio: {Formatters.decimal(avgEfficiency, 2)} km/l
             </span>
           </div>
 
@@ -169,39 +181,39 @@ export const FleetView: React.FC<{
                   className={`t-seg-item ${telemetryWindow === w ? 'active' : ''}`}
                   onClick={() => setTelemetryWindow(w)}
                 >
-                  {w === '30D' ? '30D' : w === 'YEAR' ? 'AÑO' : 'TODO'}
+                  {w === '30D' ? '30 días' : w === 'YEAR' ? 'Este año' : 'Histórico'}
                 </button>
               ))}
             </div>
           </div>
 
           {telemetryPoints.length === 0 ? (
-            <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--t-text-muted)' }}>
-              &gt; Sin registros suficientes de surtidor en el período seleccionado.
+            <div style={{ fontSize: '0.78rem', color: 'var(--t-text-muted)', textAlign: 'center', padding: '12px 0' }}>
+              Sin registros suficientes de surtidor en el período seleccionado.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {telemetryPoints.slice(-8).map((pt) => {
                 const pct = Math.min(100, Math.max(10, (pt.kmPerLiter / 4.5) * 100));
                 const barColor =
                   pt.anomaly === 'LOW'
-                    ? 'var(--t-red)'
+                    ? 'var(--t-rose-text)'
                     : pt.anomaly === 'HIGH'
-                    ? 'var(--t-amber)'
-                    : 'var(--t-green)';
+                    ? 'var(--t-amber-text)'
+                    : 'var(--t-emerald-text)';
                 return (
-                  <div key={pt.id} className="mono" style={{ fontSize: '0.7rem' }}>
-                    <div className="t-row-between" style={{ marginBottom: 2 }}>
+                  <div key={pt.id} style={{ fontSize: '0.76rem' }}>
+                    <div className="t-row-between" style={{ marginBottom: 4 }}>
                       <span style={{ color: 'var(--t-text-secondary)' }}>
                         {Formatters.displayDate(pt.date)} • {pt.truckName}
                       </span>
-                      <strong style={{ color: barColor }}>
+                      <strong className="tabular-nums" style={{ color: barColor, fontWeight: 600 }}>
                         {Formatters.decimal(pt.kmPerLiter, 2)} km/l
                         {pt.anomaly !== 'NONE' ? ` (${pt.anomaly})` : ''}
                       </strong>
                     </div>
-                    <div style={{ height: 6, background: '#05080b', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: barColor }} />
+                    <div style={{ height: 5, background: 'rgba(255, 255, 255, 0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: 3 }} />
                     </div>
                   </div>
                 );
@@ -213,61 +225,100 @@ export const FleetView: React.FC<{
 
       {/* Trucks List */}
       {subTab === 'TRUCKS' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {store.trucks.map((truck) => {
             const expiring = hasTruckExpiringDocuments(truck, 15);
             return (
               <div key={truck.id} className="t-card">
-                <div className="t-row-between" style={{ marginBottom: 4 }}>
-                  <strong className="mono" style={{ fontSize: '0.92rem', color: 'var(--t-cyan)' }}>
-                    🚚 {truck.name} {truck.licensePlate ? `(${truck.licensePlate.toUpperCase()})` : ''}
-                  </strong>
+                <div className="t-row-between" style={{ marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.94rem', color: 'var(--t-text-primary)' }}>
+                      {truck.name}
+                    </span>
+                    {truck.licensePlate && (
+                      <span className="t-badge tabular-nums" style={{ fontSize: '0.72rem' }}>
+                        {truck.licensePlate.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                   {expiring && (
-                    <span className="t-badge" style={{ color: 'var(--t-red)' }}>
-                      [VENCIMIENTO]
+                    <span
+                      className="t-badge tabular-nums"
+                      style={{
+                        background: 'var(--t-rose-bg)',
+                        color: 'var(--t-rose-text)',
+                        borderColor: 'var(--t-rose-border)',
+                      }}
+                    >
+                      Doc por vencer
                     </span>
                   )}
                 </div>
-                <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)' }}>
-                  👤 Chofer: {truck.driver?.name || 'Sin asignar'} • 📦 Jaula: {truck.trailer?.name || 'Sin asignar'}{' '}
-                  ({truck.trailer?.type === 'DOUBLE' ? 'Doble' : 'Simple'})
-                </div>
-                <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--t-text-muted)', marginTop: 3 }}>
-                  VTV: {truck.vtvExpiration ? Formatters.displayDate(truck.vtvExpiration) : '-'} • Seguro:{' '}
-                  {truck.insuranceExpiration ? Formatters.displayDate(truck.insuranceExpiration) : '-'} • Prom:{' '}
-                  {Formatters.decimal(truck.averageEfficiency, 2)} km/l
+
+                <div style={{ fontSize: '0.8rem', color: 'var(--t-text-secondary)', marginTop: 2 }}>
+                  <span>Chofer: {truck.driver?.name || 'Sin asignar'}</span>
+                  <span style={{ margin: '0 6px', color: 'var(--t-text-muted)' }}>•</span>
+                  <span>
+                    Jaula: {truck.trailer?.name || 'Sin asignar'} ({truck.trailer?.type === 'DOUBLE' ? 'Doble' : 'Simple'})
+                  </span>
                 </div>
 
-                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                <div
+                  className="tabular-nums"
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--t-text-muted)',
+                    marginTop: 6,
+                    display: 'flex',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span>VTV: {truck.vtvExpiration ? Formatters.displayDate(truck.vtvExpiration) : '-'}</span>
+                  <span>Seguro: {truck.insuranceExpiration ? Formatters.displayDate(truck.insuranceExpiration) : '-'}</span>
+                  <span>Promedio: {Formatters.decimal(truck.averageEfficiency, 2)} km/l</span>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    marginTop: 12,
+                    paddingTop: 10,
+                    borderTop: '1px solid var(--t-border-subtle)',
+                    flexWrap: 'wrap',
+                  }}
+                >
                   <button
                     type="button"
-                    className="t-btn t-btn-amber t-btn-sm"
+                    className="t-btn t-btn-sm"
                     onClick={() => setTruckModal(truck)}
                   >
-                    ✏️ Editar
+                    Editar
                   </button>
                   <button
                     type="button"
-                    className="t-btn t-btn-green t-btn-sm"
+                    className="t-btn t-btn-sm t-btn-muted"
                     onClick={() =>
                       WhatsAppShareHelper.openWhatsApp(WhatsAppShareHelper.formatTruckDataMessage(truck))
                     }
                   >
-                    📲 Ficha WA
+                    Ficha WhatsApp
                   </button>
                   <button
                     type="button"
-                    className="t-btn t-btn-sm"
+                    className="t-btn t-btn-sm t-btn-muted"
                     onClick={() => {
                       exportTruckSheetPdf(truck);
                       onToast('Ficha PDF generada.');
                     }}
                   >
-                    📄 Ficha PDF
+                    PDF
                   </button>
                   <button
                     type="button"
-                    className="t-btn t-btn-red t-btn-sm"
+                    className="t-btn t-btn-sm t-btn-red"
+                    style={{ marginLeft: 'auto' }}
                     onClick={async () => {
                       if (window.confirm(`¿Eliminar camión ${truck.name}?`)) {
                         await persistence.deleteTruck(truck.id);
@@ -275,7 +326,7 @@ export const FleetView: React.FC<{
                       }
                     }}
                   >
-                    🗑️
+                    Eliminar
                   </button>
                 </div>
               </div>
@@ -286,29 +337,34 @@ export const FleetView: React.FC<{
 
       {/* Drivers List */}
       {subTab === 'DRIVERS' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {store.drivers.map((drv) => (
             <div key={drv.id} className="t-card">
               <div className="t-row-between">
                 <div>
-                  <div className="mono" style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--t-text-primary)' }}>
-                    👤 {drv.name}
+                  <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--t-text-primary)' }}>
+                    {drv.name}
                   </div>
-                  <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)', marginTop: 2 }}>
-                    DNI: {drv.dni ? Formatters.dni(drv.dni) : '-'} • Tel/Lic: {drv.license || '-'}
+                  <div
+                    className="tabular-nums"
+                    style={{ fontSize: '0.78rem', color: 'var(--t-text-secondary)', marginTop: 4 }}
+                  >
+                    DNI: {drv.dni ? Formatters.dni(drv.dni) : '-'}
+                    <span style={{ margin: '0 6px', color: 'var(--t-text-muted)' }}>•</span>
+                    Licencia/Tel: {drv.license || '-'}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     type="button"
-                    className="t-btn t-btn-amber t-btn-sm"
+                    className="t-btn t-btn-sm"
                     onClick={() => setDriverModal(drv)}
                   >
-                    ✏️
+                    Editar
                   </button>
                   <button
                     type="button"
-                    className="t-btn t-btn-red t-btn-sm"
+                    className="t-btn t-btn-sm t-btn-red"
                     onClick={async () => {
                       if (window.confirm(`¿Eliminar chofer ${drv.name}?`)) {
                         await persistence.deleteDriver(drv.id);
@@ -316,7 +372,7 @@ export const FleetView: React.FC<{
                       }
                     }}
                   >
-                    🗑️
+                    Eliminar
                   </button>
                 </div>
               </div>
@@ -327,38 +383,67 @@ export const FleetView: React.FC<{
 
       {/* Trailers List */}
       {subTab === 'TRAILERS' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {store.trailers.map((trl) => {
             const exp = isTrailerExpiring(trl, 15);
             return (
               <div key={trl.id} className="t-card">
                 <div className="t-row-between">
                   <div>
-                    <div className="mono" style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--t-purple)' }}>
-                      📦 {trl.name} {trl.licensePlate ? `(${trl.licensePlate.toUpperCase()})` : ''}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--t-text-primary)' }}>
+                        {trl.name}
+                      </span>
+                      {trl.licensePlate && (
+                        <span className="t-badge tabular-nums" style={{ fontSize: '0.72rem' }}>
+                          {trl.licensePlate.toUpperCase()}
+                        </span>
+                      )}
+                      <span
+                        className="t-badge"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          color: 'var(--t-text-secondary)',
+                          fontSize: '0.7rem',
+                        }}
+                      >
+                        {trl.type === 'DOUBLE' ? 'Doble' : 'Simple'}
+                      </span>
                     </div>
-                    <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)', marginTop: 2 }}>
-                      Tipo: {trl.type === 'DOUBLE' ? 'DOBLE' : 'SIMPLE'} • VTV:{' '}
-                      {trl.vtvExpiration ? Formatters.displayDate(trl.vtvExpiration) : '-'} • SENASA:{' '}
-                      {trl.senasaExpiration ? Formatters.displayDate(trl.senasaExpiration) : '-'}
+
+                    <div
+                      className="tabular-nums"
+                      style={{ fontSize: '0.75rem', color: 'var(--t-text-muted)', marginTop: 5 }}
+                    >
+                      VTV: {trl.vtvExpiration ? Formatters.displayDate(trl.vtvExpiration) : '-'}
+                      <span style={{ margin: '0 6px' }}>•</span>
+                      SENASA: {trl.senasaExpiration ? Formatters.displayDate(trl.senasaExpiration) : '-'}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     {exp && (
-                      <span className="t-badge" style={{ color: 'var(--t-red)' }}>
-                        [VENCE]
+                      <span
+                        className="t-badge tabular-nums"
+                        style={{
+                          background: 'var(--t-rose-bg)',
+                          color: 'var(--t-rose-text)',
+                          borderColor: 'var(--t-rose-border)',
+                        }}
+                      >
+                        Vence pronto
                       </span>
                     )}
                     <button
                       type="button"
-                      className="t-btn t-btn-amber t-btn-sm"
+                      className="t-btn t-btn-sm"
                       onClick={() => setTrailerModal(trl)}
                     >
-                      ✏️
+                      Editar
                     </button>
                     <button
                       type="button"
-                      className="t-btn t-btn-red t-btn-sm"
+                      className="t-btn t-btn-sm t-btn-red"
                       onClick={async () => {
                         if (window.confirm(`¿Eliminar jaula ${trl.name}?`)) {
                           await persistence.deleteTrailer(trl.id);
@@ -366,7 +451,7 @@ export const FleetView: React.FC<{
                         }
                       }}
                     >
-                      🗑️
+                      Eliminar
                     </button>
                   </div>
                 </div>
@@ -383,7 +468,7 @@ export const FleetView: React.FC<{
           drivers={store.drivers}
           trailers={store.trailers}
           onClose={() => setTruckModal(null)}
-          onSaved={() => onToast('Camión guardado.')}
+          onSaved={() => onToast('Camión guardado con éxito.')}
         />
       )}
 
@@ -392,7 +477,7 @@ export const FleetView: React.FC<{
         <DriverFormModal
           initial={driverModal === 'NEW' ? null : driverModal}
           onClose={() => setDriverModal(null)}
-          onSaved={() => onToast('Chofer guardado.')}
+          onSaved={() => onToast('Chofer guardado con éxito.')}
         />
       )}
 
@@ -401,7 +486,7 @@ export const FleetView: React.FC<{
         <TrailerFormModal
           initial={trailerModal === 'NEW' ? null : trailerModal}
           onClose={() => setTrailerModal(null)}
-          onSaved={() => onToast('Jaula guardada.')}
+          onSaved={() => onToast('Jaula guardada con éxito.')}
         />
       )}
     </div>
@@ -409,7 +494,7 @@ export const FleetView: React.FC<{
 };
 
 // =============================================================================
-// Sub-Modals for Truck, Driver, Trailer
+// Sub-Modals for Truck, Driver, Trailer (Clean Geometry & Minimal Noise)
 // =============================================================================
 
 const TruckFormModal: React.FC<{
@@ -433,26 +518,27 @@ const TruckFormModal: React.FC<{
 
   return (
     <ModalSheet
-      title={initial ? '// EDITAR CAMIÓN' : '// NUEVO CAMIÓN'}
+      title={initial ? 'Editar Camión' : 'Nuevo Camión'}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="t-btn t-btn-muted" onClick={onClose}>
             Cancelar
           </button>
-          <button type="submit" form="truck-form" className="t-btn t-btn-green t-btn-filled">
-            Guardar
+          <button type="submit" form="truck-form" className="t-btn t-btn-filled">
+            Guardar Cambios
           </button>
         </>
       }
     >
-      <form id="truck-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form id="truck-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="t-field">
-          <label className="t-label">Nombre / Modelo</label>
+          <label className="t-label">Nombre / Modelo del Camión</label>
           <input
             type="text"
             className="t-input"
             required
+            placeholder="Ej: Axor 1933"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
@@ -462,17 +548,19 @@ const TruckFormModal: React.FC<{
             <label className="t-label">Patente</label>
             <input
               type="text"
-              className="t-input"
+              className="t-input tabular-nums"
+              placeholder="Ej: AB 123 CD"
               value={form.licensePlate}
               onChange={(e) => setForm({ ...form, licensePlate: e.target.value.toUpperCase() })}
             />
           </div>
           <div className="t-field">
-            <label className="t-label">Rendimiento Prom. (km/l)</label>
+            <label className="t-label">Rendimiento Promedio (km/l)</label>
             <input
               type="number"
               step="0.05"
-              className="t-input"
+              className="t-input tabular-nums"
+              placeholder="Ej: 2.85"
               value={form.averageEfficiency || ''}
               onChange={(e) => setForm({ ...form, averageEfficiency: Number(e.target.value) || 0 })}
             />
@@ -483,7 +571,7 @@ const TruckFormModal: React.FC<{
             <label className="t-label">Vencimiento VTV</label>
             <input
               type="date"
-              className="t-input"
+              className="t-input tabular-nums"
               value={form.vtvExpiration}
               onChange={(e) => setForm({ ...form, vtvExpiration: e.target.value })}
             />
@@ -492,7 +580,7 @@ const TruckFormModal: React.FC<{
             <label className="t-label">Vencimiento Seguro</label>
             <input
               type="date"
-              className="t-input"
+              className="t-input tabular-nums"
               value={form.insuranceExpiration}
               onChange={(e) => setForm({ ...form, insuranceExpiration: e.target.value })}
             />
@@ -500,7 +588,7 @@ const TruckFormModal: React.FC<{
         </div>
 
         <div className="t-field">
-          <label className="t-label">Chofer Asignado</label>
+          <label className="t-label">Chofer Asignado Habitual</label>
           <select
             className="t-select"
             value={form.driver?.id || 0}
@@ -545,8 +633,8 @@ const TruckFormModal: React.FC<{
           </select>
         </div>
 
-        <label className="t-row-between mono" style={{ fontSize: '0.78rem', cursor: 'pointer' }}>
-          <span>Es camión de tercero (Flete se paga al chofer/tercero)</span>
+        <label className="t-row-between" style={{ fontSize: '0.8rem', color: 'var(--t-text-secondary)', cursor: 'pointer', padding: '6px 0' }}>
+          <span>Camión de tercero (el flete se liquida a tercero/chofer)</span>
           <input
             type="checkbox"
             checked={form.isFreightPaid}
@@ -575,26 +663,27 @@ const DriverFormModal: React.FC<{
 
   return (
     <ModalSheet
-      title={initial ? '// EDITAR CHOFER' : '// NUEVO CHOFER'}
+      title={initial ? 'Editar Chofer' : 'Nuevo Chofer'}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="t-btn t-btn-muted" onClick={onClose}>
             Cancelar
           </button>
-          <button type="submit" form="driver-form" className="t-btn t-btn-green t-btn-filled">
+          <button type="submit" form="driver-form" className="t-btn t-btn-filled">
             Guardar
           </button>
         </>
       }
     >
-      <form id="driver-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form id="driver-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="t-field">
           <label className="t-label">Nombre Completo</label>
           <input
             type="text"
             className="t-input"
             required
+            placeholder="Ej: Juan Pérez"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
@@ -603,16 +692,18 @@ const DriverFormModal: React.FC<{
           <label className="t-label">DNI</label>
           <input
             type="text"
-            className="t-input"
+            className="t-input tabular-nums"
+            placeholder="Ej: 32.456.789"
             value={form.dni}
             onChange={(e) => setForm({ ...form, dni: e.target.value })}
           />
         </div>
         <div className="t-field">
-          <label className="t-label">Teléfono / Licencia</label>
+          <label className="t-label">Teléfono / Número de Licencia</label>
           <input
             type="text"
-            className="t-input"
+            className="t-input tabular-nums"
+            placeholder="Ej: 381 456 7890"
             value={form.license}
             onChange={(e) => setForm({ ...form, license: e.target.value })}
           />
@@ -639,26 +730,27 @@ const TrailerFormModal: React.FC<{
 
   return (
     <ModalSheet
-      title={initial ? '// EDITAR JAULA' : '// NUEVA JAULA'}
+      title={initial ? 'Editar Jaula / Acoplado' : 'Nueva Jaula / Acoplado'}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="t-btn t-btn-muted" onClick={onClose}>
             Cancelar
           </button>
-          <button type="submit" form="trailer-form" className="t-btn t-btn-green t-btn-filled">
+          <button type="submit" form="trailer-form" className="t-btn t-btn-filled">
             Guardar
           </button>
         </>
       }
     >
-      <form id="trailer-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form id="trailer-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="t-field">
-          <label className="t-label">Nombre / Identificador</label>
+          <label className="t-label">Nombre o Identificador</label>
           <input
             type="text"
             className="t-input"
             required
+            placeholder="Ej: Jaula Doble #2"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
@@ -668,7 +760,8 @@ const TrailerFormModal: React.FC<{
             <label className="t-label">Patente</label>
             <input
               type="text"
-              className="t-input"
+              className="t-input tabular-nums"
+              placeholder="Ej: AD 450 BB"
               value={form.licensePlate}
               onChange={(e) => setForm({ ...form, licensePlate: e.target.value.toUpperCase() })}
             />
@@ -680,8 +773,8 @@ const TrailerFormModal: React.FC<{
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value as TrailerType })}
             >
-              <option value="SIMPLE">Simple</option>
-              <option value="DOUBLE">Doble</option>
+              <option value="SIMPLE">Simple (1 piso)</option>
+              <option value="DOUBLE">Doble (2 pisos)</option>
             </select>
           </div>
         </div>
@@ -690,7 +783,7 @@ const TrailerFormModal: React.FC<{
             <label className="t-label">Vencimiento VTV</label>
             <input
               type="date"
-              className="t-input"
+              className="t-input tabular-nums"
               value={form.vtvExpiration}
               onChange={(e) => setForm({ ...form, vtvExpiration: e.target.value })}
             />
@@ -699,7 +792,7 @@ const TrailerFormModal: React.FC<{
             <label className="t-label">Vencimiento SENASA</label>
             <input
               type="date"
-              className="t-input"
+              className="t-input tabular-nums"
               value={form.senasaExpiration}
               onChange={(e) => setForm({ ...form, senasaExpiration: e.target.value })}
             />

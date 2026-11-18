@@ -82,8 +82,8 @@ export const TravelDetailModal: React.FC<{
 
   if (!travel) {
     return (
-      <ModalSheet title="// DETALLE DE VIAJE" onClose={onClose}>
-        <div className="t-card mono" style={{ color: 'var(--t-amber)' }}>
+      <ModalSheet title="Detalle de Viaje" onClose={onClose}>
+        <div className="t-card" style={{ color: 'var(--t-amber)' }}>
           Viaje #{travelId} no encontrado.
         </div>
       </ModalSheet>
@@ -100,7 +100,7 @@ export const TravelDetailModal: React.FC<{
 
   return (
     <ModalSheet
-      title={`// ${getTravelDisplayTitle(travel)}`}
+      title={getTravelDisplayTitle(travel)}
       onClose={onClose}
       footer={
         <>
@@ -113,7 +113,7 @@ export const TravelDetailModal: React.FC<{
               WhatsAppShareHelper.openWhatsApp(msg);
             }}
           >
-            📲 WhatsApp
+            <span>📲</span> WhatsApp
           </button>
           <button
             type="button"
@@ -124,17 +124,17 @@ export const TravelDetailModal: React.FC<{
               onToast('PDF del viaje generado.');
             }}
           >
-            📄 PDF
+            <span>📄</span> PDF
           </button>
           <button
             type="button"
-            className="t-btn t-btn-amber t-btn-sm"
+            className="t-btn t-btn-sm"
             onClick={() => {
               TerminalHaptics.click();
               onEdit(travel);
             }}
           >
-            ✏️ Editar
+            <span>✏️</span> Editar
           </button>
           {!confirmDelete ? (
             <button
@@ -145,7 +145,7 @@ export const TravelDetailModal: React.FC<{
                 setConfirmDelete(true);
               }}
             >
-              🗑️ Eliminar
+              <span>🗑️</span> Eliminar
             </button>
           ) : (
             <button
@@ -167,17 +167,22 @@ export const TravelDetailModal: React.FC<{
     >
       {/* Header Metadata */}
       <div className="t-card">
-        <div className="t-row-between" style={{ marginBottom: 8 }}>
+        <div className="t-row-between" style={{ marginBottom: 10 }}>
           <StatusBadge status={travel.status} />
-          <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)' }}>
+          <span className="tabular-nums" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)' }}>
             {Formatters.displayDate(travel.date)} • ID #{travel.id}
           </span>
         </div>
 
-        <div className="mono" style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--t-text-primary)' }}>
-          🚚 {travel.truck?.name || 'Sin Camión'} ({travel.truck?.licensePlate || '-'})
+        <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+          🚚 {travel.truck?.name || 'Sin Camión'}{' '}
+          {travel.truck?.licensePlate && (
+            <span className="tabular-nums" style={{ color: 'var(--t-text-secondary)', fontWeight: 400 }}>
+              ({travel.truck.licensePlate})
+            </span>
+          )}
         </div>
-        <div className="mono" style={{ fontSize: '0.76rem', color: 'var(--t-text-secondary)', marginTop: 3 }}>
+        <div style={{ fontSize: '0.78rem', color: 'var(--t-text-secondary)', marginTop: 4 }}>
           👤 Chofer: {travel.truck?.driver?.name || 'Sin asignar'} • Jaula:{' '}
           {travel.truck?.trailer?.name || '-'} ({travel.truck?.trailer?.type === 'DOUBLE' ? 'Doble' : 'Simple'})
         </div>
@@ -185,51 +190,59 @@ export const TravelDetailModal: React.FC<{
 
       {/* Logistics KPIs */}
       <div className="kpi-grid-3">
-        <MetricCard title="Distancia" value={`${Formatters.decimal(dist, 0)} km`} tint="var(--t-purple)" />
-        <MetricCard title="Flete" value={Formatters.currency(flete)} tint="var(--t-cyan)" />
+        <MetricCard title="Distancia" value={`${Formatters.decimal(dist, 0)} km`} tint="var(--t-indigo)" />
+        <MetricCard title="Flete" value={Formatters.currency(flete)} tint="var(--t-indigo)" />
         <MetricCard
           title="Ganancia Neta"
           value={Formatters.currency(profit)}
-          tint={profit >= 0 ? 'var(--t-green)' : 'var(--t-red)'}
+          tint={profit >= 0 ? 'var(--t-emerald)' : 'var(--t-rose)'}
         />
       </div>
 
       {/* Logistics Breakdown */}
       <div className="t-card">
-        <div className="t-section-label">// DESGLOSE LOGÍSTICO Y COMBUSTIBLE</div>
-        <div className="mono" style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.78rem' }}>
+        <div className="t-section-label">Desglose Logístico y Combustible</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: '0.8rem' }}>
           <div className="t-row-between">
-            <span style={{ color: 'var(--t-text-secondary)' }}>Odómetro (Orig → Dest):</span>
-            <span>
+            <span style={{ color: 'var(--t-text-secondary)' }}>Odómetro (Orig → Dest)</span>
+            <span className="tabular-nums">
               {Formatters.decimal(travel.kmOnOrigin, 0)} → {Formatters.decimal(travel.kmOnDestination, 0)} km
             </span>
           </div>
           <div className="t-row-between">
-            <span style={{ color: 'var(--t-text-secondary)' }}>Cálculo Flete:</span>
-            <span style={{ color: 'var(--t-cyan)' }}>{getFleteCalculationDetail(travel, store.config)}</span>
+            <span style={{ color: 'var(--t-text-secondary)' }}>Cálculo Flete</span>
+            <span className="tabular-nums" style={{ color: 'var(--t-indigo)', fontWeight: 500 }}>
+              {getFleteCalculationDetail(travel, store.config)}
+            </span>
           </div>
           <div className="t-row-between">
-            <span style={{ color: 'var(--t-text-secondary)' }}>Pago Chofer:</span>
-            <span style={{ color: 'var(--t-amber)' }}>{Formatters.currency(driverCost)}</span>
+            <span style={{ color: 'var(--t-text-secondary)' }}>Pago Chofer</span>
+            <span className="tabular-nums" style={{ color: 'var(--t-amber)', fontWeight: 500 }}>
+              {Formatters.currency(driverCost)}
+            </span>
           </div>
           <div className="t-row-between">
-            <span style={{ color: 'var(--t-text-secondary)' }}>Combustible Est.:</span>
-            <span style={{ color: 'var(--t-orange)' }}>{Formatters.currency(fuelCost)}</span>
+            <span style={{ color: 'var(--t-text-secondary)' }}>Combustible Est.</span>
+            <span className="tabular-nums" style={{ color: 'var(--t-amber)', fontWeight: 500 }}>
+              {Formatters.currency(fuelCost)}
+            </span>
           </div>
           <div className="t-row-between">
-            <span style={{ color: 'var(--t-text-secondary)' }}>Gastos Operativos:</span>
-            <span style={{ color: 'var(--t-red)' }}>{Formatters.currency(gastos)}</span>
+            <span style={{ color: 'var(--t-text-secondary)' }}>Gastos Operativos</span>
+            <span className="tabular-nums" style={{ color: 'var(--t-rose)', fontWeight: 500 }}>
+              {Formatters.currency(gastos)}
+            </span>
           </div>
           {travel.kmOnPump > 0 && (
             <div className="t-row-between">
-              <span style={{ color: 'var(--t-text-secondary)' }}>Surtidor / Consumo:</span>
-              <span>
-                {Formatters.decimal(travel.kmOnPump, 0)} km • {Formatters.decimal(travel.litersOnPump, 1)} l
+              <span style={{ color: 'var(--t-text-secondary)' }}>Surtidor / Consumo</span>
+              <span className="tabular-nums">
+                {Formatters.decimal(travel.kmOnPump, 0)} km • {Formatters.decimal(travel.litersOnPump, 1)} L
                 {effResult && effResult.efficiency > 0 && (
                   <strong
                     style={{
                       marginLeft: 6,
-                      color: effResult.anomalyType === 'NONE' ? 'var(--t-green)' : 'var(--t-amber)',
+                      color: effResult.anomalyType === 'NONE' ? 'var(--t-emerald)' : 'var(--t-amber)',
                     }}
                   >
                     ({Formatters.decimal(effResult.efficiency, 2)} km/l{' '}
@@ -248,18 +261,20 @@ export const TravelDetailModal: React.FC<{
       {/* Expenses List */}
       {(travel.expenses || []).length > 0 && (
         <div className="t-card">
-          <div className="t-section-label">// GASTOS REGISTRADOS ({travel.expenses.length})</div>
+          <div className="t-section-label">Gastos Registrados ({travel.expenses.length})</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {travel.expenses.map((exp) => (
-              <div key={exp.id} className="t-row-between mono" style={{ fontSize: '0.76rem' }}>
-                <div>
-                  <span style={{ color: 'var(--t-cyan)' }}>[{exp.category}]</span>{' '}
-                  <span>{exp.description || 'Sin detalle'}</span>
+              <div key={exp.id} className="t-row-between" style={{ fontSize: '0.78rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="t-pill t-pill-default" style={{ fontSize: '0.68rem' }}>{exp.category}</span>
+                  <span style={{ color: 'var(--t-text-primary)' }}>{exp.description || 'Sin detalle'}</span>
                   {exp.isReimbursable && (
-                    <span style={{ color: 'var(--t-green)', marginLeft: 6 }}>(Reemb.)</span>
+                    <span className="t-pill t-pill-active" style={{ fontSize: '0.66rem' }}>Reembolsable</span>
                   )}
                 </div>
-                <strong style={{ color: 'var(--t-amber)' }}>{Formatters.currency(exp.amount)}</strong>
+                <strong className="tabular-nums" style={{ color: 'var(--t-text-primary)' }}>
+                  {Formatters.currency(exp.amount)}
+                </strong>
               </div>
             ))}
           </div>
@@ -270,25 +285,25 @@ export const TravelDetailModal: React.FC<{
       {!travel.isOnlyFreight && (
         <div className="t-card">
           <div className="t-section-label">
-            <span>// HACIENDA Y LIQUIDACIÓN</span>
+            <span>Hacienda y Liquidación</span>
             {hasBuyFacturaWarning(travel.buy) && (
-              <span style={{ color: 'var(--t-amber)', fontSize: '0.68rem' }}>
-                ⚠️ Revisar % Factura/Op
+              <span className="t-pill t-pill-warning" style={{ fontSize: '0.68rem' }}>
+                Revisar % Factura/Op
               </span>
             )}
           </div>
 
           <div className="kpi-grid-3" style={{ marginBottom: 10 }}>
-            <MetricCard title="Cabezas" value={String(getBuyTotalQuantity(travel.buy))} tint="var(--t-cyan)" />
+            <MetricCard title="Cabezas" value={String(getBuyTotalQuantity(travel.buy))} tint="var(--t-indigo)" />
             <MetricCard
               title="Kg Limpios"
               value={Formatters.weight(getBuyTotalKgClean(travel.buy))}
-              tint="var(--t-purple)"
+              tint="var(--t-indigo)"
             />
             <MetricCard
               title="Total Operación"
               value={Formatters.currency(getBuyTotalOperation(travel.buy))}
-              tint="var(--t-green)"
+              tint="var(--t-emerald)"
             />
           </div>
 
@@ -304,25 +319,36 @@ export const TravelDetailModal: React.FC<{
                 title="Costo Gancho Inic."
                 value={`${Formatters.currency(getInitialCostPerKg(travel))}/kg`}
                 subtitle={`+Flete ${Formatters.currency(getTransportCostPerKg(travel, store.config))}`}
-                tint="var(--t-cyan)"
+                tint="var(--t-indigo)"
               />
               <MetricCard
                 title="Costo Gancho Final"
                 value={`${Formatters.currency(getFinalCostPerKg(travel, store.config))}/kg`}
-                tint="var(--t-green)"
+                tint="var(--t-emerald)"
               />
             </div>
           )}
 
           {travel.buy?.agent && (
-            <div className="mono" style={{ fontSize: '0.76rem', color: 'var(--t-purple)', marginBottom: 8 }}>
-              🤝 Comisionista: {travel.buy.agent.name} ({Formatters.decimal(travel.buy.agent.percent, 1)}%)
+            <div
+              style={{
+                fontSize: '0.78rem',
+                color: 'var(--t-text-secondary)',
+                marginBottom: 10,
+                padding: '6px 10px',
+                background: 'rgba(255, 255, 255, 0.02)',
+                borderRadius: 'var(--t-radius-sm)',
+                border: '1px solid var(--t-border)',
+              }}
+            >
+              🤝 Comisionista: <strong style={{ color: 'var(--t-text-primary)' }}>{travel.buy.agent.name}</strong>{' '}
+              <span className="tabular-nums">({Formatters.decimal(travel.buy.agent.percent, 1)}%)</span>
             </div>
           )}
 
           {(travel.buy?.listOfProducers || []).length === 0 ? (
-            <div className="mono" style={{ fontSize: '0.76rem', color: 'var(--t-text-muted)' }}>
-              &gt; Sin productores cargados en este viaje.
+            <div style={{ fontSize: '0.78rem', color: 'var(--t-text-muted)' }}>
+              Sin productores cargados en este viaje.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -333,12 +359,12 @@ export const TravelDetailModal: React.FC<{
                 );
                 return (
                   <div key={prod.id} className="t-card-elevated">
-                    <div className="t-row-between" style={{ marginBottom: 6 }}>
+                    <div className="t-row-between" style={{ marginBottom: 8 }}>
                       <div>
-                        <div className="mono" style={{ fontWeight: 800, fontSize: '0.84rem' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.86rem', color: 'var(--t-text-primary)' }}>
                           {prod.name}
                         </div>
-                        <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--t-text-secondary)' }}>
+                        <div className="tabular-nums" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)', marginTop: 2 }}>
                           {prod.cuit ? `CUIT: ${Formatters.cuit(prod.cuit)} • ` : ''}
                           {getProducerTotalQuantity(prod)} cab •{' '}
                           {Formatters.decimal(getProducerTotalKgClean(prod), 0)} kg limpios
@@ -369,32 +395,32 @@ export const TravelDetailModal: React.FC<{
 
                     {(prod.listOfProducts || []).map((p) => {
                       const cat = resolveProductCategory(p.name);
-                      const catColor = getCategoryColor(cat);
                       return (
                         <div
                           key={p.id}
                           style={{
                             borderTop: '1px solid var(--t-border)',
-                            paddingTop: 6,
-                            marginTop: 6,
-                            fontSize: '0.74rem',
+                            paddingTop: 8,
+                            marginTop: 8,
+                            fontSize: '0.76rem',
                           }}
-                          className="mono"
                         >
                           <div className="t-row-between">
-                            <span>
-                              <strong style={{ color: catColor }}>[{cat}]</strong> {p.name || cat} —{' '}
-                              {p.quantity} cab
+                            <span style={{ fontWeight: 500, color: 'var(--t-text-primary)' }}>
+                              <span className="t-pill t-pill-default" style={{ fontSize: '0.66rem', marginRight: 6 }}>
+                                {cat}
+                              </span>{' '}
+                              {p.name || cat} — <span className="tabular-nums">{p.quantity} cab</span>
                             </span>
-                            <strong style={{ color: 'var(--t-green)' }}>
+                            <strong className="tabular-nums" style={{ color: 'var(--t-emerald)' }}>
                               {Formatters.currency(getProductFactura(p))}
                             </strong>
                           </div>
-                          <div style={{ color: 'var(--t-text-secondary)', marginTop: 2 }}>
+                          <div className="tabular-nums" style={{ color: 'var(--t-text-secondary)', marginTop: 3 }}>
                             Bruto: {Formatters.decimal(p.kg, 0)} kg (-{p.roughing}%) → Limpio:{' '}
                             {Formatters.decimal(getProductKgClean(p), 0)} kg × {Formatters.currency(p.price)}
                           </div>
-                          <div style={{ color: 'var(--t-text-muted)', marginTop: 2 }}>
+                          <div className="tabular-nums" style={{ color: 'var(--t-text-muted)', marginTop: 2, fontSize: '0.72rem' }}>
                             Neto: {Formatters.currency(p.taxes.bill.neto)} • IVA ({p.isIvaManual ? 'Manual' : 'Auto'}
                             ): {Formatters.currency(p.taxes.bill.iva)} • Gan:{' '}
                             {Formatters.currency(p.taxes.bill.ganancias)}
@@ -410,16 +436,20 @@ export const TravelDetailModal: React.FC<{
                     })}
 
                     <div
-                      className="t-row-between mono"
+                      className="t-row-between"
                       style={{
                         borderTop: '1px solid var(--t-border)',
-                        marginTop: 8,
-                        paddingTop: 6,
-                        fontSize: '0.78rem',
+                        marginTop: 10,
+                        paddingTop: 8,
+                        fontSize: '0.8rem',
                       }}
                     >
-                      <span style={{ color: 'var(--t-text-secondary)' }}>TOTAL FACTURA PRODUCTOR</span>
-                      <strong style={{ color: 'var(--t-cyan)' }}>{Formatters.currency(prodTotalFact)}</strong>
+                      <span style={{ color: 'var(--t-text-secondary)', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.04em' }}>
+                        Total Factura Productor
+                      </span>
+                      <strong className="tabular-nums" style={{ color: 'var(--t-indigo)' }}>
+                        {Formatters.currency(prodTotalFact)}
+                      </strong>
                     </div>
                   </div>
                 );
@@ -634,7 +664,7 @@ export const TravelFormModal: React.FC<{
 
   return (
     <ModalSheet
-      title={travelToEdit ? `// EDITAR VIAJE #${travelToEdit.id}` : '// NUEVO VIAJE'}
+      title={travelToEdit ? `Editar Viaje #${travelToEdit.id}` : 'Nuevo Viaje'}
       onClose={onClose}
       footer={
         <>
@@ -652,21 +682,21 @@ export const TravelFormModal: React.FC<{
         </>
       }
     >
-      <form id="travel-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <form id="travel-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Live Preview KPIs */}
         <div className="kpi-grid-3">
-          <MetricCard title="Distancia" value={`${Formatters.decimal(dist, 0)} km`} tint="var(--t-purple)" />
-          <MetricCard title="Flete" value={Formatters.currency(flete)} tint="var(--t-cyan)" />
+          <MetricCard title="Distancia" value={`${Formatters.decimal(dist, 0)} km`} tint="var(--t-indigo)" />
+          <MetricCard title="Flete" value={Formatters.currency(flete)} tint="var(--t-indigo)" />
           <MetricCard
             title="Ganancia"
             value={Formatters.currency(profit)}
-            tint={profit >= 0 ? 'var(--t-green)' : 'var(--t-red)'}
+            tint={profit >= 0 ? 'var(--t-emerald)' : 'var(--t-rose)'}
           />
         </div>
 
         {/* Basic Info */}
         <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-section-label">// DATOS GENERALES</div>
+          <div className="t-section-label">Datos Generales</div>
 
           <div className="kpi-grid-2">
             <div className="t-field">
@@ -712,7 +742,15 @@ export const TravelFormModal: React.FC<{
             />
           </div>
 
-          <label className="t-row-between mono" style={{ fontSize: '0.78rem', cursor: 'pointer' }}>
+          <label
+            className="t-row-between"
+            style={{
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              padding: '6px 0',
+              color: 'var(--t-text-secondary)',
+            }}
+          >
             <span>Modo Solo Flete (sin compra de hacienda)</span>
             <input
               type="checkbox"
@@ -744,16 +782,16 @@ export const TravelFormModal: React.FC<{
 
         {/* Odometers & OCR */}
         <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-section-label">// ODÓMETRO Y COMBUSTIBLE (CON OCR)</div>
+          <div className="t-section-label">Odómetro y Combustible (con OCR)</div>
 
           <div className="kpi-grid-2">
             <div className="t-field">
-              <div className="t-label">
-                <span>Km Origen</span>
+              <div className="t-row-between" style={{ marginBottom: 4 }}>
+                <span className="t-label" style={{ margin: 0 }}>Km Origen</span>
                 <button
                   type="button"
                   className="t-btn t-btn-sm"
-                  style={{ minHeight: 24, padding: '2px 7px', fontSize: '0.66rem' }}
+                  style={{ minHeight: 22, padding: '1px 7px', fontSize: '0.68rem' }}
                   onClick={() => setOcrTarget('origin')}
                 >
                   📷 OCR
@@ -762,19 +800,19 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={form.kmOnOrigin || ''}
                 onChange={(e) => setForm({ ...form, kmOnOrigin: Number(e.target.value) || 0 })}
               />
             </div>
 
             <div className="t-field">
-              <div className="t-label">
-                <span>Km Destino</span>
+              <div className="t-row-between" style={{ marginBottom: 4 }}>
+                <span className="t-label" style={{ margin: 0 }}>Km Destino</span>
                 <button
                   type="button"
                   className="t-btn t-btn-sm"
-                  style={{ minHeight: 24, padding: '2px 7px', fontSize: '0.66rem' }}
+                  style={{ minHeight: 22, padding: '1px 7px', fontSize: '0.68rem' }}
                   onClick={() => setOcrTarget('destination')}
                 >
                   📷 OCR
@@ -783,7 +821,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={form.kmOnDestination || ''}
                 onChange={(e) => setForm({ ...form, kmOnDestination: Number(e.target.value) || 0 })}
               />
@@ -792,12 +830,12 @@ export const TravelFormModal: React.FC<{
 
           <div className="kpi-grid-2">
             <div className="t-field">
-              <div className="t-label">
-                <span>Km Surtidor</span>
+              <div className="t-row-between" style={{ marginBottom: 4 }}>
+                <span className="t-label" style={{ margin: 0 }}>Km Surtidor</span>
                 <button
                   type="button"
                   className="t-btn t-btn-sm"
-                  style={{ minHeight: 24, padding: '2px 7px', fontSize: '0.66rem' }}
+                  style={{ minHeight: 22, padding: '1px 7px', fontSize: '0.68rem' }}
                   onClick={() => setOcrTarget('pump')}
                 >
                   📷 OCR
@@ -806,7 +844,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={form.kmOnPump || ''}
                 onChange={(e) => setForm({ ...form, kmOnPump: Number(e.target.value) || 0 })}
               />
@@ -817,7 +855,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={form.litersOnPump || ''}
                 onChange={(e) => setForm({ ...form, litersOnPump: Number(e.target.value) || 0 })}
               />
@@ -830,7 +868,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={form.pricePerKm || ''}
                 onChange={(e) => setForm({ ...form, pricePerKm: Number(e.target.value) || 0 })}
               />
@@ -842,7 +880,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={
                   form.truck?.trailer?.type === 'DOUBLE'
                     ? form.driverPricePerKmDouble || ''
@@ -859,11 +897,11 @@ export const TravelFormModal: React.FC<{
               />
             </div>
             <div className="t-field">
-              <label className="t-label">Gasoil $/l</label>
+              <label className="t-label">Gasoil $/L</label>
               <input
                 type="number"
                 step="any"
-                className="t-input"
+                className="t-input tabular-nums"
                 value={form.fuelPrice || ''}
                 onChange={(e) => setForm({ ...form, fuelPrice: Number(e.target.value) || 0 })}
               />
@@ -872,11 +910,11 @@ export const TravelFormModal: React.FC<{
         </div>
 
         {/* Expenses */}
-        <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div className="t-section-label">
-            <span>// GASTOS DEL VIAJE ({form.expenses.length})</span>
+            <span>Gastos del Viaje ({form.expenses.length})</span>
             <button type="button" className="t-btn t-btn-sm" onClick={addExpense}>
-              + Gasto
+              + Agregar Gasto
             </button>
           </div>
           {form.expenses.map((exp) => (
@@ -896,7 +934,7 @@ export const TravelFormModal: React.FC<{
                 <input
                   type="number"
                   step="any"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   placeholder="Monto $"
                   value={exp.amount || ''}
                   onChange={(e) => updateExpense(exp.id, { amount: Number(e.target.value) || 0 })}
@@ -909,8 +947,19 @@ export const TravelFormModal: React.FC<{
                   placeholder="Descripción"
                   value={exp.description}
                   onChange={(e) => updateExpense(exp.id, { description: e.target.value })}
+                  style={{ flex: 1 }}
                 />
-                <label className="mono" style={{ fontSize: '0.7rem', whiteSpace: 'nowrap', display: 'flex', gap: 4 }}>
+                <label
+                  style={{
+                    fontSize: '0.74rem',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    color: 'var(--t-text-secondary)',
+                    cursor: 'pointer',
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={exp.isReimbursable}
@@ -922,6 +971,7 @@ export const TravelFormModal: React.FC<{
                   type="button"
                   className="t-btn t-btn-red t-btn-sm"
                   onClick={() => removeExpense(exp.id)}
+                  title="Eliminar gasto"
                 >
                   ✕
                 </button>
@@ -934,8 +984,8 @@ export const TravelFormModal: React.FC<{
         {!form.isOnlyFreight && (
           <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div className="t-section-label">
-              <span>// COMPRA DE HACIENDA</span>
-              <span style={{ color: 'var(--t-green)' }}>
+              <span>Compra de Hacienda</span>
+              <span className="tabular-nums" style={{ color: 'var(--t-emerald)', fontWeight: 600 }}>
                 Op: {Formatters.currency(getBuyTotalOperation(form.buy))}
               </span>
             </div>
@@ -958,7 +1008,7 @@ export const TravelFormModal: React.FC<{
                 <input
                   type="number"
                   step="any"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   value={form.buy.totalReduce || ''}
                   onChange={(e) =>
                     setForm((prev) =>
@@ -972,12 +1022,12 @@ export const TravelFormModal: React.FC<{
               </div>
 
               <div className="t-field">
-                <div className="t-label">
-                  <span>Kg Faena Total</span>
+                <div className="t-row-between" style={{ marginBottom: 4 }}>
+                  <span className="t-label" style={{ margin: 0 }}>Kg Faena Total</span>
                   <button
                     type="button"
                     className="t-btn t-btn-sm"
-                    style={{ minHeight: 24, padding: '2px 7px', fontSize: '0.66rem' }}
+                    style={{ minHeight: 22, padding: '1px 7px', fontSize: '0.68rem' }}
                     onClick={() => {
                       const amount = form.kgFaenaTotal || form.buy.kgFaenaGlobal;
                       if (amount > 0) {
@@ -995,7 +1045,7 @@ export const TravelFormModal: React.FC<{
                 <input
                   type="number"
                   step="any"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   value={form.kgFaenaTotal || form.buy.kgFaenaGlobal || ''}
                   onChange={(e) => {
                     const val = Number(e.target.value) || 0;
@@ -1029,9 +1079,9 @@ export const TravelFormModal: React.FC<{
 
             {/* Producers & Products */}
             {form.buy.listOfProducers.map((prod) => (
-              <div key={prod.id} className="t-card-elevated" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div key={prod.id} className="t-card-elevated" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div className="t-row-between">
-                  <strong className="mono" style={{ fontSize: '0.84rem', color: 'var(--t-cyan)' }}>
+                  <strong style={{ fontSize: '0.86rem', color: 'var(--t-text-primary)' }}>
                     👤 {prod.name}
                   </strong>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -1056,7 +1106,7 @@ export const TravelFormModal: React.FC<{
                   <div
                     key={p.id}
                     className="t-card"
-                    style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: 10 }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 10 }}
                   >
                     <div className="t-row-between">
                       <input
@@ -1065,6 +1115,7 @@ export const TravelFormModal: React.FC<{
                         placeholder="Categoría (Novillo, Vaca, Vaquillona...)"
                         value={p.name}
                         onChange={(e) => updateProduct(prod.id, p.id, { name: e.target.value })}
+                        style={{ flex: 1 }}
                       />
                       <button
                         type="button"
@@ -1081,7 +1132,7 @@ export const TravelFormModal: React.FC<{
                         <label className="t-label">Cabezas</label>
                         <input
                           type="number"
-                          className="t-input"
+                          className="t-input tabular-nums"
                           value={p.quantity || ''}
                           onChange={(e) =>
                             updateProduct(prod.id, p.id, { quantity: Number(e.target.value) || 0 })
@@ -1093,7 +1144,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
-                          className="t-input"
+                          className="t-input tabular-nums"
                           value={p.kg || ''}
                           onChange={(e) =>
                             updateProduct(prod.id, p.id, { kg: Number(e.target.value) || 0 })
@@ -1105,7 +1156,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
-                          className="t-input"
+                          className="t-input tabular-nums"
                           value={p.roughing}
                           onChange={(e) =>
                             updateProduct(prod.id, p.id, { roughing: Number(e.target.value) || 0 })
@@ -1120,7 +1171,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
-                          className="t-input"
+                          className="t-input tabular-nums"
                           value={p.price || ''}
                           onChange={(e) =>
                             updateProduct(prod.id, p.id, { price: Number(e.target.value) || 0 })
@@ -1132,7 +1183,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
-                          className="t-input"
+                          className="t-input tabular-nums"
                           value={p.kgFaena || ''}
                           onChange={(e) =>
                             updateProduct(prod.id, p.id, {
@@ -1143,21 +1194,25 @@ export const TravelFormModal: React.FC<{
                         />
                       </div>
                       <div className="t-field">
-                        <label className="t-label">
+                        <label className="t-row-between t-label" style={{ cursor: 'pointer' }}>
                           <span>IVA</span>
-                          <input
-                            type="checkbox"
-                            title="IVA Manual"
-                            checked={p.isIvaManual}
-                            onChange={(e) =>
-                              updateProduct(prod.id, p.id, { isIvaManual: e.target.checked })
-                            }
-                          />
+                          <span style={{ fontSize: '0.68rem', color: 'var(--t-text-secondary)' }}>
+                            <input
+                              type="checkbox"
+                              title="IVA Manual"
+                              checked={p.isIvaManual}
+                              onChange={(e) =>
+                                updateProduct(prod.id, p.id, { isIvaManual: e.target.checked })
+                              }
+                              style={{ marginRight: 4 }}
+                            />
+                            Manual
+                          </span>
                         </label>
                         <input
                           type="number"
                           step="any"
-                          className="t-input"
+                          className="t-input tabular-nums"
                           disabled={!p.isIvaManual}
                           value={p.isIvaManual ? p.taxes.bill.iva || '' : Math.round(p.taxes.bill.iva * 100) / 100}
                           onChange={(e) =>
@@ -1172,10 +1227,10 @@ export const TravelFormModal: React.FC<{
                       </div>
                     </div>
 
-                    <div className="t-row-between mono" style={{ fontSize: '0.7rem', color: 'var(--t-text-secondary)' }}>
+                    <div className="t-row-between tabular-nums" style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)', marginTop: 2 }}>
                       <span>Limpio: {Formatters.decimal(getProductKgClean(p), 0)} kg</span>
                       <span>Neto: {Formatters.currency(p.taxes.bill.neto)}</span>
-                      <strong style={{ color: 'var(--t-green)' }}>
+                      <strong style={{ color: 'var(--t-emerald)' }}>
                         Fact: {Formatters.currency(getProductFactura(p))}
                       </strong>
                     </div>

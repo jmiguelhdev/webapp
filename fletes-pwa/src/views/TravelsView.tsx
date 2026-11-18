@@ -89,18 +89,18 @@ export const TravelsView: React.FC<{
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* Expiring Docs Banner */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Expiring Docs Alert Banner */}
       <DocumentAlertBanner alerts={alerts} onNavigateFleet={() => onNavigateTab('fleet')} />
 
-      {/* Search & New Button */}
-      <div style={{ display: 'flex', gap: 8 }}>
+      {/* Search & New Action */}
+      <div style={{ display: 'flex', gap: 10 }}>
         <div className="t-search-wrap" style={{ flex: 1 }}>
-          <span className="t-search-prefix">&gt;</span>
+          <span className="t-search-icon">🔍</span>
           <input
             type="text"
             className="t-input t-search-input"
-            placeholder="grep / buscar viaje, chofer, productor..."
+            placeholder="Buscar por chofer, camión, productor, destino..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
@@ -109,6 +109,7 @@ export const TravelsView: React.FC<{
               type="button"
               className="t-search-clear"
               onClick={() => setSearchText('')}
+              aria-label="Limpiar búsqueda"
             >
               ✕
             </button>
@@ -117,12 +118,13 @@ export const TravelsView: React.FC<{
         <button
           type="button"
           className="t-btn t-btn-filled"
+          style={{ whiteSpace: 'nowrap' }}
           onClick={() => {
             TerminalHaptics.click();
             setEditingTravel('NEW');
           }}
         >
-          + NUEVO
+          <span>+ Nuevo Viaje</span>
         </button>
       </div>
 
@@ -130,10 +132,10 @@ export const TravelsView: React.FC<{
       <div className="t-segmented">
         {(
           [
-            ['ALL', '[TODOS]'],
-            ['ACTIVE', '[ACTIVOS]'],
-            ['DRAFT', '[BORRADORES]'],
-            ['FLETE', '[SOLO FLETE]'],
+            ['ALL', 'Todos'],
+            ['ACTIVE', 'Activos'],
+            ['DRAFT', 'Borradores'],
+            ['FLETE', 'Solo Flete'],
           ] as Array<[TravelFilter, string]>
         ).map(([val, label]) => (
           <button
@@ -150,41 +152,41 @@ export const TravelsView: React.FC<{
         ))}
       </div>
 
-      {/* KPIs */}
+      {/* High Density KPIs with Tabular Nums */}
       <div className="kpi-grid-3">
-        <MetricCard title="Viajes" value={String(filteredTravels.length)} tint="var(--t-cyan)" />
+        <MetricCard title="Viajes Registrados" value={String(filteredTravels.length)} />
         <MetricCard
-          title="Kms Totales"
+          title="Distancia Total"
           value={`${Formatters.decimal(totalKms, 0)} km`}
-          tint="var(--t-purple)"
         />
         <MetricCard
-          title="Ganancia Neta"
+          title="Ganancia Estimada"
           value={Formatters.currency(totalProfit)}
-          tint={totalProfit >= 0 ? 'var(--t-green)' : 'var(--t-red)'}
+          tint={totalProfit >= 0 ? 'var(--t-emerald-text)' : 'var(--t-rose-text)'}
         />
       </div>
 
       {/* Travel List */}
       {filteredTravels.length === 0 ? (
-        <div className="t-card" style={{ textAlign: 'center', padding: '28px 16px' }}>
-          <div className="mono" style={{ color: 'var(--t-cyan)', fontWeight: 800, fontSize: '0.95rem' }}>
-            {searchText ? 'RESULTADO: 0' : 'SIN REGISTROS'}
+        <div className="t-card" style={{ textAlign: 'center', padding: '36px 16px' }}>
+          <div style={{ fontWeight: 600, fontSize: '0.96rem', color: 'var(--t-text-primary)' }}>
+            {searchText ? 'Sin resultados para la búsqueda' : 'No hay viajes en esta sección'}
           </div>
-          <div className="mono" style={{ color: 'var(--t-text-secondary)', fontSize: '0.78rem', marginTop: 6 }}>
+          <div style={{ color: 'var(--t-text-muted)', fontSize: '0.8rem', marginTop: 6 }}>
             {searchText
-              ? `> Sin coincidencias para '${searchText}'`
-              : '> No hay viajes en esta sección. Pulsa [+ NUEVO] para iniciar.'}
+              ? `No se encontraron coincidencias para "${searchText}".`
+              : 'Podés iniciar un nuevo registro presionando "+ Nuevo Viaje".'}
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filteredTravels.map((travel) => {
             const profit = getTravelProfit(travel, store.config);
             const flete = getFleteCost(travel, store.config);
             const heads = getBuyTotalQuantity(travel.buy);
             const buyTotal = getBuyTotalOperation(travel.buy);
             const faena = getActualKgFaena(travel);
+            const distance = getDistanceKm(travel);
 
             return (
               <div
@@ -195,121 +197,168 @@ export const TravelsView: React.FC<{
                   setDetailTravelId(travel.id);
                 }}
               >
-                <div className="t-row-between" style={{ marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {/* Header row: Status + Date */}
+                <div className="t-row-between" style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <StatusBadge status={travel.status} />
                     {travel.isDirty && (
-                      <span className="t-badge" style={{ color: 'var(--t-amber)' }}>
-                        [PENDIENTE SYNC]
+                      <span
+                        className="t-badge tabular-nums"
+                        style={{
+                          background: 'var(--t-amber-bg)',
+                          color: 'var(--t-amber-text)',
+                          borderColor: 'var(--t-amber-border)',
+                        }}
+                      >
+                        Pendiente Sync
                       </span>
                     )}
                   </div>
-                  <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--t-text-secondary)' }}>
+                  <span
+                    className="tabular-nums"
+                    style={{ fontSize: '0.75rem', color: 'var(--t-text-muted)', fontWeight: 500 }}
+                  >
                     {Formatters.displayDate(travel.date)}
                   </span>
                 </div>
 
-                <div className="t-row-between" style={{ alignItems: 'flex-start', gap: 10 }}>
+                {/* Title and Detail */}
+                <div className="t-row-between" style={{ alignItems: 'flex-start', gap: 12 }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div
-                      className="mono"
                       style={{
-                        fontWeight: 800,
-                        fontSize: '0.92rem',
+                        fontWeight: 600,
+                        fontSize: '0.95rem',
                         color: 'var(--t-text-primary)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        letterSpacing: '-0.015em',
                       }}
                     >
                       {getTravelDisplayTitle(travel)}
                     </div>
                     <div
-                      className="mono"
-                      style={{ fontSize: '0.73rem', color: 'var(--t-text-secondary)', marginTop: 2 }}
+                      style={{ fontSize: '0.78rem', color: 'var(--t-text-secondary)', marginTop: 3 }}
                     >
                       {getSubtitleDetail(travel) || 'Sin unidad asignada'}
                     </div>
+
                     {!travel.isOnlyFreight && heads > 0 && (
                       <div
-                        className="mono"
-                        style={{ fontSize: '0.71rem', color: 'var(--t-cyan)', marginTop: 4 }}
+                        className="tabular-nums"
+                        style={{
+                          fontSize: '0.74rem',
+                          color: 'var(--t-text-secondary)',
+                          marginTop: 6,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          flexWrap: 'wrap',
+                        }}
                       >
-                        🐂 {getProducerNamesDisplay(travel)} • {heads} cab
-                        {faena > 0 ? ` • Faena: ${Formatters.weight(faena)}` : ''}
-                        {buyTotal > 0 ? ` • Op: ${Formatters.currencyCompact(buyTotal)}` : ''}
+                        <span style={{ color: 'var(--t-text-primary)', fontWeight: 500 }}>
+                          🐂 {getProducerNamesDisplay(travel)}
+                        </span>
+                        <span>•</span>
+                        <span>{heads} cabezas</span>
+                        {faena > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>Faena: {Formatters.weight(faena)}</span>
+                          </>
+                        )}
+                        {buyTotal > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>Op: {Formatters.currencyCompact(buyTotal)}</span>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
 
+                  {/* Operational & Financial Summary */}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div className="mono" style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--t-cyan)' }}>
+                    <div
+                      className="tabular-nums"
+                      style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--t-text-primary)' }}
+                    >
                       {Formatters.currency(flete)}
                     </div>
                     <div
-                      className="mono"
+                      className="tabular-nums"
                       style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        color: profit >= 0 ? 'var(--t-green)' : 'var(--t-red)',
+                        fontSize: '0.74rem',
+                        fontWeight: 500,
+                        color: profit >= 0 ? 'var(--t-emerald-text)' : 'var(--t-rose-text)',
                         marginTop: 2,
                       }}
                     >
-                      Neto: {Formatters.currency(profit)}
+                      {profit >= 0 ? '+' : ''}{Formatters.currency(profit)} neto
                     </div>
+                    {distance > 0 && (
+                      <div
+                        className="tabular-nums"
+                        style={{ fontSize: '0.7rem', color: 'var(--t-text-muted)', marginTop: 2 }}
+                      >
+                        {Formatters.decimal(distance, 0)} km
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Quick Actions */}
+                {/* Quick Minimalist Actions */}
                 <div
                   style={{
                     display: 'flex',
-                    gap: 6,
-                    marginTop: 10,
-                    paddingTop: 8,
-                    borderTop: '1px solid var(--t-border)',
+                    gap: 8,
+                    marginTop: 12,
+                    paddingTop: 10,
+                    borderTop: '1px solid var(--t-border-subtle)',
                     flexWrap: 'wrap',
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
                     type="button"
-                    className="t-btn t-btn-amber t-btn-sm"
+                    className="t-btn t-btn-sm"
+                    style={{ background: 'rgba(255, 255, 255, 0.03)' }}
                     onClick={() => {
                       TerminalHaptics.click();
                       setEditingTravel(travel);
                     }}
                   >
-                    ✏️ Editar
+                    Editar
                   </button>
                   <button
                     type="button"
-                    className="t-btn t-btn-purple t-btn-sm"
+                    className="t-btn t-btn-sm t-btn-muted"
                     onClick={() => void handleDuplicate(travel)}
                   >
-                    📋 Duplicar
+                    Duplicar
                   </button>
                   <button
                     type="button"
-                    className="t-btn t-btn-green t-btn-sm"
+                    className="t-btn t-btn-sm t-btn-muted"
                     onClick={() => {
                       TerminalHaptics.click();
                       const txt = WhatsAppShareHelper.formatTravelLiquidationMessage(travel, store.config);
                       WhatsAppShareHelper.openWhatsApp(txt);
                     }}
                   >
-                    📲 WA
+                    WhatsApp
                   </button>
                   <button
                     type="button"
-                    className="t-btn t-btn-sm"
+                    className="t-btn t-btn-sm t-btn-muted"
                     onClick={() => {
                       TerminalHaptics.click();
                       exportTravelPdf(travel, store.config);
-                      onToast('PDF generado.');
+                      onToast('Comprobante PDF generado.');
                     }}
                   >
-                    📄 PDF
+                    PDF
                   </button>
                 </div>
               </div>

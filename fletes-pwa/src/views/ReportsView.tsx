@@ -4,7 +4,6 @@ import {
   getDistanceKm,
   getDriverCost,
   getFleteCost,
-  getFuelCost,
   getGastosDelViaje,
   getReimbursableExpenses,
   getTravelDisplayTitle,
@@ -123,25 +122,33 @@ export const ReportsView: React.FC<{
     });
 
     const totalBilled = filtered.reduce((a, t) => a + getFleteCost(t, store.config), 0);
-    const totalFuel = filtered.reduce((a, t) => a + getFuelCost(t), 0);
+    const totalFuel = filtered.reduce((a, t) => a + (t.litersOnPump || 0) * (t.fuelPrice || store.config.fuelPrice), 0);
     const totalDriver = filtered.reduce((a, t) => a + getDriverCost(t), 0);
     const totalExpenses = filtered.reduce((a, t) => a + getGastosDelViaje(t), 0);
-    const netProfit = filtered.reduce((a, t) => a + getTravelProfit(t, store.config), 0);
+    const totalCosts = totalFuel + totalDriver + totalExpenses;
+    const netProfit = totalBilled - totalCosts;
 
-    // Group by month/label for chart
-    const bucketMap = new Map<string, { label: string; revenue: number; costs: number; net: number }>();
-    const sortedAsc = [...filtered].sort((a, b) => (a.date < b.date ? -1 : 1));
-    for (const t of sortedAsc) {
-      const label = (t.date || '').slice(0, 7) || 'S/F';
-      const rev = getFleteCost(t, store.config);
-      const costs = getFuelCost(t) + getDriverCost(t) + getGastosDelViaje(t);
-      const net = rev - costs;
-      const cur = bucketMap.get(label) || { label, revenue: 0, costs: 0, net: 0 };
-      cur.revenue += rev;
-      cur.costs += costs;
-      cur.net += net;
-      bucketMap.set(label, cur);
+    // Monthly breakdown points
+    const monthlyMap = new Map<string, { revenue: number; costs: number; net: number }>();
+    for (const tr of filtered) {
+      const dt = Formatters.parseDate(tr.date) || new Date();
+      const monthKey = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+      const rev = getFleteCost(tr, store.config);
+      const cst =
+        (tr.litersOnPump || 0) * (tr.fuelPrice || store.config.fuelPrice) +
+        getDriverCost(tr) +
+        getGastosDelViaje(tr);
+      const curr = monthlyMap.get(monthKey) || { revenue: 0, costs: 0, net: 0 };
+      monthlyMap.set(monthKey, {
+        revenue: curr.revenue + rev,
+        costs: curr.costs + cst,
+        net: curr.net + (rev - cst),
+      });
     }
+
+    const points = Array.from(monthlyMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([k, v]) => ({ label: k, ...v }));
 
     return {
       count: filtered.length,
@@ -149,42 +156,43 @@ export const ReportsView: React.FC<{
       totalFuel,
       totalDriver,
       totalExpenses,
+      totalCosts,
       netProfit,
-      points: Array.from(bucketMap.values()).slice(-6),
+      points,
     };
   }, [store.travels, store.config, selectedTruckId, periodFilter]);
 
-  // --- Cost Simulator Computed (1:1 with ReportsDashboardView.swift) ---
+  // --- Cost Simulator Computed ---
   const simResult = useMemo(() => {
-    const precioKm = simIsDouble
-      ? store.config.simulationFreightPriceDouble
-      : store.config.simulationFreightPriceSimple;
-    const pesoEstimado = simIsDouble ? 21500 : 15500;
-    const fleteTotal = simDistancia * precioKm;
-    const fletePorKg = pesoEstimado > 0 ? fleteTotal / pesoEstimado : 0;
+    const pesoVivo = simIsDouble ? 21500 : 15500;
+    const kgCarne = (pesoVivo * simRendimiento) / 100;
+    const costoHaciendaTotal = pesoVivo * simPrecioVivo;
+    const costoHaciendaPorKgCarne = kgCarne > 0 ? costoHaciendaTotal / kgCarne : 0;
 
-    const kgCarnePorKgVivo = simRendimiento / 100.0;
-    const costoHaciendaPorKgCarne = kgCarnePorKgVivo > 0 ? simPrecioVivo / kgCarnePorKgVivo : 0;
-    const costoFletePorKgCarne = kgCarnePorKgVivo > 0 ? fletePorKg / kgCarnePorKgVivo : 0;
+    const rateKm = simIsDouble
+      ? store.config.simulationFreightPriceDouble || 3100
+      : store.config.simulationFreightPriceSimple || 2600;
+    const fleteTotal = simDistancia * rateKm;
+    const costoFletePorKgCarne = kgCarne > 0 ? fleteTotal / kgCarne : 0;
 
-    const baseBruta = costoHaciendaPorKgCarne + costoFletePorKgCarne;
-    const margenMult = 1.0 + simMargen / 100.0;
-    const tasaImpuestos = margenMult * (simIIBB / 100.0);
-    const divisor = 1.0 - tasaImpuestos;
-    const costoGanchoFinal = divisor > 0 ? baseBruta / divisor : baseBruta;
-    const facturacionSugerida = costoGanchoFinal * margenMult;
+    const costoBrutoPorKgCarne = costoHaciendaPorKgCarne + costoFletePorKgCarne;
+    const factorIIBB = 1 + simIIBB / 100;
+    const costoGanchoFinal = costoBrutoPorKgCarne * factorIIBB;
+
+    const factorMargen = 1 + simMargen / 100;
+    const facturacionSugerida = costoGanchoFinal * factorMargen;
     const utilidadPorKg = facturacionSugerida - costoGanchoFinal;
 
     return {
+      kgCarne,
       fleteTotal,
       costoHaciendaPorKgCarne,
       costoFletePorKgCarne,
       costoGanchoFinal,
       facturacionSugerida,
       utilidadPorKg,
-      pesoEstimado,
     };
-  }, [simRendimiento, simPrecioVivo, simDistancia, simIIBB, simMargen, simIsDouble, store.config]);
+  }, [simIsDouble, simRendimiento, simPrecioVivo, simDistancia, simIIBB, simMargen, store.config]);
 
   // --- Logistics Summary Computed ---
   const logisticsSummary = useMemo(() => {
@@ -194,9 +202,10 @@ export const ReportsView: React.FC<{
 
     const filtered = store.travels.filter((t) => {
       const dt = Formatters.parseDate(t.date);
-      if (!dt || dt < sDate || dt > eDate) return false;
-      if (logProducerId && !(t.buy?.listOfProducers || []).some((p) => p.id === logProducerId)) {
-        return false;
+      if (dt && (dt < sDate || dt > eDate)) return false;
+      if (logProducerId) {
+        const hasProd = (t.buy?.listOfProducers || []).some((p) => p.id === logProducerId);
+        if (!hasProd) return false;
       }
       if (logAgentId && t.buy?.agent?.id !== logAgentId) return false;
       if (logTruckId && t.truck?.id !== logTruckId) return false;
@@ -243,16 +252,16 @@ export const ReportsView: React.FC<{
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Sub-navigation + Excel Export */}
-      <div className="t-row-between" style={{ gap: 6, flexWrap: 'wrap' }}>
-        <div className="t-segmented" style={{ flex: 1 }}>
+      <div className="t-row-between" style={{ gap: 10, flexWrap: 'wrap' }}>
+        <div className="t-segmented" style={{ flex: 1, minWidth: 280 }}>
           {(
             [
-              ['DRIVER', '[CHOFER]'],
-              ['TRUCK', '[CAMIÓN]'],
-              ['SIMULATOR', '[SIMULADOR]'],
-              ['LOGISTICS', '[LOGÍSTICA]'],
+              ['DRIVER', 'Choferes'],
+              ['TRUCK', 'Camiones'],
+              ['SIMULATOR', 'Simulador'],
+              ['LOGISTICS', 'Logística'],
             ] as Array<[ReportsSubTab, string]>
           ).map(([id, label]) => (
             <button
@@ -270,24 +279,27 @@ export const ReportsView: React.FC<{
         </div>
         <button
           type="button"
-          className="t-btn t-btn-green t-btn-sm"
+          className="t-btn t-btn-sm t-btn-filled"
+          style={{ whiteSpace: 'nowrap' }}
           onClick={() => {
             TerminalHaptics.click();
             exportFullWorkbookXlsx(store.travels, store.config);
-            onToast('Excel multi-hoja (.xlsx) descargado.');
+            onToast('Planilla Excel completa descargada.');
           }}
         >
-          📊 Excel
+          <span>Descargar Excel (.xlsx)</span>
         </button>
       </div>
 
       {/* 1. DRIVER SETTLEMENT */}
       {subTab === 'DRIVER' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="t-section-label">// PARÁMETROS DE LIQUIDACIÓN</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+              Parámetros de Liquidación de Chofer
+            </span>
             <SearchablePicker
-              label="Chofer"
+              label="Chofer a Liquidar"
               items={store.drivers}
               selectedId={activeDriver?.id || null}
               onSelect={(id) => id && setSelectedDriverId(id)}
@@ -297,19 +309,19 @@ export const ReportsView: React.FC<{
             />
             <div className="kpi-grid-2">
               <div className="t-field">
-                <label className="t-label">Desde</label>
+                <label className="t-label">Fecha Desde</label>
                 <input
                   type="date"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   value={driverStartStr}
                   onChange={(e) => setDriverStartStr(e.target.value)}
                 />
               </div>
               <div className="t-field">
-                <label className="t-label">Hasta</label>
+                <label className="t-label">Fecha Hasta</label>
                 <input
                   type="date"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   value={driverEndStr}
                   onChange={(e) => setDriverEndStr(e.target.value)}
                 />
@@ -318,81 +330,109 @@ export const ReportsView: React.FC<{
           </div>
 
           <div className="kpi-grid-2">
-            <MetricCard title="Viajes Computados" value={String(driverTravels.length)} tint="var(--t-cyan)" />
+            <MetricCard title="Viajes Computados" value={String(driverTravels.length)} />
             <MetricCard
-              title="Kms Recorridos"
+              title="Kilómetros Totales"
               value={`${Formatters.decimal(driverTotals.kms, 0)} km`}
-              tint="var(--t-purple)"
             />
-            <MetricCard title="Monto Viajes" value={Formatters.currency(driverTotals.earnings)} tint="var(--t-green)" />
-            <MetricCard title="Reembolso Gastos" value={Formatters.currency(driverTotals.reimb)} tint="var(--t-orange)" />
+            <MetricCard title="Remuneración Viajes" value={Formatters.currency(driverTotals.earnings)} />
+            <MetricCard title="Reintegro de Gastos" value={Formatters.currency(driverTotals.reimb)} />
           </div>
 
           {driverTotals.thirdParty > 0 && (
             <MetricCard
-              title="Fletes de Terceros"
+              title="Fletes a Terceros"
               value={Formatters.currency(driverTotals.thirdParty)}
-              tint="var(--t-blue)"
             />
           )}
 
-          <MetricCard
-            title="TOTAL NETO A PAGAR"
-            value={Formatters.currency(driverTotals.total)}
-            tint="var(--t-cyan)"
-          />
-
-          {activeDriver && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                className="t-btn t-btn-green t-btn-filled"
-                style={{ flex: 1 }}
-                onClick={() => {
-                  const s = Formatters.parseDate(driverStartStr) || new Date();
-                  const e = Formatters.parseDate(driverEndStr) || new Date();
-                  const msg = WhatsAppShareHelper.formatDriverWeeklyMessage(
-                    activeDriver,
-                    driverTravels,
-                    s,
-                    e,
-                    store.config
-                  );
-                  WhatsAppShareHelper.openWhatsApp(msg);
-                }}
-              >
-                📲 Enviar por WhatsApp
-              </button>
-              <button
-                type="button"
-                className="t-btn"
-                style={{ flex: 1 }}
-                onClick={() => {
-                  const s = Formatters.parseDate(driverStartStr) || new Date();
-                  const e = Formatters.parseDate(driverEndStr) || new Date();
-                  exportDriverSettlementPdf(activeDriver, driverTravels, s, e, store.config);
-                  onToast('Liquidación PDF generada.');
-                }}
-              >
-                📄 Descargar PDF
-              </button>
+          <div
+            className="t-card"
+            style={{
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+              background: 'var(--t-surface-elevated)',
+              padding: '16px',
+            }}
+          >
+            <div className="t-row-between">
+              <div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--t-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                  Total Neto a Liquidar
+                </div>
+                <div
+                  className="tabular-nums"
+                  style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--t-text-primary)', marginTop: 2 }}
+                >
+                  {Formatters.currency(driverTotals.total)}
+                </div>
+              </div>
+              {activeDriver && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="t-btn t-btn-sm t-btn-filled"
+                    onClick={() => {
+                      const s = Formatters.parseDate(driverStartStr) || new Date();
+                      const e = Formatters.parseDate(driverEndStr) || new Date();
+                      const msg = WhatsAppShareHelper.formatDriverWeeklyMessage(
+                        activeDriver,
+                        driverTravels,
+                        s,
+                        e,
+                        store.config
+                      );
+                      WhatsAppShareHelper.openWhatsApp(msg);
+                    }}
+                  >
+                    Enviar WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    className="t-btn t-btn-sm t-btn-muted"
+                    onClick={() => {
+                      const s = Formatters.parseDate(driverStartStr) || new Date();
+                      const e = Formatters.parseDate(driverEndStr) || new Date();
+                      exportDriverSettlementPdf(activeDriver, driverTravels, s, e, store.config);
+                      onToast('Liquidación PDF generada.');
+                    }}
+                  >
+                    Exportar PDF
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {driverTravels.length > 0 && (
-            <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div className="t-section-label">// VIAJES INCLUIDOS ({driverTravels.length})</div>
-              {driverTravels.map((t) => (
-                <div key={t.id} className="t-row-between mono" style={{ fontSize: '0.75rem' }}>
-                  <span>
-                    {Formatters.displayDate(t.date)} • {getTravelDisplayTitle(t)} (
-                    {Formatters.decimal(getDistanceKm(t), 0)} km)
-                  </span>
-                  <strong style={{ color: 'var(--t-green)' }}>
-                    {Formatters.currency(getDriverCost(t))}
-                  </strong>
-                </div>
-              ))}
+            <div className="data-table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Viaje / Itinerario</th>
+                    <th style={{ textAlign: 'right' }}>Distancia</th>
+                    <th style={{ textAlign: 'right' }}>Monto Chofer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {driverTravels.map((t) => (
+                    <tr key={t.id}>
+                      <td className="tabular-nums" style={{ color: 'var(--t-text-muted)', whiteSpace: 'nowrap' }}>
+                        {Formatters.displayDate(t.date)}
+                      </td>
+                      <td style={{ fontWeight: 500 }}>
+                        {getTravelDisplayTitle(t)}
+                      </td>
+                      <td className="tabular-nums" style={{ textAlign: 'right', color: 'var(--t-text-secondary)' }}>
+                        {Formatters.decimal(getDistanceKm(t), 0)} km
+                      </td>
+                      <td className="tabular-nums" style={{ textAlign: 'right', fontWeight: 600 }}>
+                        {Formatters.currency(getDriverCost(t))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -400,9 +440,11 @@ export const ReportsView: React.FC<{
 
       {/* 2. TRUCK FINANCES */}
       {subTab === 'TRUCK' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="t-section-label">// ANÁLISIS FINANCIERO POR CAMIÓN</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+              Análisis Económico por Unidad
+            </span>
             <select
               className="t-select"
               value={selectedTruckId}
@@ -410,7 +452,7 @@ export const ReportsView: React.FC<{
                 setSelectedTruckId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))
               }
             >
-              <option value="ALL">Toda la Flota</option>
+              <option value="ALL">Toda la Flota Consolidada</option>
               {store.trucks.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} ({t.licensePlate})
@@ -421,10 +463,10 @@ export const ReportsView: React.FC<{
             <div className="t-segmented">
               {(
                 [
-                  ['MONTH', '[30 DÍAS]'],
-                  ['QUARTER', '[TRIMESTRE]'],
-                  ['YEAR', '[AÑO]'],
-                  ['ALL', '[TODO]'],
+                  ['MONTH', 'Últimos 30 días'],
+                  ['QUARTER', 'Trimestre'],
+                  ['YEAR', 'Año en curso'],
+                  ['ALL', 'Histórico'],
                 ] as Array<[FinancialPeriodFilter, string]>
               ).map(([val, label]) => (
                 <button
@@ -440,57 +482,58 @@ export const ReportsView: React.FC<{
           </div>
 
           <MetricCard
-            title="FLETE TOTAL FACTURADO"
+            title="Facturación Bruta de Fletes"
             value={Formatters.currency(truckFinances.totalBilled)}
-            subtitle={`${truckFinances.count} viajes en período`}
-            tint="var(--t-cyan)"
+            subtitle={`${truckFinances.count} viajes registrados en el período`}
           />
 
           <div className="kpi-grid-2">
-            <MetricCard title="Combustible Total" value={Formatters.currency(truckFinances.totalFuel)} tint="var(--t-amber)" />
-            <MetricCard title="Chofer Liquidado" value={Formatters.currency(truckFinances.totalDriver)} tint="var(--t-purple)" />
-            <MetricCard title="Gastos Operativos" value={Formatters.currency(truckFinances.totalExpenses)} tint="var(--t-red)" />
+            <MetricCard title="Gasto Combustible" value={Formatters.currency(truckFinances.totalFuel)} />
+            <MetricCard title="Costo Choferes" value={Formatters.currency(truckFinances.totalDriver)} />
+            <MetricCard title="Gastos Operativos" value={Formatters.currency(truckFinances.totalExpenses)} />
             <MetricCard
-              title="UTILIDAD NETA"
+              title="Utilidad Neta Operativa"
               value={Formatters.currency(truckFinances.netProfit)}
-              tint={truckFinances.netProfit >= 0 ? 'var(--t-green)' : 'var(--t-red)'}
+              tint={truckFinances.netProfit >= 0 ? 'var(--t-emerald-text)' : 'var(--t-rose-text)'}
             />
           </div>
 
           {truckFinances.points.length > 0 && (
-            <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div className="t-section-label">// EVOLUCIÓN FINANCIERA (FACTURADO vs COSTOS)</div>
+            <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+                Evolución Mensual (Facturado vs Costos Totales)
+              </span>
               {truckFinances.points.map((pt) => (
-                <div key={pt.label} className="mono" style={{ fontSize: '0.72rem' }}>
-                  <div className="t-row-between" style={{ marginBottom: 4 }}>
-                    <span style={{ fontWeight: 700 }}>{pt.label}</span>
-                    <span>
-                      <span style={{ color: 'var(--t-cyan)' }}>{Formatters.currencyCompact(pt.revenue)}</span>
-                      {' / '}
-                      <span style={{ color: 'var(--t-amber)' }}>{Formatters.currencyCompact(pt.costs)}</span>
-                      {' → '}
-                      <strong style={{ color: pt.net >= 0 ? 'var(--t-green)' : 'var(--t-red)' }}>
+                <div key={pt.label} style={{ fontSize: '0.78rem' }}>
+                  <div className="t-row-between" style={{ marginBottom: 5 }}>
+                    <span className="tabular-nums" style={{ fontWeight: 500 }}>{pt.label}</span>
+                    <span className="tabular-nums">
+                      <span style={{ color: 'var(--t-text-primary)' }}>{Formatters.currencyCompact(pt.revenue)}</span>
+                      <span style={{ color: 'var(--t-text-muted)' }}> / </span>
+                      <span style={{ color: 'var(--t-text-secondary)' }}>{Formatters.currencyCompact(pt.costs)}</span>
+                      <span style={{ color: 'var(--t-text-muted)' }}> → </span>
+                      <strong style={{ color: pt.net >= 0 ? 'var(--t-emerald-text)' : 'var(--t-rose-text)' }}>
                         {Formatters.currencyCompact(pt.net)}
                       </strong>
                     </span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <div style={{ height: 6, background: '#05080b', borderRadius: 3 }}>
+                    <div style={{ height: 5, background: 'rgba(255, 255, 255, 0.05)', borderRadius: 3 }}>
                       <div
                         style={{
                           width: `${(pt.revenue / maxChartValue) * 100}%`,
                           height: '100%',
-                          background: 'var(--t-cyan)',
+                          background: 'var(--t-text-primary)',
                           borderRadius: 3,
                         }}
                       />
                     </div>
-                    <div style={{ height: 6, background: '#05080b', borderRadius: 3 }}>
+                    <div style={{ height: 5, background: 'rgba(255, 255, 255, 0.05)', borderRadius: 3 }}>
                       <div
                         style={{
                           width: `${(pt.costs / maxChartValue) * 100}%`,
                           height: '100%',
-                          background: 'var(--t-amber)',
+                          background: 'rgba(255, 255, 255, 0.3)',
                           borderRadius: 3,
                         }}
                       />
@@ -505,14 +548,18 @@ export const ReportsView: React.FC<{
 
       {/* 3. COST SIMULATOR */}
       {subTab === 'SIMULATOR' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div className="t-section-label">// PARÁMETROS DE SIMULACIÓN GANCHO</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+              Simulador de Costo Gancho y Margen
+            </span>
 
             <div className="t-field">
-              <div className="t-label">
-                <span>Rendimiento Proyectado</span>
-                <strong style={{ color: 'var(--t-purple)' }}>{Formatters.decimal(simRendimiento, 1)}%</strong>
+              <div className="t-row-between">
+                <span className="t-label">Rendimiento Proyectado</span>
+                <strong className="tabular-nums" style={{ color: 'var(--t-text-primary)', fontSize: '0.85rem' }}>
+                  {Formatters.decimal(simRendimiento, 1)}%
+                </strong>
               </div>
               <input
                 type="range"
@@ -526,9 +573,11 @@ export const ReportsView: React.FC<{
             </div>
 
             <div className="t-field">
-              <div className="t-label">
-                <span>Margen Operativo</span>
-                <strong style={{ color: 'var(--t-green)' }}>{Formatters.decimal(simMargen, 0)}%</strong>
+              <div className="t-row-between">
+                <span className="t-label">Margen Operativo Deseado</span>
+                <strong className="tabular-nums" style={{ color: 'var(--t-emerald-text)', fontSize: '0.85rem' }}>
+                  {Formatters.decimal(simMargen, 0)}%
+                </strong>
               </div>
               <input
                 type="range"
@@ -542,9 +591,11 @@ export const ReportsView: React.FC<{
             </div>
 
             <div className="t-field">
-              <div className="t-label">
-                <span>Alícuota IIBB</span>
-                <strong style={{ color: 'var(--t-amber)' }}>{Formatters.decimal(simIIBB, 2)}%</strong>
+              <div className="t-row-between">
+                <span className="t-label">Alícuota IIBB</span>
+                <strong className="tabular-nums" style={{ color: 'var(--t-text-secondary)', fontSize: '0.85rem' }}>
+                  {Formatters.decimal(simIIBB, 2)}%
+                </strong>
               </div>
               <input
                 type="range"
@@ -563,7 +614,7 @@ export const ReportsView: React.FC<{
                 <input
                   type="number"
                   step="any"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   value={simPrecioVivo || ''}
                   onChange={(e) => setSimPrecioVivo(Number(e.target.value) || 0)}
                 />
@@ -573,7 +624,7 @@ export const ReportsView: React.FC<{
                 <input
                   type="number"
                   step="any"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   value={simDistancia || ''}
                   onChange={(e) => setSimDistancia(Number(e.target.value) || 0)}
                 />
@@ -586,14 +637,14 @@ export const ReportsView: React.FC<{
                 className={`t-seg-item ${!simIsDouble ? 'active' : ''}`}
                 onClick={() => setSimIsDouble(false)}
               >
-                JAULA SIMPLE (15.500 kg)
+                Jaula Simple (15.500 kg)
               </button>
               <button
                 type="button"
                 className={`t-seg-item ${simIsDouble ? 'active' : ''}`}
                 onClick={() => setSimIsDouble(true)}
               >
-                JAULA DOBLE (21.500 kg)
+                Jaula Doble (21.500 kg)
               </button>
             </div>
           </div>
@@ -602,24 +653,21 @@ export const ReportsView: React.FC<{
             <MetricCard
               title="Hacienda al Gancho"
               value={`${Formatters.currency(simResult.costoHaciendaPorKgCarne)}/kg`}
-              tint="var(--t-purple)"
             />
             <MetricCard
               title="Flete al Gancho"
               value={`${Formatters.currency(simResult.costoFletePorKgCarne)}/kg`}
-              subtitle={`Total Flete: ${Formatters.currency(simResult.fleteTotal)}`}
-              tint="var(--t-amber)"
+              subtitle={`Flete Total: ${Formatters.currency(simResult.fleteTotal)}`}
             />
             <MetricCard
-              title="COSTO GANCHO FINAL"
+              title="Costo Gancho Final"
               value={`${Formatters.currency(simResult.costoGanchoFinal)}/kg`}
-              tint="var(--t-cyan)"
             />
             <MetricCard
-              title="VENTA SUGERIDA"
+              title="Venta Sugerida"
               value={`${Formatters.currency(simResult.facturacionSugerida)}/kg`}
               subtitle={`Margen: +${Formatters.currency(simResult.utilidadPorKg)}/kg`}
-              tint="var(--t-green)"
+              tint="var(--t-emerald-text)"
             />
           </div>
         </div>
@@ -627,24 +675,26 @@ export const ReportsView: React.FC<{
 
       {/* 4. LOGISTICS SUMMARY */}
       {subTab === 'LOGISTICS' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="t-section-label">// RESUMEN LOGÍSTICO CONSOLIDADO</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="t-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--t-text-primary)' }}>
+              Filtros de Auditoría Logística
+            </span>
             <div className="kpi-grid-2">
               <div className="t-field">
-                <label className="t-label">Desde</label>
+                <label className="t-label">Fecha Desde</label>
                 <input
                   type="date"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   value={logStartStr}
                   onChange={(e) => setLogStartStr(e.target.value)}
                 />
               </div>
               <div className="t-field">
-                <label className="t-label">Hasta</label>
+                <label className="t-label">Fecha Hasta</label>
                 <input
                   type="date"
-                  className="t-input"
+                  className="t-input tabular-nums"
                   value={logEndStr}
                   onChange={(e) => setLogEndStr(e.target.value)}
                 />
@@ -672,7 +722,7 @@ export const ReportsView: React.FC<{
               emptyLabel="Todos los Comisionistas"
             />
             <SearchablePicker
-              label="Camión"
+              label="Unidad de Transporte"
               items={store.trucks}
               selectedId={logTruckId}
               onSelect={setLogTruckId}
@@ -683,33 +733,31 @@ export const ReportsView: React.FC<{
             />
           </div>
 
-          <div className="kpi-grid-2">
-            <MetricCard title="Viajes Filtrados" value={String(logisticsSummary.filtered.length)} tint="var(--t-cyan)" />
-            <MetricCard title="Cabezas Totales" value={String(logisticsSummary.totalAnimals)} tint="var(--t-purple)" />
-            <MetricCard title="Kg Brutos Vivos" value={Formatters.weight(logisticsSummary.totalKgGross)} tint="var(--t-amber)" />
+          <div className="kpi-grid-3">
+            <MetricCard title="Viajes Filtrados" value={String(logisticsSummary.filtered.length)} />
+            <MetricCard title="Cabezas Totales" value={String(logisticsSummary.totalAnimals)} />
+            <MetricCard title="Kilos Brutos Vivos" value={Formatters.weight(logisticsSummary.totalKgGross)} />
             <MetricCard
-              title="Kg Faena Gancho"
+              title="Kilos Faena Gancho"
               value={Formatters.weight(logisticsSummary.totalKgFaena)}
-              subtitle={`Rdo Prom: ${Formatters.decimal(logisticsSummary.avgYield, 2)}%`}
-              tint="var(--t-green)"
+              subtitle={`Rendimiento: ${Formatters.decimal(logisticsSummary.avgYield, 2)}%`}
             />
-            <MetricCard title="Flete Total" value={Formatters.currency(logisticsSummary.totalFreight)} tint="var(--t-cyan)" />
+            <MetricCard title="Flete Acumulado" value={Formatters.currency(logisticsSummary.totalFreight)} />
             <MetricCard
-              title="Flete / Kg Carne"
+              title="Incidencia Flete / Kg"
               value={`${Formatters.currency(logisticsSummary.freightPerKgMeat)}/kg`}
-              tint="var(--t-orange)"
             />
           </div>
 
           <button
             type="button"
-            className="t-btn t-btn-green t-btn-filled"
+            className="t-btn t-btn-filled"
             onClick={() => {
               exportFullWorkbookXlsx(logisticsSummary.filtered, store.config);
-              onToast('Excel filtrado exportado.');
+              onToast('Planilla Excel con filtro actual descargada.');
             }}
           >
-            📊 Exportar Selección a Excel (.xlsx)
+            Exportar Auditoría a Excel (.xlsx)
           </button>
         </div>
       )}
