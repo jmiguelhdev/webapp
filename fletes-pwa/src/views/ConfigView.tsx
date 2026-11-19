@@ -842,6 +842,7 @@ const ProducerFormModal: React.FC<{
             </label>
             <input
               type="text"
+              inputMode="numeric"
               className="t-input tabular-nums"
               placeholder="30-70894561-4"
               value={form.cuit}
@@ -852,6 +853,7 @@ const ProducerFormModal: React.FC<{
             <label className="t-label">Teléfono / WhatsApp</label>
             <input
               type="text"
+              inputMode="tel"
               className="t-input tabular-nums"
               placeholder="Ej: 381 456 7890"
               value={form.phone}
@@ -870,6 +872,7 @@ const ProducerFormModal: React.FC<{
           </label>
           <input
             type="text"
+            inputMode="numeric"
             className="t-input tabular-nums"
             maxLength={26}
             placeholder="0000000000000000000000"
@@ -935,6 +938,7 @@ const AgentFormModal: React.FC<{
             <input
               type="number"
               step="0.1"
+              inputMode="decimal"
               className="t-input tabular-nums"
               placeholder="Ej: 1.5"
               value={form.percent}
@@ -945,6 +949,7 @@ const AgentFormModal: React.FC<{
             <label className="t-label">Teléfono de Contacto</label>
             <input
               type="text"
+              inputMode="tel"
               className="t-input tabular-nums"
               placeholder="Ej: 381 456 7890"
               value={form.phone}

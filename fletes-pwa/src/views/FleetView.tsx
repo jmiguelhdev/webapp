@@ -559,6 +559,7 @@ const TruckFormModal: React.FC<{
             <input
               type="number"
               step="0.05"
+              inputMode="decimal"
               className="t-input tabular-nums"
               placeholder="Ej: 2.85"
               value={form.averageEfficiency || ''}
@@ -692,6 +693,7 @@ const DriverFormModal: React.FC<{
           <label className="t-label">DNI</label>
           <input
             type="text"
+            inputMode="numeric"
             className="t-input tabular-nums"
             placeholder="Ej: 32.456.789"
             value={form.dni}
@@ -702,6 +704,7 @@ const DriverFormModal: React.FC<{
           <label className="t-label">Teléfono / Número de Licencia</label>
           <input
             type="text"
+            inputMode="tel"
             className="t-input tabular-nums"
             placeholder="Ej: 381 456 7890"
             value={form.license}

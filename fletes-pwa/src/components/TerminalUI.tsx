@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DocumentExpirationAlert,
   TravelStatus,
@@ -6,6 +7,30 @@ import {
 } from '../domain/models';
 import { OdometerCandidate, OdometerOCRScanner } from '../domain/engine';
 import { Formatters, TerminalHaptics } from '../utils/formatters';
+
+// =============================================================================
+// Global Modal Lock for Mobile & Desktop (Prevents background body scroll jitter)
+// =============================================================================
+
+let activeModalCount = 0;
+
+function acquireModalLock() {
+  activeModalCount++;
+  if (activeModalCount === 1 && typeof document !== 'undefined') {
+    document.body.classList.add('t-modal-open');
+  }
+}
+
+function releaseModalLock() {
+  activeModalCount = Math.max(0, activeModalCount - 1);
+  if (activeModalCount === 0 && typeof document !== 'undefined') {
+    document.body.classList.remove('t-modal-open');
+  }
+}
+
+// =============================================================================
+// MetricCard
+// =============================================================================
 
 export const MetricCard: React.FC<{
   title: string;
@@ -34,6 +59,10 @@ export const MetricCard: React.FC<{
     )}
   </div>
 );
+
+// =============================================================================
+// StatusBadge
+// =============================================================================
 
 export const StatusBadge: React.FC<{ status: TravelStatus }> = ({ status }) => {
   const config =
@@ -72,42 +101,61 @@ export const StatusBadge: React.FC<{ status: TravelStatus }> = ({ status }) => {
   );
 };
 
+// =============================================================================
+// ModalSheet (Portal-based, Mobile-safe, Scroll-locked)
+// =============================================================================
+
 export const ModalSheet: React.FC<{
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
-}> = ({ title, onClose, children, footer }) => (
-  <div
-    className="t-modal-backdrop"
-    onClick={(e) => {
-      if (e.target === e.currentTarget) {
-        TerminalHaptics.click();
-        onClose();
-      }
-    }}
-  >
-    <div className="t-modal-sheet">
-      <div className="t-modal-header">
-        <h2 className="t-modal-title">{title}</h2>
-        <button
-          type="button"
-          className="t-btn t-btn-muted t-btn-sm"
-          style={{ minHeight: 28, padding: '2px 8px', borderRadius: 6 }}
-          onClick={() => {
-            TerminalHaptics.click();
-            onClose();
-          }}
-          aria-label="Cerrar"
-        >
-          ✕
-        </button>
+  zIndex?: number;
+}> = ({ title, onClose, children, footer, zIndex = 100 }) => {
+  useEffect(() => {
+    acquireModalLock();
+    return () => releaseModalLock();
+  }, []);
+
+  const content = (
+    <div
+      className="t-modal-backdrop"
+      style={{ zIndex }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          TerminalHaptics.click();
+          onClose();
+        }
+      }}
+    >
+      <div className="t-modal-sheet" role="dialog" aria-modal="true">
+        <div className="t-modal-header">
+          <h2 className="t-modal-title">{title}</h2>
+          <button
+            type="button"
+            className="t-btn t-btn-muted t-btn-sm"
+            style={{ minHeight: 28, padding: '2px 8px', borderRadius: 6 }}
+            onClick={() => {
+              TerminalHaptics.click();
+              onClose();
+            }}
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="t-modal-body">{children}</div>
+        {footer && <div className="t-modal-footer">{footer}</div>}
       </div>
-      <div className="t-modal-body">{children}</div>
-      {footer && <div className="t-modal-footer">{footer}</div>}
     </div>
-  </div>
-);
+  );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : null;
+};
+
+// =============================================================================
+// SearchablePicker (Portal-rendered, Keyboard-friendly, Touch-optimized)
+// =============================================================================
 
 export function SearchablePicker<T extends { id: number }>({
   label,
@@ -134,6 +182,8 @@ export function SearchablePicker<T extends { id: number }>({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedItem = useMemo(
     () => items.find((x) => x.id === selectedId) || null,
@@ -147,6 +197,46 @@ export function SearchablePicker<T extends { id: number }>({
       getSearchTerms(item).some((term) => (term || '').toLowerCase().includes(q))
     );
   }, [items, search, getSearchTerms]);
+
+  // Acquire modal lock while picker is open
+  useEffect(() => {
+    if (open) {
+      acquireModalLock();
+      return () => releaseModalLock();
+    }
+  }, [open]);
+
+  // Determine if running on a touch-first mobile device
+  const isTouchDevice = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  }, []);
+
+  const handleOpen = () => {
+    TerminalHaptics.click();
+    setSearch('');
+    setOpen(true);
+    // On non-touch desktop screens, focus search input automatically
+    if (!isTouchDevice) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  };
+
+  const handleSelect = (id: number | null) => {
+    TerminalHaptics.selection();
+    // Dismiss mobile keyboard if open
+    searchInputRef.current?.blur();
+    onSelect(id);
+    setOpen(false);
+  };
+
+  const handleClose = () => {
+    TerminalHaptics.click();
+    searchInputRef.current?.blur();
+    setOpen(false);
+  };
 
   return (
     <div className="t-field">
@@ -162,11 +252,7 @@ export function SearchablePicker<T extends { id: number }>({
           cursor: 'pointer',
           color: selectedItem ? 'var(--t-text-primary)' : 'var(--t-text-muted)',
         }}
-        onClick={() => {
-          TerminalHaptics.click();
-          setSearch('');
-          setOpen(true);
-        }}
+        onClick={handleOpen}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {selectedItem ? getTitle(selectedItem) : allowClear ? emptyLabel : placeholder}
@@ -174,110 +260,208 @@ export function SearchablePicker<T extends { id: number }>({
         <span style={{ color: 'var(--t-text-muted)', marginLeft: 8, fontSize: '0.75rem' }}>▾</span>
       </button>
 
-      {open && (
-        <ModalSheet title={`Seleccionar ${label}`} onClose={() => setOpen(false)}>
-          <div className="t-search-wrap">
-            <span className="t-search-icon">🔍</span>
-            <input
-              type="text"
-              className="t-input t-search-input"
-              placeholder="Buscar por nombre, patente, CUIT..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoFocus
-            />
-          </div>
-
-          {allowClear && (
-            <button
-              type="button"
-              className="t-card t-card-clickable"
-              style={{
-                textAlign: 'left',
-                borderColor: selectedId === null ? 'var(--t-border-focus)' : 'var(--t-border)',
-                background: selectedId === null ? 'rgba(255, 255, 255, 0.05)' : 'var(--t-surface)',
-                padding: '10px 14px',
-              }}
-              onClick={() => {
-                TerminalHaptics.selection();
-                onSelect(null);
-                setOpen(false);
-              }}
-            >
-              <div style={{ fontWeight: 500, fontSize: '0.84rem', color: 'var(--t-text-secondary)' }}>
-                {emptyLabel}
-              </div>
-            </button>
-          )}
-
-          {filtered.length === 0 ? (
-            <div className="t-card" style={{ color: 'var(--t-text-muted)', textAlign: 'center', fontSize: '0.82rem' }}>
-              Sin resultados para "{search}"
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {filtered.map((item) => {
-                const isSelected = item.id === selectedId;
-                const sub = getSubtitle ? getSubtitle(item) : '';
-                return (
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="t-modal-backdrop t-picker-backdrop"
+            style={{ zIndex: 140 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleClose();
+              }
+            }}
+          >
+            <div className="t-modal-sheet t-picker-sheet" role="dialog" aria-modal="true">
+              {/* Header */}
+              <div className="t-modal-header">
+                <div>
+                  <h2 className="t-modal-title" style={{ fontSize: '0.92rem' }}>
+                    {label}
+                  </h2>
+                  <div className="tabular-nums" style={{ fontSize: '0.72rem', color: 'var(--t-text-muted)', marginTop: 2 }}>
+                    {filtered.length} {filtered.length === 1 ? 'disponible' : 'disponibles'}
+                    {search ? ` (filtrado de ${items.length})` : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {isFocused && (
+                    <button
+                      type="button"
+                      className="t-btn t-btn-sm"
+                      style={{ fontSize: '0.72rem', minHeight: 28, padding: '2px 8px' }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        searchInputRef.current?.blur();
+                        setIsFocused(false);
+                      }}
+                    >
+                      Listo
+                    </button>
+                  )}
                   <button
-                    key={item.id}
+                    type="button"
+                    className="t-btn t-btn-muted t-btn-sm"
+                    style={{ minHeight: 28, padding: '2px 8px', borderRadius: 6 }}
+                    onClick={handleClose}
+                    aria-label="Cerrar"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Sticky Search bar */}
+              <div className="t-picker-search-bar">
+                <div className="t-search-wrap" style={{ width: '100%' }}>
+                  <span className="t-search-icon">🔍</span>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    inputMode="search"
+                    className="t-input t-search-input"
+                    placeholder={`Buscar ${label.toLowerCase()}...`}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        searchInputRef.current?.blur();
+                      }
+                    }}
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      className="t-search-clear"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        setSearch('');
+                      }}
+                      aria-label="Limpiar búsqueda"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div className="t-picker-list">
+                {allowClear && (
+                  <button
                     type="button"
                     className="t-card t-card-clickable"
                     style={{
                       textAlign: 'left',
-                      borderColor: isSelected ? 'var(--t-border-focus)' : 'var(--t-border)',
-                      background: isSelected ? 'rgba(255, 255, 255, 0.05)' : 'var(--t-surface)',
-                      padding: '10px 14px',
+                      borderColor: selectedId === null ? 'var(--t-border-focus)' : 'var(--t-border)',
+                      background: selectedId === null ? 'rgba(255, 255, 255, 0.05)' : 'var(--t-surface)',
+                      padding: '12px 14px',
+                      flexShrink: 0,
                     }}
-                    onClick={() => {
-                      TerminalHaptics.selection();
-                      onSelect(item.id);
-                      setOpen(false);
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      handleSelect(null);
+                    }}
+                    onClick={() => handleSelect(null)}
+                  >
+                    <div style={{ fontWeight: 500, fontSize: '0.84rem', color: 'var(--t-text-secondary)' }}>
+                      {emptyLabel}
+                    </div>
+                  </button>
+                )}
+
+                {filtered.length === 0 ? (
+                  <div
+                    className="t-card"
+                    style={{
+                      color: 'var(--t-text-muted)',
+                      textAlign: 'center',
+                      fontSize: '0.82rem',
+                      padding: '24px 14px',
                     }}
                   >
-                    <div className="t-row-between">
-                      <span
+                    <p style={{ margin: 0, marginBottom: 10 }}>Sin resultados para "{search}"</p>
+                    <button
+                      type="button"
+                      className="t-btn t-btn-sm"
+                      onClick={() => setSearch('')}
+                    >
+                      Limpiar filtro
+                    </button>
+                  </div>
+                ) : (
+                  filtered.map((item) => {
+                    const isSelected = item.id === selectedId;
+                    const sub = getSubtitle ? getSubtitle(item) : '';
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="t-card t-card-clickable"
                         style={{
-                          fontWeight: isSelected ? 600 : 500,
-                          fontSize: '0.86rem',
-                          color: isSelected ? 'var(--t-text-primary)' : 'var(--t-text-secondary)',
+                          textAlign: 'left',
+                          borderColor: isSelected ? 'var(--t-border-focus)' : 'var(--t-border)',
+                          background: isSelected ? 'rgba(255, 255, 255, 0.06)' : 'var(--t-surface)',
+                          padding: '12px 14px',
+                          flexShrink: 0,
                         }}
+                        onPointerDown={(e) => {
+                          // Prevent input blur from swallowing the selection tap on mobile touch devices
+                          e.preventDefault();
+                          handleSelect(item.id);
+                        }}
+                        onClick={() => handleSelect(item.id)}
                       >
-                        {getTitle(item)}
-                      </span>
-                      {isSelected && (
-                        <span
-                          className="t-badge tabular-nums"
-                          style={{
-                            background: 'var(--t-emerald-bg)',
-                            color: 'var(--t-emerald-text)',
-                            borderColor: 'var(--t-emerald-border)',
-                            fontSize: '0.68rem',
-                          }}
-                        >
-                          Seleccionado ✓
-                        </span>
-                      )}
-                    </div>
-                    {sub && (
-                      <div
-                        className="tabular-nums"
-                        style={{ fontSize: '0.74rem', color: 'var(--t-text-muted)', marginTop: 3 }}
-                      >
-                        {sub}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
+                        <div className="t-row-between">
+                          <span
+                            style={{
+                              fontWeight: isSelected ? 600 : 500,
+                              fontSize: '0.88rem',
+                              color: isSelected ? 'var(--t-text-primary)' : 'var(--t-text-secondary)',
+                            }}
+                          >
+                            {getTitle(item)}
+                          </span>
+                          {isSelected && (
+                            <span
+                              className="t-badge tabular-nums"
+                              style={{
+                                background: 'var(--t-emerald-bg)',
+                                color: 'var(--t-emerald-text)',
+                                borderColor: 'var(--t-emerald-border)',
+                                fontSize: '0.68rem',
+                              }}
+                            >
+                              Seleccionado ✓
+                            </span>
+                          )}
+                        </div>
+                        {sub && (
+                          <div
+                            className="tabular-nums"
+                            style={{ fontSize: '0.76rem', color: 'var(--t-text-muted)', marginTop: 4 }}
+                          >
+                            {sub}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          )}
-        </ModalSheet>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
+
+// =============================================================================
+// DocumentAlertBanner
+// =============================================================================
 
 export const DocumentAlertBanner: React.FC<{
   alerts: DocumentExpirationAlert[];
@@ -376,6 +560,10 @@ export const DocumentAlertBanner: React.FC<{
   );
 };
 
+// =============================================================================
+// OdometerScanModal
+// =============================================================================
+
 export const OdometerScanModal: React.FC<{
   title: string;
   onSelectValue: (val: number) => void;
@@ -414,7 +602,7 @@ export const OdometerScanModal: React.FC<{
   };
 
   return (
-    <ModalSheet title={`Escáner de Odómetro — ${title}`} onClose={onClose}>
+    <ModalSheet title={`Escáner de Odómetro — ${title}`} onClose={onClose} zIndex={150}>
       <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--t-text-secondary)', lineHeight: 1.5 }}>
         Fotografiá el odómetro del tablero. El motor prioriza valores totales de kilometraje (≥ 1.000 km).
       </p>
@@ -489,6 +677,12 @@ export const OdometerScanModal: React.FC<{
                 background: c.isLikelyTotalOdometer ? 'var(--t-emerald-bg)' : 'var(--t-surface)',
                 padding: '12px 14px',
               }}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                TerminalHaptics.success();
+                onSelectValue(c.value);
+                onClose();
+              }}
               onClick={() => {
                 TerminalHaptics.success();
                 onSelectValue(c.value);
@@ -536,6 +730,7 @@ export const OdometerScanModal: React.FC<{
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             type="text"
+            inputMode="decimal"
             className="t-input tabular-nums"
             placeholder="Ej: 154.200"
             value={manualText}
@@ -560,6 +755,10 @@ export const OdometerScanModal: React.FC<{
     </ModalSheet>
   );
 };
+
+// =============================================================================
+// ToastBanner
+// =============================================================================
 
 export const ToastBanner: React.FC<{ message: string | null }> = ({ message }) => {
   if (!message) return null;

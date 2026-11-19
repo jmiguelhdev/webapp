@@ -800,6 +800,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
+                inputMode="decimal"
                 className="t-input tabular-nums"
                 value={form.kmOnOrigin || ''}
                 onChange={(e) => setForm({ ...form, kmOnOrigin: Number(e.target.value) || 0 })}
@@ -821,6 +822,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
+                inputMode="decimal"
                 className="t-input tabular-nums"
                 value={form.kmOnDestination || ''}
                 onChange={(e) => setForm({ ...form, kmOnDestination: Number(e.target.value) || 0 })}
@@ -844,6 +846,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
+                inputMode="decimal"
                 className="t-input tabular-nums"
                 value={form.kmOnPump || ''}
                 onChange={(e) => setForm({ ...form, kmOnPump: Number(e.target.value) || 0 })}
@@ -855,6 +858,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
+                inputMode="decimal"
                 className="t-input tabular-nums"
                 value={form.litersOnPump || ''}
                 onChange={(e) => setForm({ ...form, litersOnPump: Number(e.target.value) || 0 })}
@@ -868,6 +872,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
+                inputMode="decimal"
                 className="t-input tabular-nums"
                 value={form.pricePerKm || ''}
                 onChange={(e) => setForm({ ...form, pricePerKm: Number(e.target.value) || 0 })}
@@ -880,6 +885,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
+                inputMode="decimal"
                 className="t-input tabular-nums"
                 value={
                   form.truck?.trailer?.type === 'DOUBLE'
@@ -901,6 +907,7 @@ export const TravelFormModal: React.FC<{
               <input
                 type="number"
                 step="any"
+                inputMode="decimal"
                 className="t-input tabular-nums"
                 value={form.fuelPrice || ''}
                 onChange={(e) => setForm({ ...form, fuelPrice: Number(e.target.value) || 0 })}
@@ -934,6 +941,7 @@ export const TravelFormModal: React.FC<{
                 <input
                   type="number"
                   step="any"
+                  inputMode="decimal"
                   className="t-input tabular-nums"
                   placeholder="Monto $"
                   value={exp.amount || ''}
@@ -1008,6 +1016,7 @@ export const TravelFormModal: React.FC<{
                 <input
                   type="number"
                   step="any"
+                  inputMode="decimal"
                   className="t-input tabular-nums"
                   value={form.buy.totalReduce || ''}
                   onChange={(e) =>
@@ -1045,6 +1054,7 @@ export const TravelFormModal: React.FC<{
                 <input
                   type="number"
                   step="any"
+                  inputMode="decimal"
                   className="t-input tabular-nums"
                   value={form.kgFaenaTotal || form.buy.kgFaenaGlobal || ''}
                   onChange={(e) => {
@@ -1132,6 +1142,7 @@ export const TravelFormModal: React.FC<{
                         <label className="t-label">Cabezas</label>
                         <input
                           type="number"
+                          inputMode="numeric"
                           className="t-input tabular-nums"
                           value={p.quantity || ''}
                           onChange={(e) =>
@@ -1144,6 +1155,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="t-input tabular-nums"
                           value={p.kg || ''}
                           onChange={(e) =>
@@ -1156,6 +1168,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="t-input tabular-nums"
                           value={p.roughing}
                           onChange={(e) =>
@@ -1171,6 +1184,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="t-input tabular-nums"
                           value={p.price || ''}
                           onChange={(e) =>
@@ -1183,6 +1197,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="t-input tabular-nums"
                           value={p.kgFaena || ''}
                           onChange={(e) =>
@@ -1212,6 +1227,7 @@ export const TravelFormModal: React.FC<{
                         <input
                           type="number"
                           step="any"
+                          inputMode="decimal"
                           className="t-input tabular-nums"
                           disabled={!p.isIvaManual}
                           value={p.isIvaManual ? p.taxes.bill.iva || '' : Math.round(p.taxes.bill.iva * 100) / 100}
