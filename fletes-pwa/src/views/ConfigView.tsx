@@ -19,6 +19,42 @@ import { MetricCard, ModalSheet } from '../components/TerminalUI';
 
 type ConfigSection = 'MAIN' | 'PRODUCERS' | 'AGENTS' | 'FISCAL';
 
+type FiscalFormState = {
+  ivaRate: string;
+  gananciasRate: string;
+  gananciasMinThreshold: string;
+  defaultPorcentajeIIBB: string;
+  fuelPrice: string;
+  defaultFreightPricePerKm: string;
+  defaultDriverPricePerKmSimple: string;
+  defaultDriverPricePerKmDouble: string;
+  freightPriceSimple: string;
+  freightStartFeeSimple: string;
+  freightPriceDouble: string;
+  freightStartFeeDouble: string;
+  simulationFreightPriceSimple: string;
+  simulationFreightPriceDouble: string;
+};
+
+function configToFiscalForm(cfg: AppConfig): FiscalFormState {
+  return {
+    ivaRate: cfg.ivaRate != null ? String(cfg.ivaRate) : '10.5',
+    gananciasRate: cfg.gananciasRate != null ? String(cfg.gananciasRate) : '1.5',
+    gananciasMinThreshold: cfg.gananciasMinThreshold != null ? String(cfg.gananciasMinThreshold) : '1000000',
+    defaultPorcentajeIIBB: cfg.defaultPorcentajeIIBB != null ? String(cfg.defaultPorcentajeIIBB) : '1.5',
+    fuelPrice: cfg.fuelPrice != null ? String(cfg.fuelPrice) : '1250',
+    defaultFreightPricePerKm: cfg.defaultFreightPricePerKm != null ? String(cfg.defaultFreightPricePerKm) : '3150',
+    defaultDriverPricePerKmSimple: cfg.defaultDriverPricePerKmSimple != null ? String(cfg.defaultDriverPricePerKmSimple) : '480',
+    defaultDriverPricePerKmDouble: cfg.defaultDriverPricePerKmDouble != null ? String(cfg.defaultDriverPricePerKmDouble) : '560',
+    freightPriceSimple: cfg.freightPriceSimple != null ? String(cfg.freightPriceSimple) : '2900',
+    freightStartFeeSimple: cfg.freightStartFeeSimple != null ? String(cfg.freightStartFeeSimple) : '450000',
+    freightPriceDouble: cfg.freightPriceDouble != null ? String(cfg.freightPriceDouble) : '3400',
+    freightStartFeeDouble: cfg.freightStartFeeDouble != null ? String(cfg.freightStartFeeDouble) : '550000',
+    simulationFreightPriceSimple: cfg.simulationFreightPriceSimple != null ? String(cfg.simulationFreightPriceSimple) : '2900',
+    simulationFreightPriceDouble: cfg.simulationFreightPriceDouble != null ? String(cfg.simulationFreightPriceDouble) : '3400',
+  };
+}
+
 export const ConfigView: React.FC<{
   store: StoreSnapshot;
   onToast: (msg: string) => void;
@@ -36,11 +72,11 @@ export const ConfigView: React.FC<{
   const [agentModal, setAgentModal] = useState<Agent | null | 'NEW'>(null);
   const [agentAccount, setAgentAccount] = useState<Agent | null>(null);
 
-  // Fiscal Config state
-  const [fiscalDraft, setFiscalDraft] = useState<AppConfig>(store.config);
+  // Fiscal Config state (string-based to allow fluid typing, backspacing and decimals)
+  const [fiscalForm, setFiscalForm] = useState<FiscalFormState>(() => configToFiscalForm(store.config));
 
   const handleOpenFiscal = () => {
-    setFiscalDraft({ ...store.config });
+    setFiscalForm(configToFiscalForm(store.config));
     setSection('FISCAL');
   };
 
@@ -292,7 +328,24 @@ export const ConfigView: React.FC<{
   if (section === 'FISCAL') {
     const handleSaveFiscal = async (e: React.FormEvent) => {
       e.preventDefault();
-      await persistence.saveConfig(fiscalDraft);
+      const updatedConfig: AppConfig = {
+        ...store.config,
+        ivaRate: parseFloat(fiscalForm.ivaRate) || 0,
+        gananciasRate: parseFloat(fiscalForm.gananciasRate) || 0,
+        gananciasMinThreshold: parseFloat(fiscalForm.gananciasMinThreshold) || 0,
+        defaultPorcentajeIIBB: parseFloat(fiscalForm.defaultPorcentajeIIBB) || 0,
+        fuelPrice: parseFloat(fiscalForm.fuelPrice) || 0,
+        defaultFreightPricePerKm: parseFloat(fiscalForm.defaultFreightPricePerKm) || 0,
+        defaultDriverPricePerKmSimple: parseFloat(fiscalForm.defaultDriverPricePerKmSimple) || 0,
+        defaultDriverPricePerKmDouble: parseFloat(fiscalForm.defaultDriverPricePerKmDouble) || 0,
+        freightPriceSimple: parseFloat(fiscalForm.freightPriceSimple) || 0,
+        freightStartFeeSimple: parseFloat(fiscalForm.freightStartFeeSimple) || 0,
+        freightPriceDouble: parseFloat(fiscalForm.freightPriceDouble) || 0,
+        freightStartFeeDouble: parseFloat(fiscalForm.freightStartFeeDouble) || 0,
+        simulationFreightPriceSimple: parseFloat(fiscalForm.simulationFreightPriceSimple) || 0,
+        simulationFreightPriceDouble: parseFloat(fiscalForm.simulationFreightPriceDouble) || 0,
+      };
+      await persistence.saveConfig(updatedConfig);
       TerminalHaptics.success();
       onToast('Parámetros fiscales y tarifas actualizados.');
       setSection('MAIN');
@@ -320,36 +373,36 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">IVA Hacienda (%)</label>
               <input
-                type="number"
-                step="0.1"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.ivaRate}
-                onChange={(e) => setFiscalDraft({ ...fiscalDraft, ivaRate: Number(e.target.value) || 0 })}
+                value={fiscalForm.ivaRate}
+                onChange={(e) => setFiscalForm({ ...fiscalForm, ivaRate: e.target.value })}
               />
             </div>
             <div className="t-field">
               <label className="t-label">Retención Ganancias (%)</label>
               <input
-                type="number"
-                step="0.1"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.gananciasRate}
+                value={fiscalForm.gananciasRate}
                 onChange={(e) =>
-                  setFiscalDraft({ ...fiscalDraft, gananciasRate: Number(e.target.value) || 0 })
+                  setFiscalForm({ ...fiscalForm, gananciasRate: e.target.value })
                 }
               />
             </div>
             <div className="t-field">
               <label className="t-label">Mínimo No Imponible Ganancias ($)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.gananciasMinThreshold}
+                value={fiscalForm.gananciasMinThreshold}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    gananciasMinThreshold: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    gananciasMinThreshold: e.target.value,
                   })
                 }
               />
@@ -357,14 +410,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Alícuota IIBB Predeterminada (%)</label>
               <input
-                type="number"
-                step="0.1"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.defaultPorcentajeIIBB}
+                value={fiscalForm.defaultPorcentajeIIBB}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    defaultPorcentajeIIBB: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    defaultPorcentajeIIBB: e.target.value,
                   })
                 }
               />
@@ -380,24 +433,24 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Precio Gasoil ($/litro)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.fuelPrice}
-                onChange={(e) => setFiscalDraft({ ...fiscalDraft, fuelPrice: Number(e.target.value) || 0 })}
+                value={fiscalForm.fuelPrice}
+                onChange={(e) => setFiscalForm({ ...fiscalForm, fuelPrice: e.target.value })}
               />
             </div>
             <div className="t-field">
               <label className="t-label">Flete Base ($/km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.defaultFreightPricePerKm}
+                value={fiscalForm.defaultFreightPricePerKm}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    defaultFreightPricePerKm: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    defaultFreightPricePerKm: e.target.value,
                   })
                 }
               />
@@ -405,14 +458,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Chofer Jaula Simple ($/km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.defaultDriverPricePerKmSimple}
+                value={fiscalForm.defaultDriverPricePerKmSimple}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    defaultDriverPricePerKmSimple: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    defaultDriverPricePerKmSimple: e.target.value,
                   })
                 }
               />
@@ -420,14 +473,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Chofer Jaula Doble ($/km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.defaultDriverPricePerKmDouble}
+                value={fiscalForm.defaultDriverPricePerKmDouble}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    defaultDriverPricePerKmDouble: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    defaultDriverPricePerKmDouble: e.target.value,
                   })
                 }
               />
@@ -435,14 +488,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Solo Flete Simple ($/km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.freightPriceSimple}
+                value={fiscalForm.freightPriceSimple}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    freightPriceSimple: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    freightPriceSimple: e.target.value,
                   })
                 }
               />
@@ -450,14 +503,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Arranque Simple (&lt;300km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.freightStartFeeSimple}
+                value={fiscalForm.freightStartFeeSimple}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    freightStartFeeSimple: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    freightStartFeeSimple: e.target.value,
                   })
                 }
               />
@@ -465,14 +518,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Solo Flete Doble ($/km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.freightPriceDouble}
+                value={fiscalForm.freightPriceDouble}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    freightPriceDouble: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    freightPriceDouble: e.target.value,
                   })
                 }
               />
@@ -480,14 +533,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Arranque Doble (&lt;300km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.freightStartFeeDouble}
+                value={fiscalForm.freightStartFeeDouble}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    freightStartFeeDouble: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    freightStartFeeDouble: e.target.value,
                   })
                 }
               />
@@ -495,14 +548,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Simulador Flete Simple ($/km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.simulationFreightPriceSimple}
+                value={fiscalForm.simulationFreightPriceSimple}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    simulationFreightPriceSimple: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    simulationFreightPriceSimple: e.target.value,
                   })
                 }
               />
@@ -510,14 +563,14 @@ export const ConfigView: React.FC<{
             <div className="t-field">
               <label className="t-label">Simulador Flete Doble ($/km)</label>
               <input
-                type="number"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 className="t-input tabular-nums"
-                value={fiscalDraft.simulationFreightPriceDouble}
+                value={fiscalForm.simulationFreightPriceDouble}
                 onChange={(e) =>
-                  setFiscalDraft({
-                    ...fiscalDraft,
-                    simulationFreightPriceDouble: Number(e.target.value) || 0,
+                  setFiscalForm({
+                    ...fiscalForm,
+                    simulationFreightPriceDouble: e.target.value,
                   })
                 }
               />
@@ -896,10 +949,16 @@ const AgentFormModal: React.FC<{
   onSaved: () => void;
 }> = ({ initial, onClose, onSaved }) => {
   const [form, setForm] = useState<Agent>(() => (initial ? { ...initial } : createAgent()));
+  const [percentStr, setPercentStr] = useState<string>(() =>
+    initial && initial.percent != null ? String(initial.percent) : '1.5'
+  );
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await persistence.saveAgent(form);
+    await persistence.saveAgent({
+      ...form,
+      percent: parseFloat(percentStr) || 0,
+    });
     TerminalHaptics.success();
     onSaved();
     onClose();
@@ -936,13 +995,12 @@ const AgentFormModal: React.FC<{
           <div className="t-field">
             <label className="t-label">Porcentaje Comisión (%)</label>
             <input
-              type="number"
-              step="0.1"
+              type="text"
               inputMode="decimal"
               className="t-input tabular-nums"
               placeholder="Ej: 1.5"
-              value={form.percent}
-              onChange={(e) => setForm({ ...form, percent: Number(e.target.value) || 0 })}
+              value={percentStr}
+              onChange={(e) => setPercentStr(e.target.value)}
             />
           </div>
           <div className="t-field">
